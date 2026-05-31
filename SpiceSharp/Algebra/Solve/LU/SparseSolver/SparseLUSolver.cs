@@ -69,7 +69,7 @@ namespace SpiceSharp.Algebra.Solve
                 // We don't consult the pivoting strategy, we just need to know if we can eliminate this row
                 if (pivot == null || Parameters.Magnitude(pivot.Value).Equals(0.0))
                     return false;
-                Eliminate(Matrix.FindDiagonalElement(step));
+                Eliminate(pivot);
             }
             IsFactored = true;
             return true;
