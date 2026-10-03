@@ -1,0 +1,6 @@
+* ssp:title RC low-pass filter
+* Corner frequency: 1 / (2 pi R C) = 1 / (2 pi * 1k * 100n) = 1.59 kHz
+V1 in 0 1
+R1 in out 1k
+C1 out 0 100n
+.END
