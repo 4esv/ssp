@@ -34,7 +34,7 @@ Status values: planned, in progress, done.
 | web | Share by URL | done |
 | web | Symbol library | done |
 | web | Schematic renderer | in progress |
-| web | Auto-placement | planned |
+| web | Auto-placement | done |
 | web | DC overlay and probes | planned |
 | web | Place and wire | planned |
 | web | Edit operations | planned |
