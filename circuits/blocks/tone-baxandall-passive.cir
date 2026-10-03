@@ -1,0 +1,25 @@
+* ssp:title Passive Baxandall bass and treble
+* Bass: R1, RV1 and R2 divide the signal. C1 and C2 bypass the halves of RV1, so RV1 acts only at low frequencies.
+*   R2 / (R1 + R2) = 1k / 11k sets the bass cut floor near -21 dB. R3 isolates the bass wiper from the treble wiper.
+* Treble: CT1 and CT2 divide the signal across RV2 at high frequencies.
+*   CT1 / (CT1 + CT2) = 2.2n / 24.2n sets the treble cut floor near -21 dB.
+* With both knobs at 0.5 the response is not flat: about -19 dB at 100 Hz, -17 dB at 1 kHz and -13.5 dB at 10 kHz (simulated).
+*   Follow it with a gain stage.
+* ssp:input in
+* ssp:output out
+* ssp:knob RV1 linear 0.5
+* ssp:knob RV2 linear 0.5
+V1 in 0 DC 0 AC 1
+R1 in b1 10k
+RV1_1 b1 w1 50k
+RV1_2 w1 b2 50k
+R2 b2 0 1k
+C1 b1 w1 22n
+C2 w1 b2 220n
+R3 w1 out 10k
+CT1 in t1 2.2n
+RV2_1 t1 out 50k
+RV2_2 out t2 50k
+CT2 t2 0 22n
+RL out 0 1Meg
+.END

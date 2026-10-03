@@ -1,0 +1,13 @@
+* ssp:title Bridged-T mid notch
+* C1 = C2 = C. R2 bridges the input and output. R1 shunts the middle node to ground.
+* Notch frequency: 1 / (2 pi * C * sqrt(R1 * R2)) = 1 / (2 pi * 10n * sqrt(3.3k * 100k)) = 876 Hz.
+* Notch depth is set by the ratio R2 / R1. A larger ratio gives a deeper notch.
+* ssp:input in
+* ssp:output out
+V1 in 0 DC 0 AC 1
+C1 in m 10n
+C2 m out 10n
+R1 m 0 3.3k
+R2 in out 100k
+RL out 0 1Meg
+.END

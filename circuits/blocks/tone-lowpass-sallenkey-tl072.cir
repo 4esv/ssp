@@ -1,0 +1,38 @@
+* ssp:title Two-pole low-pass, Sallen-Key, TL072
+* Corner: 1 / (2 pi * R * sqrt(C1 * C2)) = 1 / (2 pi * 10k * sqrt(4.7n * 2.2n)) = 4.95 kHz.
+* Q: sqrt(C1 * C2) / (2 * C2) = 3.216n / 4.4n = 0.73, near Butterworth (0.707). Above the corner the slope is -12 dB per octave.
+* Use it to remove fizz after a clipper.
+* Supply: the 9 V rail is modelled as VCC = +4.5 V and VEE = -4.5 V around signal ground. Ground stands for the 4.5 V reference
+*   of power-9v.cir. The op-amp models in models/ do not find a DC operating point on a 0 V to 9 V single supply.
+* ssp:input in
+* ssp:output out
+* provenance: TL07xx low-noise JFET-input operational amplifiers datasheet SLOS080W (revised July 2025), Texas Instruments, https://www.ti.com/lit/ds/symlink/tl072.pdf; values read from the datasheet, typical column, VS = +-15 V, TA = 25 C
+* fit: open-loop gain 200 V/mV (p15), GBW 5.25 MHz for D and P packages (3 MHz for NS and PS packages) (p15), slew rate 20 V/us at RL = 2 kOhm, CL = 100 pF (p16), output swing +-13.5 V at RL = 10 kOhm (1.5 V rail drop) (p15), input resistance 1e12 Ohm (p15); output resistance 200 Ohm is a typical value, not a sheet figure
+* author: 4esv
+* license: MIT
+
+* Pins: inp inn out vcc vee. Gain 200000 V/V, GBW 5.25E+06 Hz, slew rate 2E+07 V/s, rail drop 1.5 V.
+.subckt TL072 inp inn out vcc vee
+Rid inp inn 1E+12
+Bgm 0 x I={0.00121261*tanh(0.002*V(inp,inn)/0.00121261)}
+Rp x 0 1E+08
+Cc x 0 6.06305E-11
+Bclamp x 0 I={0.00121261*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bo o 0 V={V(x)}
+Rout o out 200
+Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))+V(vcc)-1.5-sqrt(((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))+0.000001))))}
+.ends TL072
+
+V1 in 0 DC 0 AC 1
+VCC vcc 0 DC 4.5
+VEE vee 0 DC -4.5
+CIN in a 1u
+RB a 0 1Meg
+R1 a b 10k
+R2 b c 10k
+C1 b o 4.7n
+C2 c 0 2.2n
+X1 c o o vcc vee TL072
+COUT o out 10u
+RL out 0 100k
+.END

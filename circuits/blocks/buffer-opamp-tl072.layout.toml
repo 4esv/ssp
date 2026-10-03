@@ -1,0 +1,55 @@
+[[part]]
+ref = "V1"
+x = 0.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "VCC"
+x = 40.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "VEE"
+x = 80.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "CIN"
+x = 120.0
+y = 0.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RB"
+x = 160.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "X1"
+x = 200.0
+y = 0.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "COUT"
+x = 0.0
+y = 40.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RL"
+x = 40.0
+y = 40.0
+rotation = 90
+flip = false
