@@ -21,6 +21,8 @@ public sealed class RenderCommandTests : IDisposable
 
     private string Out => Path.Combine(_dir, "b.wav");
 
+    private static string BundledIr => Path.Combine(RepoPaths.Root, "models", "ir", "cab-1x12.wav");
+
     private static (int ExitCode, string Output, string Error) Run(params string[] args)
     {
         using var output = new StringWriter();
@@ -98,5 +100,66 @@ public sealed class RenderCommandTests : IDisposable
 
         Assert.Equal(1, exitCode);
         Assert.NotEmpty(error);
+    }
+
+    [Fact]
+    public void IrConvolvesTheOutputAndKeepsTheLength()
+    {
+        WriteSine();
+        var (plainExit, _, plainError) = Run("render", RepoPaths.Fixture("clipper-bjt-si.cir"), "--in", In, "--out", Out);
+        Assert.True(plainExit == 0, plainError);
+        var plain = ReadOut().Channels[0];
+        WavData ir;
+        using (var stream = File.OpenRead(BundledIr))
+        {
+            ir = Wav.Read(stream);
+        }
+
+        var (exitCode, _, error) = Run(
+            "render", RepoPaths.Fixture("clipper-bjt-si.cir"), "--in", In, "--out", Out, "--ir", BundledIr);
+
+        Assert.True(exitCode == 0, error);
+        var result = ReadOut();
+        Assert.Equal(Fs, result.SampleRate);
+        Assert.Single(result.Channels);
+        Assert.Equal(Samples, result.Channels[0].Length);
+        var expected = Convolution.Convolve(plain, ir.Channels[0]);
+        for (var i = 0; i < Samples; i++)
+        {
+            Assert.Equal(expected[i], result.Channels[0][i], 1e-5);
+        }
+    }
+
+    [Fact]
+    public void MissingIrExitsOneWithAMessage()
+    {
+        WriteSine();
+        var ir = Path.Combine(_dir, "cab.wav");
+
+        var (exitCode, _, error) = Run(
+            "render", RepoPaths.Fixture("clipper-bjt-si.cir"), "--in", In, "--out", Out, "--ir", ir);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("cab.wav", error);
+        Assert.Contains("does not exist", error);
+        Assert.False(File.Exists(Out));
+    }
+
+    [Fact]
+    public void IrSampleRateMismatchExitsOne()
+    {
+        WriteSine();
+        var ir = Path.Combine(_dir, "cab.wav");
+        using (var stream = File.Create(ir))
+        {
+            Wav.Write(stream, new WavData(48_000, [[0.5, 0.25]]), 24);
+        }
+
+        var (exitCode, _, error) = Run(
+            "render", RepoPaths.Fixture("clipper-bjt-si.cir"), "--in", In, "--out", Out, "--ir", ir);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("48000", error);
+        Assert.False(File.Exists(Out));
     }
 }
