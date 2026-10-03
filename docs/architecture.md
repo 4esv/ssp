@@ -37,6 +37,36 @@ Only `Ssp.Core` references the engine packages.
 The web app is a set of static files. No server runs simulations.
 All simulations run in the browser of the user.
 
+## Deploy
+
+The `web` workflow (`.github/workflows/web.yml`) deploys the web app to https://ssp.aesv.io on each push to `master`.
+The workflow publishes `src/Ssp.Web` and copies `publish/wwwroot` to the static host with `rsync --delete` over SSH.
+The workflow pins the host key with `ssh-keyscan` before the copy.
+
+The workflow reads each host detail from repository secrets:
+
+| Secret | Use |
+|---|---|
+| `SSP_DEPLOY_HOST` | The SSH host. Required. |
+| `SSP_DEPLOY_KEY` | The private SSH key. Required. |
+| `SSP_DEPLOY_PORT` | The SSH port. Optional. The default is 22. |
+| `SSP_DEPLOY_USER` | The SSH user. Optional. |
+
+When `SSP_DEPLOY_HOST` or `SSP_DEPLOY_KEY` is absent, the workflow skips the deploy step.
+The workflow copies into the root of the remote target. The host maps that root to the site folder.
+
+## Headers
+
+The host must send these headers with each response:
+
+| Header | Value |
+|---|---|
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Cross-Origin-Embedder-Policy` | `require-corp` |
+
+These headers make the page cross-origin isolated. The browser gives `SharedArrayBuffer` only to an isolated page.
+The host configuration sets the headers. The workflow and the repository do not set them.
+
 ## Host boundary
 
 The UI calls `ISimulationHost` in `Ssp.Web.Hosting`. The UI does not call `Ssp.Core` directly.

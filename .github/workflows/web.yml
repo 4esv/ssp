@@ -1,0 +1,65 @@
+name: web
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - run: dotnet publish src/Ssp.Web -c Release -o publish
+
+      - name: Check the deploy secrets
+        id: gate
+        env:
+          SSP_DEPLOY_HOST: ${{ secrets.SSP_DEPLOY_HOST }}
+          SSP_DEPLOY_KEY: ${{ secrets.SSP_DEPLOY_KEY }}
+        run: |
+          if [ -n "$SSP_DEPLOY_HOST" ] && [ -n "$SSP_DEPLOY_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::SSP_DEPLOY_HOST or SSP_DEPLOY_KEY is absent. The deploy is skipped."
+          fi
+
+      - name: Deploy with rsync
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          SSP_DEPLOY_HOST: ${{ secrets.SSP_DEPLOY_HOST }}
+          SSP_DEPLOY_KEY: ${{ secrets.SSP_DEPLOY_KEY }}
+          SSP_DEPLOY_PORT: ${{ secrets.SSP_DEPLOY_PORT }}
+          SSP_DEPLOY_USER: ${{ secrets.SSP_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          port="${SSP_DEPLOY_PORT:-22}"
+          target="${SSP_DEPLOY_USER:+$SSP_DEPLOY_USER@}$SSP_DEPLOY_HOST"
+
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSP_DEPLOY_KEY" > ~/.ssh/ssp_deploy
+          chmod 600 ~/.ssh/ssp_deploy
+
+          ssh-keyscan -p "$port" "$SSP_DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "::error::ssh-keyscan returned no host key."
+            exit 1
+          fi
+
+          rsync -az --delete \
+            -e "ssh -p $port -i $HOME/.ssh/ssp_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
+            publish/wwwroot/ "$target:./"
