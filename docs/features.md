@@ -23,7 +23,7 @@ Status values: planned, in progress, done.
 | core | Signal rules | planned |
 | core | Parts table | done |
 | core | Part mapping | done |
-| core | Layout sidecar | planned |
+| core | Layout sidecar | done |
 | cli | `ssp run` | planned |
 | cli | `ssp render` | planned |
 | cli | `ssp sweep` | planned |
