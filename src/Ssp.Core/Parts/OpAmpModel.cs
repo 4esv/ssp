@@ -48,7 +48,7 @@ public sealed record OpAmpModel(
 
     /// <summary>
     /// Writes the model as a SPICE subcircuit with the pins <c>inp inn out vcc vee</c>.
-    /// The text ends with a newline.
+    /// Lines end with \n on each platform, and the text ends with a newline.
     /// </summary>
     public string ToSubcircuit(string name)
     {
@@ -58,17 +58,17 @@ public sealed record OpAmpModel(
         var clamp = imax / ClampOvershoot;
 
         var text = new StringBuilder();
-        text.AppendLine($"* Pins: inp inn out vcc vee. Gain {Num(Gain)} V/V, GBW {Num(Gbw)} Hz, slew rate {Num(SlewRate)} V/s, rail drop {Num(RailDrop)} V.");
-        text.AppendLine($".subckt {name} inp inn out vcc vee");
-        text.AppendLine($"Rid inp inn {Num(InputResistance)}");
-        text.AppendLine($"Bgm 0 x I={{{Num(imax)}*tanh({Num(gm)}*V(inp,inn)/{Num(imax)})}}");
-        text.AppendLine($"Rp x 0 {Num(StageResistance)}");
-        text.AppendLine($"Cc x 0 {Num(cc)}");
-        text.AppendLine($"Bclamp x 0 I={{{Num(clamp)}*(V(x)-{Clamp("V(x)", "V(vee)", "V(vcc)")})}}");
-        text.AppendLine("Bo o 0 V={V(x)}");
-        text.AppendLine($"Rout o out {Num(OutputResistance)}");
-        text.AppendLine($"Bout out 0 I={{{Num(OutputClampConductance)}*(V(out)-{Clamp("V(out)", $"V(vee)+{Num(RailDrop)}", $"V(vcc)-{Num(RailDrop)}")})}}");
-        text.AppendLine($".ends {name}");
+        text.Append($"* Pins: inp inn out vcc vee. Gain {Num(Gain)} V/V, GBW {Num(Gbw)} Hz, slew rate {Num(SlewRate)} V/s, rail drop {Num(RailDrop)} V.\n");
+        text.Append($".subckt {name} inp inn out vcc vee\n");
+        text.Append($"Rid inp inn {Num(InputResistance)}\n");
+        text.Append($"Bgm 0 x I={{{Num(imax)}*tanh({Num(gm)}*V(inp,inn)/{Num(imax)})}}\n");
+        text.Append($"Rp x 0 {Num(StageResistance)}\n");
+        text.Append($"Cc x 0 {Num(cc)}\n");
+        text.Append($"Bclamp x 0 I={{{Num(clamp)}*(V(x)-{Clamp("V(x)", "V(vee)", "V(vcc)")})}}\n");
+        text.Append("Bo o 0 V={V(x)}\n");
+        text.Append($"Rout o out {Num(OutputResistance)}\n");
+        text.Append($"Bout out 0 I={{{Num(OutputClampConductance)}*(V(out)-{Clamp("V(out)", $"V(vee)+{Num(RailDrop)}", $"V(vcc)-{Num(RailDrop)}")})}}\n");
+        text.Append($".ends {name}\n");
         return text.ToString();
     }
 
