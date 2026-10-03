@@ -32,11 +32,12 @@ public static partial class SchematicEdits
 
     /// <summary>
     /// Adds a two-pin part with a new reference and two new nodes. The layout places it one column to the right of
-    /// the other parts.
+    /// the other parts. With no value the part gets the default value of its kind.
     /// </summary>
-    public static SchematicChange Place(string netlist, LayoutDoc layout, string kind)
+    public static SchematicChange Place(string netlist, LayoutDoc layout, string kind, string? value = null)
     {
-        var (prefix, value) = Kinds[kind];
+        var (prefix, fallback) = Kinds[kind];
+        value ??= fallback;
         var circuit = NetlistLoader.Load(netlist);
         var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).ToHashSet(Names);
         var reference = Fresh(prefix, references);
@@ -81,6 +82,31 @@ public static partial class SchematicEdits
         WireRoute Bar(int dy, int half) => new(Zero, [new Point(p.X - half, Y(dy)), new Point(p.X + half, Y(dy))]);
         return Rename(netlist, circuit, layout, node, Zero,
             [new WireRoute(Zero, [p, new Point(p.X, Y(20))]), Bar(20, 10), Bar(24, 6), Bar(28, 2)]);
+    }
+
+    /// <summary>Sets the value of a two-pin part: the fourth word of its line. Other lines and the layout do not change.</summary>
+    public static SchematicChange SetValue(string netlist, LayoutDoc layout, string reference, string value)
+    {
+        var lines = Lines(netlist);
+        var inSubcircuit = false;
+        // NOTE: The title line can hold a directive, but not a part.
+        for (var i = 1; i < lines.Count; i++)
+        {
+            var words = Words().Split(lines[i]);
+            var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+            var word = words.Length > first ? words[first] : "";
+            if (word.StartsWith(".subckt", StringComparison.OrdinalIgnoreCase)) inSubcircuit = true;
+            else if (word.StartsWith(".ends", StringComparison.OrdinalIgnoreCase)) inSubcircuit = false;
+            if (inSubcircuit || !Names.Equals(word, reference)) continue;
+
+            // NOTE: Words has the separators at odd indices.
+            var at = first + 6;
+            if (at >= words.Length) break;
+            words[at] = value;
+            lines[i] = string.Concat(words);
+            return new SchematicChange(Join(lines), layout);
+        }
+        throw new ArgumentException($"No two-pin part {reference} with a value.", nameof(reference));
     }
 
     /// <summary>The node and schematic position of a pin.</summary>
