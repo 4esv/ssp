@@ -5,7 +5,7 @@
 @using SpiceComponent = SpiceSharp.Components.IComponent
 
 <figure class="schematic" aria-label="Schematic">
-    @if (Svg() is { } svg)
+    @if (Svg(Netlist) is { } svg)
     {
         @((MarkupString)svg)
     }
@@ -19,9 +19,10 @@
 
     [Parameter] public string Netlist { get; set; } = "";
 
-    string? Svg()
+    /// <summary>The schematic SVG for a netlist, or null when the netlist has errors or no components.</summary>
+    public static string? Svg(string netlist)
     {
-        var circuit = NetlistLoader.Load(Netlist);
+        var circuit = NetlistLoader.Load(netlist);
         if (circuit.Diagnostics.Any(d => d.Severity == Severity.Error)) return null;
         var references = circuit.Circuit.OfType<SpiceComponent>().Select(c => c.Name).ToList();
         if (references.Count == 0) return null;
