@@ -1,0 +1,15 @@
+* ssp:title Common-emitter BJT bias
+* Hand calculation (ignore base current, assume Vbe = 0.65 V):
+*   Vb  = Vcc * R2 / (R1 + R2) = 9 * 2.2k / (10k + 2.2k) = 1.623 V
+*   Ve  = Vb - Vbe = 1.623 - 0.65 = 0.973 V
+*   Ie  = Ve / RE = 0.973 V / 1k = 0.973 mA
+*   Vc  = Vcc - Ie * RC = 9 - 0.973 mA * 4.7k = 4.427 V
+*   Vce = Vc - Ve = 4.427 - 0.973 = 3.454 V
+.MODEL QGEN NPN (IS=1e-14 BF=200)
+VCC vcc 0 9
+R1 vcc b 10k
+R2 b 0 2.2k
+RC vcc c 4.7k
+RE e 0 1k
+Q1 c b e 0 QGEN
+.END
