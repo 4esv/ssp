@@ -1,0 +1,44 @@
+* ssp:title Two-stage gain, TL072
+* source: original design in this repo, circuits/blocks/gain-two-stage-tl072.cir
+* Stage 1 (non-inverting): 1 + RF1 / RG1 = 1 + 22k / 2.2k = 11.
+* Stage 2 (inverting): -RF2 / RI2 = -47k / 10k = -4.7.
+* Total gain: 11 * 4.7 = 51.7 (34.3 dB). The output is inverted.
+* Both stages sit at 0 V DC, so they connect without a coupling capacitor.
+* Stage 1 gain-leg high-pass: 1 / (2 pi * 2.2k * 10u) = 7.2 Hz. Stage 2 low-pass: 1 / (2 pi * 47k * 220p) = 15.4 kHz.
+* Supply: the 9 V rail is modelled as VCC = +4.5 V and VEE = -4.5 V around signal ground. Ground stands for the 4.5 V reference
+*   of power-9v.cir. The op-amp models in models/ do not find a DC operating point on a 0 V to 9 V single supply.
+* ssp:input in
+* ssp:output out
+* provenance: TL07xx low-noise JFET-input operational amplifiers datasheet SLOS080W (revised July 2025), Texas Instruments, https://www.ti.com/lit/ds/symlink/tl072.pdf; values read from the datasheet, typical column, VS = +-15 V, TA = 25 C
+* fit: open-loop gain 200 V/mV (p15), GBW 5.25 MHz for D and P packages (3 MHz for NS and PS packages) (p15), slew rate 20 V/us at RL = 2 kOhm, CL = 100 pF (p16), output swing +-13.5 V at RL = 10 kOhm (1.5 V rail drop) (p15), input resistance 1e12 Ohm (p15); output resistance 200 Ohm is a typical value, not a sheet figure
+* author: 4esv
+* license: MIT
+
+* Pins: inp inn out vcc vee. Gain 200000 V/V, GBW 5.25E+06 Hz, slew rate 2E+07 V/s, rail drop 1.5 V.
+.subckt TL072 inp inn out vcc vee
+Rid inp inn 1E+12
+Bgm 0 x I={0.00121261*tanh(0.002*V(inp,inn)/0.00121261)}
+Rp x 0 1E+08
+Cc x 0 6.06305E-11
+Bclamp x 0 I={0.00121261*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bo o 0 V={V(x)}
+Rout o out 200
+Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))+V(vcc)-1.5-sqrt(((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))+0.000001))))}
+.ends TL072
+
+V1 in 0 DC 0 AC 1
+VCC vcc 0 DC 4.5
+VEE vee 0 DC -4.5
+CIN in a 100n
+RB a 0 1Meg
+X1 a f1 o1 vcc vee TL072
+RF1 o1 f1 22k
+RG1 f1 g1 2.2k
+CG1 g1 0 10u
+RI2 o1 n2 10k
+X2 0 n2 o2 vcc vee TL072
+RF2 o2 n2 47k
+CF2 o2 n2 220p
+COUT o2 out 10u
+RL out 0 100k
+.END

@@ -1,0 +1,37 @@
+* ssp:title Bootstrapped high-impedance buffer, TL072
+* source: original design in this repo, circuits/blocks/buffer-bootstrap-tl072.cir
+* CB feeds the output back to the node between RB1 and RB2. The output follows the input, so almost no signal is across RB1.
+* The AC input impedance is RB1 / (1 - Av). With Av near 1 it is many times RB1 = 1 MOhm.
+* Bootstrap works above 1 / (2 pi * RB2 * CB) = 1 / (2 pi * 100k * 1u) = 1.6 Hz.
+* Supply: the 9 V rail is modelled as VCC = +4.5 V and VEE = -4.5 V around signal ground. Ground stands for the 4.5 V reference
+*   of power-9v.cir. The op-amp models in models/ do not find a DC operating point on a 0 V to 9 V single supply.
+* ssp:input in
+* ssp:output out
+* provenance: TL07xx low-noise JFET-input operational amplifiers datasheet SLOS080W (revised July 2025), Texas Instruments, https://www.ti.com/lit/ds/symlink/tl072.pdf; values read from the datasheet, typical column, VS = +-15 V, TA = 25 C
+* fit: open-loop gain 200 V/mV (p15), GBW 5.25 MHz for D and P packages (3 MHz for NS and PS packages) (p15), slew rate 20 V/us at RL = 2 kOhm, CL = 100 pF (p16), output swing +-13.5 V at RL = 10 kOhm (1.5 V rail drop) (p15), input resistance 1e12 Ohm (p15); output resistance 200 Ohm is a typical value, not a sheet figure
+* author: 4esv
+* license: MIT
+
+* Pins: inp inn out vcc vee. Gain 200000 V/V, GBW 5.25E+06 Hz, slew rate 2E+07 V/s, rail drop 1.5 V.
+.subckt TL072 inp inn out vcc vee
+Rid inp inn 1E+12
+Bgm 0 x I={0.00121261*tanh(0.002*V(inp,inn)/0.00121261)}
+Rp x 0 1E+08
+Cc x 0 6.06305E-11
+Bclamp x 0 I={0.00121261*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bo o 0 V={V(x)}
+Rout o out 200
+Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))+V(vcc)-1.5-sqrt(((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))+0.000001))))}
+.ends TL072
+
+V1 in 0 DC 0 AC 1
+VCC vcc 0 DC 4.5
+VEE vee 0 DC -4.5
+CIN in a 100n
+RB1 a b 1Meg
+RB2 b 0 100k
+CB b o 1u
+X1 a o o vcc vee TL072
+COUT o out 10u
+RL out 0 10k
+.END
