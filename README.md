@@ -1,8 +1,11 @@
 # ssp
 
-ssp designs and simulates guitar pedal circuits.
-It has two interfaces: a command line tool and a static web app.
+ssp is a guitar pedal circuit simulator that runs in your browser and in your terminal.
+You draw a pedal circuit, press Run, and see the frequency curve and the voltages.
+Then you play a guitar through the circuit you drew, so you can hear your idea before you buy parts.
+
 Both interfaces use the [SpiceSharp](https://github.com/SpiceSharp/SpiceSharp) engine.
+Most features are not available yet. See [docs/features.md](docs/features.md) for the status of each one.
 
 ## Install
 
