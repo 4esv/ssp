@@ -13,7 +13,7 @@ Status values: planned, in progress, done.
 | core | Transient render | planned |
 | core | Value overrides | done |
 | core | Diagnostics engine and structural rules | done |
-| core | Solver failure to diagnostic | planned |
+| core | Solver failure to diagnostic | done |
 | core | Run pipeline | planned |
 | core | Result JSON schema | planned |
 | core | Plain-English report | planned |
