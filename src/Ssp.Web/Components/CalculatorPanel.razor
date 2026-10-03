@@ -47,7 +47,6 @@
         </tbody>
     </table>
     <button type="button" class="write" disabled="@(!CanWrite)" @onclick="Write">Write to schematic</button>
-    <button type="button" class="undo" disabled="@(history.Count == 0)" @onclick="Undo">Undo</button>
 </section>
 
 @code {
@@ -80,7 +79,7 @@
     /// <summary>The layout of the netlist. With no layout the write-back starts from the auto-placement.</summary>
     [Parameter] public LayoutDoc? Layout { get; set; }
 
-    /// <summary>Gets the netlist and the layout after each write-back and undo.</summary>
+    /// <summary>Gets the netlist and the layout after each write-back.</summary>
     [Parameter] public EventCallback<SchematicChange> Changed { get; set; }
 
     string? seenNetlist;
@@ -89,7 +88,6 @@
     LayoutDoc? layout;
     LoadedCircuit? circuit;
     bool hasErrors;
-    readonly Stack<SchematicChange> history = new();
 
     string key = "rc";
     Calculator calculator = All["rc"];
@@ -102,13 +100,12 @@
 
     protected override void OnInitialized() => Reset();
 
-    // NOTE: The panel keeps its own copy. An edit that does not come from the panel clears the undo history.
+    // NOTE: The panel keeps its own copy. The editor page keeps the undo history.
     protected override void OnParametersSet()
     {
         if (Netlist == seenNetlist && ReferenceEquals(Layout, seenLayout)) return;
         seenNetlist = Netlist;
         seenLayout = Layout;
-        if (Netlist != netlist) history.Clear();
         Load(Netlist, Layout);
     }
 
@@ -158,8 +155,7 @@
     async Task Write()
     {
         if (!CanWrite) return;
-        var before = new SchematicChange(netlist, layout ?? AutoPlacer.Place(circuit!, circuit!.Directives));
-        var change = before;
+        var change = new SchematicChange(netlist, layout ?? AutoPlacer.Place(circuit!, circuit!.Directives));
         for (var i = 0; i < parts.Length; i++)
         {
             var value = Spice(parts[i].Value);
@@ -167,14 +163,7 @@
                 ? SchematicEdits.Place(change.Netlist, change.Layout, parts[i].Kind, value)
                 : SchematicEdits.SetValue(change.Netlist, change.Layout, targets[i], value);
         }
-        history.Push(before);
         await Apply(change);
-    }
-
-    async Task Undo()
-    {
-        if (history.Count == 0) return;
-        await Apply(history.Pop());
     }
 
     async Task Apply(SchematicChange change)

@@ -177,4 +177,76 @@ public class EditorPageTests : BunitContext
 
         Assert.Empty(page.FindAll(".schematic svg"));
     }
+    IRenderedComponent<Editor> Typed(string netlist)
+    {
+        Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
+        var page = Render<Editor>();
+        page.Find("textarea").Input(netlist);
+        return page;
+    }
+
+    static string Text(IRenderedComponent<Editor> page) => page.Find("textarea").GetAttribute("value")!;
+
+    [Fact]
+    public void UndoAndRedoAPlacedPart()
+    {
+        var netlist = Fixture("divider-basic.cir").Replace("\r\n", "\n");
+        var page = Typed(netlist);
+        Assert.True(page.Find("button.undo").HasAttribute("disabled"));
+
+        page.Find("button.place[data-kind=resistor]").Click();
+        var after = Text(page);
+        Assert.NotEqual(netlist, after);
+        page.Find("button.undo").Click();
+
+        Assert.Equal(netlist, Text(page));
+        Assert.True(page.Find("button.undo").HasAttribute("disabled"));
+        page.Find("button.redo").Click();
+        Assert.Equal(after, Text(page));
+        Assert.True(page.Find("button.redo").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void UndoRestoresThePriorSchematic()
+    {
+        var page = Typed(Fixture("divider-basic.cir"));
+        // NOTE: The drawing and the part outlines. The selection and the event handler IDs are not part of the layout.
+        string Drawing() => page.Find("figure.schematic > svg:not(.schematic-pins)").OuterHtml + string.Join(";",
+            page.FindAll(".schematic rect.part").Select(r => $"{r.GetAttribute("data-ref")} {r.GetAttribute("x")} {r.GetAttribute("y")}"));
+        var before = Drawing();
+
+        page.Find(".schematic rect.part[data-ref=R1]").Click();
+        page.Find("figure.schematic").KeyDown("ArrowRight");
+        Assert.NotEqual(before, Drawing());
+        page.Find("button.undo").Click();
+
+        Assert.Equal(before, Drawing());
+    }
+
+    [Fact]
+    public void UndoRevertsTheWriteBack()
+    {
+        var netlist = Fixture("divider-basic.cir").Replace("\r\n", "\n");
+        var page = Typed(netlist);
+        // NOTE: The calculator panel has no undo of its own. The editor history covers the write-back.
+        Assert.Empty(page.FindAll(".calculator-panel button.undo"));
+
+        page.Find("button.write").Click();
+        Assert.NotEqual(netlist, Text(page));
+        page.Find("button.undo").Click();
+
+        Assert.Equal(netlist, Text(page));
+    }
+
+    [Fact]
+    public void TextEditClearsTheHistory()
+    {
+        var page = Typed(Fixture("divider-basic.cir"));
+        page.Find("button.place[data-kind=resistor]").Click();
+
+        page.Find("textarea").Input(Text(page) + "* note\n");
+
+        Assert.True(page.Find("button.undo").HasAttribute("disabled"));
+        Assert.True(page.Find("button.redo").HasAttribute("disabled"));
+    }
 }
