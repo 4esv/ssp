@@ -1,0 +1,47 @@
+@using System.Globalization
+@using Ssp.Core.Analysis
+
+@if (OperatingPoint is not null)
+{
+    <section class="dc-overlay">
+        <label class="dc-switch">
+            <input type="checkbox" class="dc-toggle" checked="@show" @onchange="Toggle" />
+            DC voltages
+        </label>
+        @* TODO: Put each label on its net in the schematic when the layout has wires (#35). *@
+        <ul class="dc-nodes">
+            @foreach (var (node, volts) in Nodes())
+            {
+                <li>
+                    <button type="button" class="dc-node" data-node="@node" @onclick="() => probe = node">@node</button>
+                    @if (show)
+                    {
+                        <span class="dc-label" data-node="@node">@Volts(volts)</span>
+                    }
+                </li>
+            }
+        </ul>
+        @if (probe is not null && OperatingPoint.NodeVoltages.TryGetValue(probe, out var value))
+        {
+            <output class="probe">@probe: @Volts(value)</output>
+        }
+    </section>
+}
+
+@code {
+    // NOTE: Node 0 is the ground reference. It is always 0 V, so the overlay leaves it out.
+    const string Ground = "0";
+
+    /// <summary>The DC operating point. With no operating point there is no overlay.</summary>
+    [Parameter] public OpResult? OperatingPoint { get; set; }
+
+    bool show;
+    string? probe;
+
+    IEnumerable<KeyValuePair<string, double>> Nodes() =>
+        OperatingPoint!.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal);
+
+    void Toggle(ChangeEventArgs e) => show = e.Value is true;
+
+    static string Volts(double value) => value.ToString("G4", CultureInfo.InvariantCulture) + " V";
+}

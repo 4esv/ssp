@@ -58,9 +58,22 @@ body {
     align-items: flex-start;
 }
 
-.editor-split .schematic {
+.editor-split .schematic-pane {
     flex: 1 1 20rem;
     min-width: 0;
+}
+
+.dc-nodes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0;
+    list-style: none;
+}
+
+.dc-label {
+    margin-left: 0.25rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .schematic svg {
