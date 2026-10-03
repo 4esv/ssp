@@ -21,7 +21,7 @@ Status values: planned, in progress, done.
 | core | Op-amp macro-model | planned |
 | core | Bias rules | planned |
 | core | Signal rules | planned |
-| core | Parts table | planned |
+| core | Parts table | done |
 | core | Part mapping | planned |
 | core | Layout sidecar | planned |
 | cli | `ssp run` | planned |
