@@ -1,0 +1,10 @@
+* ssp:title Potentiometer low-pass
+* Total pot resistance: RV1_1 + RV1_2 = 10k. The knob sets the split.
+* ssp:input in
+* ssp:output out
+* ssp:knob RV1 log 0.5
+V1 in 0 AC 1
+RV1_1 in out 5k
+RV1_2 out 0 5k
+C1 out 0 100n
+.END
