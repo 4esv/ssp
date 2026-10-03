@@ -10,7 +10,7 @@ namespace Ssp.Core;
 public static class Runner
 {
     /// <summary>
-    /// Loads the netlist, sets the overrides, checks the rules, then runs the operating point, the frequency response and the impedance.
+    /// Loads the netlist, sets the overrides, checks the rules, then runs the operating point, the frequency response, the impedance and, if the netlist has an <c>ssp:input</c> directive, the noise.
     /// An error from the loader, the overrides or the rules stops the pipeline before the analyses.
     /// A solver failure in the operating point stops the pipeline before the other analyses.
     /// </summary>
@@ -42,9 +42,17 @@ public static class Runner
 
         var ac = Time("frequencyResponse", timings, () => Analyses.FrequencyResponse(circuit, options.Sweep));
         var z = Time("impedance", timings, () => Analyses.Impedance(circuit, options.Sweep));
-        return new RunResult(op.Value, ac, z, diagnostics, timings);
+        NoiseResult? noise = null;
+        if (circuit.Directives.Input is not null)
+        {
+            var result = Time("noise", timings, () => Analyses.Noise(circuit, options.Sweep));
+            diagnostics.AddRange(result.Diagnostics);
+            noise = result.Density.Count > 0 ? result : null;
+        }
 
-        RunResult Stop() => new(null, null, null, diagnostics, timings);
+        return new RunResult(op.Value, ac, z, noise, diagnostics, timings);
+
+        RunResult Stop() => new(null, null, null, null, diagnostics, timings);
     }
 
     static bool HasError(IEnumerable<Diagnostic> diagnostics) => diagnostics.Any(d => d.Severity == Severity.Error);

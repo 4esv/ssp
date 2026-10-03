@@ -110,6 +110,25 @@ public class EditorPageTests : BunitContext
     }
 
     [Fact]
+    public void NoisePlotAxesHaveUnits()
+    {
+        var page = Run(Fixture("pot-lowpass.cir"));
+
+        var chart = page.Find(".noise svg.line-chart");
+        Assert.Equal("Frequency (Hz)", chart.QuerySelector("text.axis-label.x")!.TextContent);
+        Assert.Equal("Noise density (V/√Hz)", chart.QuerySelector("text.axis-label.y")!.TextContent);
+        Assert.NotEmpty(chart.QuerySelectorAll("path.series"));
+    }
+
+    [Fact]
+    public void NoInputDirectiveShowsNoNoisePlot()
+    {
+        var page = Run(Fixture("rc-lowpass.cir"));
+
+        Assert.Empty(page.FindAll(".noise svg.line-chart"));
+    }
+
+    [Fact]
     public void ErrorShowsNoTable()
     {
         var page = Run(Fixture("diag-no-ground.cir"));
