@@ -45,7 +45,7 @@ Status values: planned, in progress, done.
 | web | Play a clip through the circuit | planned |
 | web | Live monitor | planned |
 | core | BOM export | done |
-| core | KiCad export | planned |
+| core | KiCad export | done |
 | web | Schematic SVG and PDF export | planned |
 | core | Blocks library | planned |
 | core | Calculators | done |
