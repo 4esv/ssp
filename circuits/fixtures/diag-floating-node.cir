@@ -1,0 +1,7 @@
+* ssp:title Floating node
+* C1 and C2 block DC, so node mid has no DC path to ground.
+V1 in 0 1
+C1 in mid 1u
+C2 mid out 1u
+R1 out 0 1k
+.END

@@ -1,0 +1,5 @@
+* ssp:title No output
+* Only the input node and ground exist.
+V1 in 0 1
+R1 in 0 1k
+.END
