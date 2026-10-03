@@ -1,0 +1,11 @@
+* ssp:title Op-amp unity-gain buffer
+* Hand calculation: closed-loop gain A/(1+A) with A = 1e5 gives 0 dB. The rails are +-15 V.
+* A test replaces OPAMP with a model name from models/opamp-*.cir and sets the input DC value.
+* ssp:input in
+* ssp:output out
+V1 in 0 DC 1 AC 1
+Vcc vcc 0 DC 15
+Vee vee 0 DC -15
+X1 in out out vcc vee OPAMP
+Rl out 0 10k
+.END
