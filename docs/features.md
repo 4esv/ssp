@@ -19,7 +19,7 @@ Status values: planned, in progress, done.
 | core | Plain-English report | planned |
 | core | Potentiometer | done |
 | core | Op-amp macro-model | done |
-| core | Bias rules | planned |
+| core | Bias rules | done |
 | core | Signal rules | planned |
 | core | Parts table | done |
 | core | Part mapping | done |
