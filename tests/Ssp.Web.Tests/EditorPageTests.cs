@@ -148,9 +148,13 @@ public class EditorPageTests : BunitContext
 
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
 
-        var split = page.Find(".editor-split");
-        Assert.NotNull(split.QuerySelector("textarea"));
-        var svg = split.QuerySelector(".schematic svg");
+        // NOTE: In the default layout, the netlist is in the left half and the schematic is in the right half.
+        var text = page.Find(".dock-panel[data-panel=text]");
+        Assert.NotNull(text.QuerySelector("textarea"));
+        Assert.StartsWith("left: 0%;", text.GetAttribute("style"));
+        var schematic = page.Find(".dock-panel[data-panel=schematic]");
+        Assert.StartsWith("left: 50%;", schematic.GetAttribute("style"));
+        var svg = schematic.QuerySelector(".schematic svg");
         Assert.NotNull(svg);
         Assert.Equal(["R1", "R2", "V1"], svg!.QuerySelectorAll("g[data-ref]").Select(g => g.GetAttribute("data-ref")));
     }

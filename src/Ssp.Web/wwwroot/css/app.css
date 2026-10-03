@@ -51,16 +51,149 @@ body {
     stroke: none;
 }
 
-.editor-split {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: flex-start;
+/* NOTE: The dock tree gives each tab strip, panel and splitter a place in percent of the layout. */
+.dock-layout {
+    --dock-tab-height: 2rem;
+    position: relative;
+    height: calc(100vh - 7rem);
+    min-height: 30rem;
+    margin-top: 0.5rem;
 }
 
-.editor-split .schematic-pane {
-    flex: 1 1 20rem;
-    min-width: 0;
+.dock-layout.resizing {
+    user-select: none;
+}
+
+.dock-tabs {
+    position: absolute;
+    box-sizing: border-box;
+    height: var(--dock-tab-height);
+    display: flex;
+    overflow-x: auto;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    background: #f4f4f4;
+}
+
+.dock-tab-item {
+    display: flex;
+    white-space: nowrap;
+}
+
+.dock-tab,
+.dock-close {
+    border: none;
+    background: none;
+    padding: 0 0.5rem;
+    cursor: pointer;
+}
+
+.dock-close {
+    padding: 0 0.4rem 0 0;
+    color: #666;
+}
+
+.dock-tab[aria-selected="true"] {
+    background: #fff;
+    font-weight: bold;
+}
+
+.dock-panel {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: auto;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    background: #fff;
+}
+
+.dock-panel > textarea {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    resize: none;
+}
+
+.dock-splitter {
+    position: absolute;
+    z-index: 2;
+}
+
+.dock-splitter.row {
+    width: 6px;
+    transform: translateX(-3px);
+    cursor: col-resize;
+}
+
+.dock-splitter.column {
+    height: 6px;
+    transform: translateY(-3px);
+    cursor: row-resize;
+}
+
+.dock-splitter:hover,
+.dock-splitter:focus-visible {
+    background: #1f6fb4;
+}
+
+/* NOTE: The drop zones show only while a tab is dragged. */
+.dock-drop {
+    position: absolute;
+    display: none;
+    z-index: 3;
+}
+
+.dock-layout.dragging .dock-drop {
+    display: block;
+}
+
+.dock-zone {
+    position: absolute;
+}
+
+.dock-zone:hover {
+    background: rgb(31 111 180 / 0.25);
+}
+
+.dock-zone.center { inset: 25%; }
+.dock-zone.left { left: 0; top: 0; bottom: 0; width: 25%; }
+.dock-zone.right { right: 0; top: 0; bottom: 0; width: 25%; }
+.dock-zone.top { top: 0; left: 25%; right: 25%; height: 25%; }
+.dock-zone.bottom { bottom: 0; left: 25%; right: 25%; height: 25%; }
+
+.dock-closed {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+/* NOTE: Narrow screens stack the panels in page order, each with all of its content. */
+@media (max-width: 48rem) {
+    .dock-layout {
+        height: auto;
+        min-height: 0;
+    }
+
+    .dock-tabs,
+    .dock-splitter,
+    .dock-drop {
+        display: none !important;
+    }
+
+    .dock-panel,
+    .dock-panel[hidden] {
+        position: static;
+        display: block;
+        width: auto !important;
+        height: auto !important;
+        margin-bottom: 0.5rem;
+    }
+
+    .dock-panel > textarea {
+        height: 16rem;
+    }
 }
 
 .dc-nodes {

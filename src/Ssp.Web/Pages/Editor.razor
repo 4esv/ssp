@@ -3,6 +3,7 @@
 @using Ssp.Core
 @using Ssp.Core.Analysis
 @using Ssp.Core.Netlist
+@using Ssp.Web.Docking
 @using Ssp.Web.Editing
 @using Ssp.Web.Schematic
 @using Ssp.Web.Sharing
@@ -20,74 +21,93 @@
 <a class="share" href="@ShareHref">Share link</a>
 <SchematicExport Netlist="@netlist" />
 
-<div class="editor-split">
-    <textarea @bind="netlist" @bind:event="oninput" @bind:after="ResetLayout" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
-    <div class="schematic-pane">
+<DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor">
+    <DockPanel Id="text" Title="Netlist">
+        <textarea @bind="netlist" @bind:event="oninput" @bind:after="ResetLayout" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+    </DockPanel>
+
+    <DockPanel Id="schematic" Title="Schematic">
         <SchematicEditor Netlist="@netlist" Layout="schematicLayout" Changed="Edit" />
+    </DockPanel>
+
+    <DockPanel Id="dc" Title="DC overlay">
         <DcOverlay OperatingPoint="@result?.OperatingPoint" />
-    </div>
-</div>
+    </DockPanel>
 
-<Knobs Netlist="@netlist" NetlistChanged="Retune" />
+    <DockPanel Id="knobs" Title="Knobs">
+        <Knobs Netlist="@netlist" NetlistChanged="Retune" />
+    </DockPanel>
 
-<CalculatorPanel Netlist="@netlist" Layout="schematicLayout" Changed="Edit" />
+    <DockPanel Id="calculators" Title="Calculators">
+        <CalculatorPanel Netlist="@netlist" Layout="schematicLayout" Changed="Edit" />
+    </DockPanel>
 
-@if (shareError is not null)
-{
-    <ul class="diagnostics">
-        <li class="@Class(shareError.Severity)">@shareError.Severity: @shareError.Message</li>
-    </ul>
-}
-
-@if (result is not null)
-{
-    <ul class="diagnostics">
-        @foreach (var d in result.Diagnostics)
+    <DockPanel Id="results" Title="Results">
+        @if (shareError is not null)
         {
-            <li class="@Class(d.Severity)">@d.Severity@(d.Line is int line ? $" (line {line})" : ""): @d.Message</li>
+            <ul class="diagnostics">
+                <li class="@Class(shareError.Severity)">@shareError.Severity: @shareError.Message</li>
+            </ul>
         }
-    </ul>
 
-    @if (result.OperatingPoint is { } op)
-    {
-        <table class="voltages">
-            <thead><tr><th>Node</th><th>Voltage</th></tr></thead>
-            <tbody>
-                @foreach (var (node, volts) in op.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        @if (result is not null)
+        {
+            <ul class="diagnostics">
+                @foreach (var d in result.Diagnostics)
                 {
-                    <tr><td>@node</td><td>@Volts(volts)</td></tr>
+                    <li class="@Class(d.Severity)">@d.Severity@(d.Line is int line ? $" (line {line})" : ""): @d.Message</li>
                 }
-            </tbody>
-        </table>
-    }
+            </ul>
 
-    @if (result.FrequencyResponse is { } ac)
-    {
-        <section class="bode">
-            <h2>Frequency response</h2>
-            <LineChart X="ac.Frequencies" Series="WithoutGround(ac.MagnitudeDb)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
-            <LineChart X="ac.Frequencies" Series="WithoutGround(ac.PhaseDegrees)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
-        </section>
-    }
+            @if (result.OperatingPoint is { } op)
+            {
+                <table class="voltages">
+                    <thead><tr><th>Node</th><th>Voltage</th></tr></thead>
+                    <tbody>
+                        @foreach (var (node, volts) in op.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                        {
+                            <tr><td>@node</td><td>@Volts(volts)</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </DockPanel>
 
-    @if (result.Impedance is { } z)
-    {
-        <section class="impedance">
-            <h2>Impedance</h2>
-            <LineChart X="z.Frequencies" Series="Magnitudes(z)" LogX="true" LogY="true" XLabel="Frequency" XUnit="Hz" YLabel="Impedance" YUnit="Ω" />
-        </section>
-    }
+    <DockPanel Id="plots" Title="Plots">
+        @if (result is not null)
+        {
+            @if (result.FrequencyResponse is { } ac)
+            {
+                <section class="bode">
+                    <h2>Frequency response</h2>
+                    <LineChart X="ac.Frequencies" Series="WithoutGround(ac.MagnitudeDb)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
+                    <LineChart X="ac.Frequencies" Series="WithoutGround(ac.PhaseDegrees)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
+                </section>
+            }
 
-    @if (result.Noise is { } noise)
-    {
-        <section class="noise">
-            <h2>Noise</h2>
-            <LineChart X="noise.Frequencies" Series="Density(noise)" LogX="true" LogY="true" XLabel="Frequency" XUnit="Hz" YLabel="Noise density" YUnit="V/√Hz" />
-        </section>
-    }
-}
+            @if (result.Impedance is { } z)
+            {
+                <section class="impedance">
+                    <h2>Impedance</h2>
+                    <LineChart X="z.Frequencies" Series="Magnitudes(z)" LogX="true" LogY="true" XLabel="Frequency" XUnit="Hz" YLabel="Impedance" YUnit="Ω" />
+                </section>
+            }
 
-<Compare Netlist="@netlist" />
+            @if (result.Noise is { } noise)
+            {
+                <section class="noise">
+                    <h2>Noise</h2>
+                    <LineChart X="noise.Frequencies" Series="Density(noise)" LogX="true" LogY="true" XLabel="Frequency" XUnit="Hz" YLabel="Noise density" YUnit="V/√Hz" />
+                </section>
+            }
+        }
+    </DockPanel>
+
+    <DockPanel Id="compare" Title="Compare">
+        <Compare Netlist="@netlist" />
+    </DockPanel>
+</DockLayout>
 
 @code {
     // NOTE: Node 0 is the ground reference. It is always 0 V, so the table leaves it out.
@@ -99,6 +119,13 @@
     bool running;
     RunResult? result;
     Diagnostic? shareError;
+
+    // NOTE: The netlist and the schematic are side by side. The panels under them are tabs.
+    static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
+    [
+        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare"])], [0.55, 0.45]),
+        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc"])], [0.55, 0.45]),
+    ]));
 
     string ShareHref => "editor#" + ShareCodec.Encode(netlist);
 
