@@ -77,8 +77,8 @@ public class DcOverlayTests : BunitContext
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
         page.Find("button").Click();
 
-        page.Find(".editor-split input.dc-toggle").Change(true);
+        page.Find(".dock-panel[data-panel=dc] input.dc-toggle").Change(true);
 
-        Assert.Equal(2, page.FindAll(".editor-split .dc-label").Count);
+        Assert.Equal(2, page.FindAll(".dock-panel[data-panel=dc] .dc-label").Count);
     }
 }
