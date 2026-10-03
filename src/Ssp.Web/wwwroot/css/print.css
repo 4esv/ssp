@@ -14,8 +14,24 @@ body {
     margin: 0;
 }
 
-.editor-split {
+.dock-layout {
+    height: auto;
+}
+
+.dock-tabs,
+.dock-splitter,
+.dock-drop,
+.dock-closed {
+    display: none !important;
+}
+
+.dock-panel,
+.dock-panel[hidden] {
+    position: static;
     display: block;
+    width: auto !important;
+    height: auto !important;
+    border: none;
 }
 
 .schematic {

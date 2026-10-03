@@ -1,0 +1,292 @@
+@using System.Globalization
+@using Microsoft.JSInterop
+@using Ssp.Web.Docking
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@if (model.Closed.Count > 0)
+{
+    <div class="dock-closed">
+        Closed:
+        @foreach (var panel in model.Closed)
+        {
+            <button type="button" class="dock-open" data-panel="@panel" @onclick="() => Open(panel)">@Title(panel)</button>
+        }
+    </div>
+}
+
+<div class="@LayoutClass" @ref="element" data-tree="@model"
+     @onpointermove="Drag" @onpointerup="EndResize" @onpointerleave="EndResize">
+    <CascadingValue Value="this" IsFixed="true">
+        @ChildContent
+    </CascadingValue>
+
+    @foreach (var (group, rect) in model.GroupRects())
+    {
+        <div class="dock-tabs" role="tablist" style="@Strip(rect)" @key="group">
+            @foreach (var panel in group.Panels)
+            {
+                var shown = panel == group.ActivePanel;
+                <span class="dock-tab-item" @key="panel">
+                    <button type="button" role="tab" class="dock-tab" data-panel="@panel" aria-selected="@(shown ? "true" : "false")"
+                            draggable="true" title="@KeyHelp" @ref="tabs[panel]"
+                            @onclick="() => Show(panel)" @onkeydown="e => Key(panel, e)"
+                            @ondragstart="() => dragging = panel" @ondragend="() => dragging = null">@Title(panel)</button>
+                    <button type="button" class="dock-close" aria-label="Close @Title(panel)" @onclick="() => Close(panel)">×</button>
+                </span>
+            }
+        </div>
+        <div class="dock-drop" style="@Place(rect)">
+            @foreach (var zone in Zones)
+            {
+                <div class="dock-zone @zone.ToString().ToLowerInvariant()" @ondragover:preventDefault="true" @ondrop="() => Drop(group, zone)"></div>
+            }
+        </div>
+    }
+
+    @foreach (var handle in model.Handles())
+    {
+        var row = handle.Direction == SplitDirection.Row;
+        <div class="dock-splitter @(row ? "row" : "column")" role="separator" tabindex="0"
+             aria-orientation="@(row ? "vertical" : "horizontal")" aria-label="Resize"
+             style="@Splitter(handle)"
+             @onpointerdown="e => StartResize(handle, e)" @onkeydown="e => ResizeKey(handle, e)"></div>
+    }
+</div>
+
+@code {
+    const string KeyHelp = "Alt+Shift+Arrow: dock at an edge. Alt+Shift+M: move to the next group.";
+
+    // NOTE: A keyboard resize moves a border by this fraction of its split.
+    const double KeyStep = 0.05;
+
+    // NOTE: Center puts the panel in the group as a tab. An edge splits the group.
+    enum Zone { Center, Left, Right, Top, Bottom }
+
+    static readonly Zone[] Zones = Enum.GetValues<Zone>();
+
+    /// <summary>Makes the layout to use when no layout is saved, or when the saved layout is bad or old.</summary>
+    [Parameter, EditorRequired] public Func<DockModel> Default { get; set; } = default!;
+
+    /// <summary>The <c>localStorage</c> key of the saved layout.</summary>
+    [Parameter, EditorRequired] public string StorageKey { get; set; } = "";
+
+    /// <summary>The <see cref="DockPanel"/> components.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    DockModel model = new(null);
+    readonly Dictionary<string, string> titles = [];
+    readonly Dictionary<string, ElementReference> tabs = [];
+    ElementReference element;
+    IJSObjectReference? module;
+    string? dragging;
+    string? focus;
+    DockHandle? resizing;
+    double pointer;
+    double splitPixels;
+
+    protected override async Task OnInitializedAsync()
+    {
+        model = Default();
+        var panels = model.Panels.Concat(model.Closed).ToList();
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            model = DockModel.Parse(saved, panels) ?? model;
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The default layout is then correct, so this is not an error.
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focus is { } panel && tabs.TryGetValue(panel, out var tab))
+        {
+            focus = null;
+            await tab.FocusAsync();
+        }
+    }
+
+    /// <summary>Called by each <see cref="DockPanel"/>. The tab shows the title.</summary>
+    internal void Register(string id, string title)
+    {
+        if (titles.TryGetValue(id, out var old) && old == title)
+        {
+            return;
+        }
+
+        titles[id] = title;
+        StateHasChanged();
+    }
+
+    /// <summary>Gives the style of the panel body and whether it shows, or null when the panel is closed.</summary>
+    internal (string Style, bool Shown)? Body(string id)
+    {
+        foreach (var (group, rect) in model.GroupRects())
+        {
+            if (group.Panels.Contains(id))
+            {
+                return (Place(rect, Percent(rect.Top), "var(--dock-tab-height)"), group.ActivePanel == id);
+            }
+        }
+
+        return null;
+    }
+
+    string LayoutClass => "dock-layout" + (dragging is null ? "" : " dragging") + (resizing is null ? "" : " resizing");
+
+    string Title(string id) => titles.GetValueOrDefault(id, id);
+
+    async Task Show(string panel)
+    {
+        model.Activate(panel);
+        await Save();
+    }
+
+    async Task Close(string panel)
+    {
+        model.Close(panel);
+        await Save();
+    }
+
+    async Task Open(string panel)
+    {
+        model.Open(panel);
+        focus = panel;
+        await Save();
+    }
+
+    async Task Key(string panel, KeyboardEventArgs e)
+    {
+        if (!e.AltKey || !e.ShiftKey)
+        {
+            return;
+        }
+
+        switch (e.Code)
+        {
+            case "ArrowLeft": model.Dock(panel, DockEdge.Left); break;
+            case "ArrowRight": model.Dock(panel, DockEdge.Right); break;
+            case "ArrowUp": model.Dock(panel, DockEdge.Top); break;
+            case "ArrowDown": model.Dock(panel, DockEdge.Bottom); break;
+            case "KeyM": model.MoveToNextGroup(panel); break;
+            default: return;
+        }
+
+        focus = panel;
+        await Save();
+    }
+
+    async Task Drop(DockTabs group, Zone zone)
+    {
+        if (dragging is not { } panel)
+        {
+            return;
+        }
+
+        dragging = null;
+        var target = group.Panels[0];
+        switch (zone)
+        {
+            case Zone.Center: model.MoveToTabs(panel, target); break;
+            case Zone.Left: model.Dock(panel, DockEdge.Left, target); break;
+            case Zone.Right: model.Dock(panel, DockEdge.Right, target); break;
+            case Zone.Top: model.Dock(panel, DockEdge.Top, target); break;
+            case Zone.Bottom: model.Dock(panel, DockEdge.Bottom, target); break;
+        }
+
+        await Save();
+    }
+
+    async Task ResizeKey(DockHandle handle, KeyboardEventArgs e)
+    {
+        var row = handle.Direction == SplitDirection.Row;
+        var step = (e.Key, row) switch
+        {
+            ("ArrowLeft", true) or ("ArrowUp", false) => -KeyStep,
+            ("ArrowRight", true) or ("ArrowDown", false) => KeyStep,
+            _ => 0,
+        };
+        if (step == 0)
+        {
+            return;
+        }
+
+        model.Resize(handle.Path, handle.Index, step);
+        await Save();
+    }
+
+    async Task StartResize(DockHandle handle, PointerEventArgs e)
+    {
+        module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/dock.js");
+        var size = await module.InvokeAsync<double[]>("size", element);
+        var row = handle.Direction == SplitDirection.Row;
+        splitPixels = row ? handle.Split.Width * size[0] : handle.Split.Height * size[1];
+        pointer = row ? e.ClientX : e.ClientY;
+        resizing = handle;
+    }
+
+    void Drag(PointerEventArgs e)
+    {
+        if (resizing is not { } handle || splitPixels <= 0)
+        {
+            return;
+        }
+
+        var position = handle.Direction == SplitDirection.Row ? e.ClientX : e.ClientY;
+        model.Resize(handle.Path, handle.Index, (position - pointer) / splitPixels);
+        pointer = position;
+    }
+
+    async Task EndResize()
+    {
+        if (resizing is null)
+        {
+            return;
+        }
+
+        resizing = null;
+        await Save();
+    }
+
+    async Task Save()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, model.Serialize());
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or full. The layout then lasts until a reload.
+        }
+    }
+
+    static string Percent(double fraction) => (fraction * 100).ToString("0.####", CultureInfo.InvariantCulture) + "%";
+
+    static string Place(DockRect rect) => Place(rect, Percent(rect.Top), "0px");
+
+    static string Place(DockRect rect, string top, string offset) =>
+        $"left: {Percent(rect.Left)}; top: calc({top} + {offset}); width: {Percent(rect.Width)}; height: calc({Percent(rect.Height)} - {offset});";
+
+    static string Strip(DockRect rect) => $"left: {Percent(rect.Left)}; top: {Percent(rect.Top)}; width: {Percent(rect.Width)};";
+
+    static string Splitter(DockHandle handle) => handle.Direction == SplitDirection.Row
+        ? $"left: {Percent(handle.Position)}; top: {Percent(handle.Split.Top)}; height: {Percent(handle.Split.Height)};"
+        : $"top: {Percent(handle.Position)}; left: {Percent(handle.Split.Left)}; width: {Percent(handle.Split.Width)};";
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+}

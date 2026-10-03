@@ -58,6 +58,6 @@ Status values: planned, in progress, done.
 | core | LTspice symbol pin table | done |
 | core | LTspice `.asc` to netlist | done |
 | core | LTspice `.asc` to layout | done |
-| web | Dockable panels | planned |
+| web | Dockable panels | done |
 | core | Amp chain | done |
 | web | Virtual amp panel | planned |
