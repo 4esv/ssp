@@ -1,0 +1,17 @@
+* provenance: Generic vactrol (LED plus photoresistor in one package), behavioral model; no single datasheet, values are UNVERIFIED against a manufacturer sheet (Silonex NSL-32 and PerkinElmer VTL5C series are the nearest published families)
+* fit: LDR conductance follows 1/rdark + gain * (LED mA) with a first-order lag; defaults give about 1 MOhm dark and 1 kOhm at 10 mA, tau = 10 ms
+* author: 4esv
+* license: MIT
+* WARNING: SpiceSharpParser 3.4.1 leaves Diode.Model unset, so the LED is a behavioral diode I = Is*exp(V/(N*Vt)) with the LED_RED fit from models/led.lib (Is=4.2555e-19 written as exp(-42.3011) because the expression parser rejects the e-19 literal, N=2).
+* WARNING: do not name a node c in an expression, the parser reads c as the speed of light.
+* Pins: a k = LED anode and cathode, p1 p2 = LDR terminals.
+* Parameters: tau = lag time constant in seconds, rdark = dark resistance, gain = conductance per mA of LED current in siemens.
+* The LED current charges node lag through a 1 ohm resistor and a capacitor of value tau, so V(lag) is the lagged LED current in mA.
+.subckt vactrol a k p1 p2 params: tau=10m rdark=1Meg gain=100u
+Bled a n1 I={exp(min(V(a,n1),2.2)/0.0517-42.3011)}
+Rs n1 k 0.01
+Bdrv 0 lag I={V(n1,k)/0.01*1000}
+Rc lag 0 1
+Cc lag 0 {tau}
+Bldr p1 p2 I={V(p1,p2)*(1/rdark+gain*V(lag))}
+.ends vactrol
