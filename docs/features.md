@@ -18,7 +18,7 @@ Status values: planned, in progress, done.
 | core | Result JSON schema | planned |
 | core | Plain-English report | planned |
 | core | Potentiometer | done |
-| core | Op-amp macro-model | planned |
+| core | Op-amp macro-model | done |
 | core | Bias rules | planned |
 | core | Signal rules | planned |
 | core | Parts table | done |
