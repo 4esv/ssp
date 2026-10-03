@@ -18,3 +18,48 @@ symbol = "opamp-dual"
 footprint = "DIP-8"
 buy_url = "https://www.mouser.com/c/?q={id}"
 provenance = "TL07xx datasheet, Texas Instruments"
+
+[[part]]
+id = "LED-RED"
+kind = "led"
+model = "LED_RED"
+symbol = "led"
+footprint = "LED-5MM"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/led.lib, generic 5 mm LED typical Vf at 10 mA"
+
+[[part]]
+id = "LED-YELLOW"
+kind = "led"
+model = "LED_YELLOW"
+symbol = "led"
+footprint = "LED-5MM"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/led.lib, generic 5 mm LED typical Vf at 10 mA"
+
+[[part]]
+id = "LED-GREEN"
+kind = "led"
+model = "LED_GREEN"
+symbol = "led"
+footprint = "LED-5MM"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/led.lib, generic 5 mm LED typical Vf at 10 mA"
+
+[[part]]
+id = "LED-BLUE"
+kind = "led"
+model = "LED_BLUE"
+symbol = "led"
+footprint = "LED-5MM"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/led.lib, generic 5 mm LED typical Vf at 10 mA"
+
+[[part]]
+id = "LED-WHITE"
+kind = "led"
+model = "LED_WHITE"
+symbol = "led"
+footprint = "LED-5MM"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/led.lib, generic 5 mm LED typical Vf at 10 mA"
