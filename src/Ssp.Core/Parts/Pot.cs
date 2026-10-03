@@ -34,8 +34,7 @@ public static class Pot
                 continue;
             }
 
-            if (!circuit.Circuit.TryGetEntity($"{knob.Part}_1", out var top) || top is not Resistor upper ||
-                !circuit.Circuit.TryGetEntity($"{knob.Part}_2", out var bottom) || bottom is not Resistor lower)
+            if (Find(circuit, $"{knob.Part}_1") is not Resistor upper || Find(circuit, $"{knob.Part}_2") is not Resistor lower)
             {
                 diagnostics.Add(Error($"Knob {knob.Part}: the netlist needs resistors {knob.Part}_1 and {knob.Part}_2."));
                 continue;
@@ -58,6 +57,12 @@ public static class Pot
         "revlog" => 1 - Math.Pow(1 - position, LogExponent),
         _ => null,
     };
+
+    // NOTE: a chain knob <stage>.<part> names a part of the instance X<stage>. See Chain.Compose.
+    private static SpiceSharp.Entities.IEntity? Find(LoadedCircuit circuit, string name) =>
+        circuit.Circuit.TryGetEntity(name, out var entity) ? entity
+        : name.Contains('.') && circuit.Circuit.TryGetEntity("X" + name, out var part) ? part
+        : null;
 
     private static Diagnostic Error(string message) => new(Severity.Error, message, null);
 }
