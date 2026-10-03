@@ -31,7 +31,7 @@ Status values: planned, in progress, done.
 | web | Simulation host interface | done |
 | web | Netlist editor, run, results | done |
 | web | Plots | done |
-| web | Share by URL | planned |
+| web | Share by URL | done |
 | web | Symbol library | done |
 | web | Schematic renderer | in progress |
 | web | Auto-placement | planned |
