@@ -46,7 +46,7 @@ Status values: planned, in progress, done.
 | web | Live monitor | planned |
 | core | BOM export | done |
 | core | KiCad export | done |
-| web | Schematic SVG and PDF export | planned |
+| web | Schematic SVG and PDF export | done |
 | core | Blocks library | done |
 | core | Calculators | done |
 | web | Calculator write-back | planned |

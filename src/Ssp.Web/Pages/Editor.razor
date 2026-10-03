@@ -18,6 +18,7 @@
 
 <button @onclick="Run" disabled="@running">Run</button>
 <a class="share" href="@ShareHref">Share link</a>
+<SchematicExport Netlist="@netlist" />
 
 <Knobs Netlist="@netlist" NetlistChanged="Retune" />
 
