@@ -9,7 +9,7 @@ Status values: planned, in progress, done.
 | core | Operating point | planned |
 | core | Frequency response | planned |
 | core | Input and output impedance | planned |
-| core | WAV read and write | planned |
+| core | WAV read and write | done |
 | core | Transient render | planned |
 | core | Value overrides | planned |
 | core | Diagnostics engine and structural rules | planned |
