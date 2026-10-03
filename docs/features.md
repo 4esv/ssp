@@ -37,7 +37,7 @@ Status values: planned, in progress, done.
 | web | Auto-placement | done |
 | web | DC overlay and probes | done |
 | web | Place and wire | done |
-| web | Edit operations | planned |
+| web | Edit operations | done |
 | web | Undo and redo | planned |
 | web | Knobs | done |
 | web | Multi-value compare | done |
