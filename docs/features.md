@@ -39,7 +39,7 @@ Status values: planned, in progress, done.
 | web | Place and wire | planned |
 | web | Edit operations | planned |
 | web | Undo and redo | planned |
-| web | Knobs | planned |
+| web | Knobs | done |
 | web | Multi-value compare | done |
 | core | Impulse response convolution | planned |
 | web | Play a clip through the circuit | planned |
