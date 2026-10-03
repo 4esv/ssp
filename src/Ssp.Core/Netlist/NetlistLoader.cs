@@ -23,7 +23,7 @@ public static class NetlistLoader
             {
                 var model = new SpiceSharpReader().Read(parsed.FinalModel);
                 circuit = model.Circuit;
-                BindBjtModels(parsed.FinalModel.Statements.OfType<ParsedComponent>(), circuit);
+                BindModels(parsed.FinalModel.Statements.OfType<ParsedComponent>(), circuit);
                 foreach (var error in model.ValidationResult.Errors)
                 {
                     diagnostics.Add(new Diagnostic(Severity.Error, error.Message, error.LineInfo?.LineNumber));
@@ -44,11 +44,13 @@ public static class NetlistLoader
             }
         }
 
-        return new LoadedCircuit(circuit, nodes, diagnostics);
+        var directives = DirectiveParser.Parse(netlist);
+
+        return new LoadedCircuit(circuit, nodes, diagnostics, directives.Directives);
     }
 
-    // NOTE: the parser leaves BipolarJunctionTransistor.Model unset, so a simulation throws. Bind it from the netlist.
-    private static void BindBjtModels(IEnumerable<ParsedComponent> components, Circuit circuit)
+    // NOTE: the parser leaves BipolarJunctionTransistor.Model and Diode.Model unset, so a BJT simulation throws. Bind them from the netlist.
+    private static void BindModels(IEnumerable<ParsedComponent> components, Circuit circuit)
     {
         var byName = components.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
         foreach (var bjt in circuit.OfType<BipolarJunctionTransistor>())
@@ -56,6 +58,13 @@ public static class NetlistLoader
             if (string.IsNullOrEmpty(bjt.Model) && byName.TryGetValue(bjt.Name, out var statement))
             {
                 bjt.Model = statement.PinsAndParameters[statement.PinsAndParameters.Count - 1].Value;
+            }
+        }
+        foreach (var diode in circuit.OfType<Diode>())
+        {
+            if (string.IsNullOrEmpty(diode.Model) && byName.TryGetValue(diode.Name, out var statement))
+            {
+                diode.Model = statement.PinsAndParameters[statement.PinsAndParameters.Count - 1].Value;
             }
         }
     }

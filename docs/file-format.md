@@ -19,7 +19,7 @@ ssp reads directives from comment lines in the netlist. Other SPICE tools ignore
 | `* ssp:input <node>` | The node that receives the input signal. |
 | `* ssp:output <node>` | The node that gives the output signal. |
 | `* ssp:knob <part> <taper> <pos>` | A potentiometer, its taper, and its position. |
-| `* ssp:part <ref> <part-id>` | The part in the parts table that a reference uses. |
+| `* ssp:part <ref> <part-id>` | The part in the parts table that a reference uses. This mapping wins over the default mapping by kind and model name. An unknown part id gives an error diagnostic. A reference with no part gives a warning. |
 
 Rules:
 
