@@ -55,6 +55,16 @@ public class LayoutTests
     }
 
     [Fact]
+    public void SubcircuitInstanceReferenceIsInTheNetlist()
+    {
+        var opAmp = File.ReadAllText(Path.Combine(RepoPaths.Root, "models", "opamp-tl072.cir"));
+        var loaded = NetlistLoader.Load(opAmp + "\n" + Fixtures.Read("opamp-buffer.cir").Replace("OPAMP", "TL072"));
+        var layout = new LayoutDoc([new PartPlacement("X1", 0, 0, 0, false)], []);
+
+        Assert.Empty(layout.Validate(loaded));
+    }
+
+    [Fact]
     public void WireOnUnknownNetGivesError()
     {
         var layout = new LayoutDoc([], [new WireRoute("nope", [new Point(0, 0), new Point(1, 0)])]);

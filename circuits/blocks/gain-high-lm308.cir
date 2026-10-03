@@ -1,0 +1,39 @@
+* ssp:title High-gain stage, LM308
+* Gain: 1 + RF / RG = 1 + 100k / 560 = 180 (45.1 dB). The LM308 bandwidth limits the gain at high frequencies.
+* Gain-leg high-pass: 1 / (2 pi * 560 * 4.7u) = 60.5 Hz. This cuts bass before it is amplified.
+* Feedback low-pass: 1 / (2 pi * 100k * 100p) = 15.9 kHz.
+* Input high-pass: 1 / (2 pi * 1M * 22n) = 7.2 Hz.
+* Supply: the 9 V rail is modelled as VCC = +4.5 V and VEE = -4.5 V around signal ground. Ground stands for the 4.5 V reference
+*   of power-9v.cir. The op-amp models in models/ do not find a DC operating point on a 0 V to 9 V single supply.
+* ssp:input in
+* ssp:output out
+* provenance: LM108/LM208/LM308 operational amplifiers datasheet TL/H/7758, National Semiconductor, December 1994 (read from a third-party mirror; no current TI copy was reachable); gain, swing and input resistance read from the datasheet. GBW and slew rate are UNVERIFIED: the datasheet text states no value, and they are taken from the 30 pF compensation case
+* fit: open-loop gain 300 V/mV, output swing +-14 V at RL = 10 kOhm (1 V rail drop), input resistance 40 MOhm (all p2); GBW 1 MHz and slew rate 0.3 V/us with 30 pF are UNVERIFIED; output resistance 100 Ohm is a typical value, not a sheet figure
+* author: 4esv
+* license: MIT
+
+* Pins: inp inn out vcc vee. Gain 300000 V/V, GBW 1E+06 Hz, slew rate 300000 V/s, rail drop 1 V.
+.subckt LM308 inp inn out vcc vee
+Rid inp inn 4E+07
+Bgm 0 x I={0.000143239*tanh(0.003*V(inp,inn)/0.000143239)}
+Rp x 0 1E+08
+Cc x 0 4.77465E-10
+Bclamp x 0 I={0.000143239*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bo o 0 V={V(x)}
+Rout o out 100
+Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))+V(vcc)-1-sqrt(((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))+0.000001))))}
+.ends LM308
+
+V1 in 0 DC 0 AC 1
+VCC vcc 0 DC 4.5
+VEE vee 0 DC -4.5
+CIN in a 22n
+RB a 0 1Meg
+X1 a fb o vcc vee LM308
+RF o fb 100k
+CF o fb 100p
+RG fb g 560
+CG g 0 4.7u
+COUT o out 10u
+RL out 0 100k
+.END
