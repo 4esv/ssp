@@ -11,5 +11,5 @@ R1 vcc b 10k
 R2 b 0 2.2k
 RC vcc c 4.7k
 RE e 0 1k
-Q1 c b e QGEN
+Q1 c b e 0 QGEN
 .END
