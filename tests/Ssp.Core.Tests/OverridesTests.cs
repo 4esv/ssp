@@ -80,7 +80,7 @@ public class OverridesTests
     public void ApplyDoesNotChangeTheNetlistText()
     {
         var text = Fixtures.Read("rc-lowpass.cir");
-        var copy = string.Copy(text);
+        var copy = text.Substring(0);
         var loaded = NetlistLoader.Load(text);
 
         Overrides.Apply(loaded, new[] { Overrides.Parse("R1=4k7") });
