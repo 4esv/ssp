@@ -39,6 +39,23 @@ public class PartsTests
     }
 
     [Fact]
+    public void ParseGivesTheSameRowsAsLoad()
+    {
+        var path = Path.Combine(RepoPaths.Root, "models", "parts.toml");
+
+        var parsed = PartsApi.Parse(File.ReadAllText(path), "parts.toml");
+
+        Assert.Equal(PartsApi.Load(path).Rows, parsed.Rows);
+    }
+
+    [Fact]
+    public void ParseErrorNamesTheSource()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => PartsApi.Parse("x = 1\n", "embedded parts.toml"));
+        Assert.StartsWith("embedded parts.toml:", ex.Message);
+    }
+
+    [Fact]
     public void DuplicateIdFailsAndNamesTheId()
     {
         var path = Write(string.Format(Row, "D1", Prov()) + "\n" + string.Format(Row, "D1", Prov()));

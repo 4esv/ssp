@@ -11,7 +11,10 @@
 
 <h1>Editor</h1>
 
-<textarea @bind="netlist" @bind:event="oninput" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+<div class="editor-split">
+    <textarea @bind="netlist" @bind:event="oninput" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+    <SchematicView Netlist="@netlist" />
+</div>
 
 <button @onclick="Run" disabled="@running">Run</button>
 <a class="share" href="@ShareHref">Share link</a>
