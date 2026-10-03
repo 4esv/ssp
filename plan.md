@@ -1,11 +1,8 @@
-# Plan: issue #6, WAV read and write
-
-1. Write tests/Ssp.Core.Tests/WavTests.cs (round-trip 16/24-bit, mono/stereo, 8-bit and float rejection). Run it. It fails (no code). Commit.
-2. Add src/Ssp.Core/Audio/WavData.cs: sample rate and per-channel double samples in [-1, 1).
-3. Add src/Ssp.Core/Audio/Wav.cs: Read(Stream), Write(Stream, WavData, int bitDepth). No package.
-4. Run `dotnet test -c Release`.
-5. Set the "WAV read and write" row in docs/features.md to done.
-6. Push issue-6, open the PR against master.
-
-Out of scope: sample rate conversion, render, CLI commands.
-Done: WavTests pass, no change to Directory.Packages.props.
+# Plan: issue #26 Playwright harness
+1. Add `Microsoft.Playwright` (version already pinned) to `tests/Ssp.Web.Tests`.
+2. Add `tests/Ssp.Web.Tests/Playwright/SmokeTests.cs`: loads `SSP_BASE_URL`, expects the page to show "SpiceSharp 3.2.3". Skipped when `SSP_BASE_URL` is unset, so `dotnet test` in the `ci` jobs is unchanged.
+3. Add `scripts/playwright.sh`: publish `src/Ssp.Web`, serve its `wwwroot`, run the Playwright tests, stop the server.
+4. Add job `playwright` (ubuntu-latest only) to `.github/workflows/ci.yml`; it calls `scripts/playwright.sh`. The `ci` job is not changed.
+5. Add the test command to `docs/README.md`.
+Proof: run `scripts/playwright.sh` locally (exit 0); mutate the expected text to see it fail.
+Out of scope: feature tests, deploy, `ci` job changes.

@@ -8,6 +8,10 @@
 | [benchmarks.md](benchmarks.md) | Measured simulation speed. |
 | [decisions/](decisions/) | Decision records. |
 
+## Browser tests
+
+Run `scripts/playwright.sh`. It publishes `src/Ssp.Web`, serves it, and runs the Playwright tests in `tests/Ssp.Web.Tests/Playwright/`. The first run downloads Chromium.
+
 ## Decision records
 
 - [0001: Depend on the engine. Do not fork it.](decisions/0001-depend-not-fork.md)
