@@ -1,3 +1,5 @@
+using SpiceSharp;
+using SpiceSharp.Algebra;
 using SpiceSharp.Simulations;
 using Ssp.Core.Analysis;
 using Ssp.Core.Diagnostics;
@@ -103,6 +105,7 @@ public class SolverFailureTests
     [Theory]
     [InlineData(typeof(ValidationFailedException))]
     [InlineData(typeof(SingularException))]
+    [InlineData(typeof(SpiceSharpException))]
     public void EveryDiagnosticHasANextStep(Type type)
     {
         var exception = (Exception)Activator.CreateInstance(type)!;
