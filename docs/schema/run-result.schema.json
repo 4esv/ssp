@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ssp:schema:run-result:1.0.0",
+  "version": "1.0.0",
+  "title": "ssp run result",
+  "description": "The result of one run. An analysis is null if the pipeline stopped before it.",
+  "type": "object",
+  "required": ["$schema", "schemaVersion", "operatingPoint", "frequencyResponse", "impedance", "diagnostics", "timingsMs"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "const": "urn:ssp:schema:run-result:1.0.0" },
+    "schemaVersion": { "const": "1.0.0" },
+    "operatingPoint": {
+      "description": "The DC operating point.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["nodeVoltages", "sourceCurrents", "devicePowers"],
+          "additionalProperties": false,
+          "properties": {
+            "nodeVoltages": { "$ref": "#/$defs/numbers", "description": "Voltage of each node in volts, keyed by node name." },
+            "sourceCurrents": { "$ref": "#/$defs/numbers", "description": "Current through each voltage source in amperes, keyed by source name." },
+            "devicePowers": { "$ref": "#/$defs/numbers", "description": "Power of each device in watts, keyed by device name." }
+          }
+        }
+      ]
+    },
+    "frequencyResponse": {
+      "description": "The small-signal frequency response.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["frequencies", "magnitudeDb", "phaseDegrees"],
+          "additionalProperties": false,
+          "properties": {
+            "frequencies": { "$ref": "#/$defs/frequencies" },
+            "magnitudeDb": { "$ref": "#/$defs/series", "description": "Magnitude in dB at each frequency, keyed by node name." },
+            "phaseDegrees": { "$ref": "#/$defs/series", "description": "Phase in degrees at each frequency, keyed by node name." }
+          }
+        }
+      ]
+    },
+    "impedance": {
+      "description": "The input and output impedance in ohms.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["frequencies", "input", "output"],
+          "additionalProperties": false,
+          "properties": {
+            "frequencies": { "$ref": "#/$defs/frequencies" },
+            "input": { "type": "array", "items": { "$ref": "#/$defs/complex" } },
+            "output": { "type": "array", "items": { "$ref": "#/$defs/complex" } }
+          }
+        }
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message", "line"],
+        "additionalProperties": false,
+        "properties": {
+          "severity": { "enum": ["warning", "error"] },
+          "message": { "type": "string" },
+          "line": { "type": ["integer", "null"], "description": "The line in the netlist, or null." }
+        }
+      }
+    },
+    "timingsMs": { "$ref": "#/$defs/numbers", "description": "The time of each section in milliseconds, keyed by section name, in run order." }
+  },
+  "$defs": {
+    "value": { "type": ["number", "null"], "description": "A number. Null if the value is not finite, for example the magnitude in dB of node 0." },
+    "numbers": { "type": "object", "additionalProperties": { "$ref": "#/$defs/value" } },
+    "frequencies": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "description": "Frequency of each point in hertz." },
+    "series": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/value" } } },
+    "complex": {
+      "type": "object",
+      "required": ["re", "im"],
+      "additionalProperties": false,
+      "properties": {
+        "re": { "$ref": "#/$defs/value" },
+        "im": { "$ref": "#/$defs/value" }
+      }
+    }
+  }
+}

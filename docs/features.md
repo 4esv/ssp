@@ -15,7 +15,7 @@ Status values: planned, in progress, done.
 | core | Diagnostics engine and structural rules | done |
 | core | Solver failure to diagnostic | done |
 | core | Run pipeline | done |
-| core | Result JSON schema | planned |
+| core | Result JSON schema | done |
 | core | Plain-English report | done |
 | core | Potentiometer | done |
 | core | Op-amp macro-model | done |
