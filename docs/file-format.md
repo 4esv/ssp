@@ -74,3 +74,26 @@ Rules:
 - References and nets match without regard to case.
 - A reference with no `part` entry is allowed.
 - `Layout.Write` gives the same text for the same layout.
+
+## LTspice import
+
+`AscImporter.ToNetlist` makes a netlist from the text of an LTspice `.asc` file. `AscImporter.Import` gives the same netlist and the diagnostics.
+
+| `.asc` line | Result |
+|---|---|
+| `WIRE x1 y1 x2 y2` | Connects the two points. |
+| `FLAG x y <name>` | Gives the name to the net at the point. `0` is ground. |
+| `SYMBOL <name> x y <orientation>` | One element. The pins come from `PinTable.Builtin`. |
+| `SYMATTR InstName <ref>` | The reference of the element. |
+| `SYMATTR Value <value>` | The value or model name of the element. |
+| `TEXT x y <align> <size> !<directive>` | A SPICE line, for example `.model`. |
+
+Rules:
+
+- The symbols are `res`, `cap`, `ind`, `diode`, `npn`, `pnp`, `njf` and `opamp`. Any other symbol gives a diagnostic with severity error that names the symbol. The symbol is not imported.
+- The orientation is `R0`, `R90`, `R180`, `R270`, `M0`, `M90`, `M180` or `M270`. Any other orientation gives a diagnostic with severity error.
+- A symbol with no `InstName` gives a diagnostic with severity error.
+- A wire end, a pin or a flag on a wire connects to that wire, also between the ends of the wire.
+- Flags with the same name are one net. A net with no flag gets the name `N001`, `N002` and so on, in the order of the pins.
+- The netlist has the elements in file order, then the directives, then `.end`.
+- Other lines, such as `WINDOW`, `SHEET` and `TEXT` comments, are ignored.
