@@ -97,3 +97,24 @@ Rules:
 - Flags with the same name are one net. A net with no flag gets the name `N001`, `N002` and so on, in the order of the pins.
 - The netlist has the elements in file order, then the directives, then `.end`.
 - Other lines, such as `WINDOW`, `SHEET` and `TEXT` comments, are ignored.
+
+### Layout import
+
+`AscImporter.ToLayout` makes a layout from the text of an LTspice `.asc` file. Write it with `Layout.Write` to get the layout file.
+
+- Each symbol that the netlist import includes gets one `part` entry with the same reference. Other symbols get no entry.
+- The layout has no wires.
+- `x` and `y` are in LTspice units. They are the LTspice position of the ssp symbol origin: the first pin for `res`, `cap`, `ind`, `diode`, `npn`, `pnp` and `njf`, and the point between the two inputs for `opamp`.
+- LTspice turns clockwise and the layout turns counter-clockwise. An `M` orientation sets `flip = true`.
+- The LTspice `res`, `cap`, `ind` and `diode` symbols are vertical at `R0`. The ssp symbols are horizontal at rotation 0. Thus these symbols get 270 degrees more rotation:
+
+| Orientation | `res`, `cap`, `ind`, `diode` | `npn`, `pnp`, `njf`, `opamp` |
+|---|---|---|
+| `R0` | 270 | 0 |
+| `R90` | 180 | 270 |
+| `R180` | 90 | 180 |
+| `R270` | 0 | 90 |
+| `M0` | 270, flip | 180, flip |
+| `M90` | 180, flip | 90, flip |
+| `M180` | 90, flip | 0, flip |
+| `M270` | 0, flip | 270, flip |
