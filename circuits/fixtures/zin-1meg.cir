@@ -1,0 +1,7 @@
+* ssp:title Input impedance 1 MOhm
+* ssp:input in
+* ssp:output in
+* Input impedance: Zin = V1 / I(V1) = 1 V / 1 uA = 1 MOhm
+V1 in 0 1
+R1 in 0 1Meg
+.END
