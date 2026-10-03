@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -13,7 +14,8 @@ public class RunCommandTests
     }
 
     // NOTE: Timings are wall-clock values. Set them to 0 so that the golden JSON is stable.
-    static string MaskTimings(string json)
+    // The math library of each OS can change the last digit of a double. Round each number to 10 significant digits.
+    static string Stable(string json)
     {
         var root = JsonNode.Parse(json)!.AsObject();
         var timings = root["timingsMs"]!.AsObject();
@@ -22,7 +24,29 @@ public class RunCommandTests
             timings[key] = 0;
         }
 
-        return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        return Round(root)!.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    static JsonNode? Round(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject o:
+                foreach (var key in o.Select(p => p.Key).ToList())
+                {
+                    o[key] = Round(o[key]?.DeepClone());
+                }
+
+                return o;
+            case JsonArray a:
+                return new JsonArray(a.Select(item => Round(item?.DeepClone())).ToArray());
+            case JsonValue v when v.GetValueKind() == JsonValueKind.Number:
+                var value = double.Parse(v.ToJsonString(), CultureInfo.InvariantCulture);
+                var rounded = double.Parse(value.ToString("G10", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+                return JsonValue.Create(rounded == 0 ? 0 : rounded);
+            default:
+                return node;
+        }
     }
 
     [Fact]
@@ -40,7 +64,7 @@ public class RunCommandTests
         var (exitCode, output) = Run("run", RepoPaths.Fixture("rc-lowpass.cir"), "--json");
 
         Assert.Equal(0, exitCode);
-        Golden.Assert("run-rc-lowpass.json", MaskTimings(output));
+        Golden.Assert("run-rc-lowpass.json", Stable(output));
     }
 
     [Fact]
