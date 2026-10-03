@@ -106,6 +106,18 @@ body {
     fill: currentColor;
 }
 
+.schematic-pins .part {
+    fill: transparent;
+    stroke: none;
+    cursor: pointer;
+}
+
+.schematic-pins .part.selected {
+    stroke: currentColor;
+    stroke-width: 1;
+    stroke-dasharray: 4 2;
+}
+
 .schematic-tools {
     display: flex;
     flex-wrap: wrap;

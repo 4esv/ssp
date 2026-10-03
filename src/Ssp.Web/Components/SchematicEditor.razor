@@ -16,11 +16,20 @@
         <button type="button" class="tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)">Wire</button>
         <button type="button" class="tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)">Ground</button>
     </div>
-    <figure class="schematic" aria-label="Schematic">
+    <figure class="schematic" aria-label="Schematic" tabindex="0"
+            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null)">
         @if (svg is not null)
         {
             @((MarkupString)svg)
             <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox">
+                @foreach (var part in outlines)
+                {
+                    <rect class="@(part.Reference == selected ? "part selected" : "part")" data-ref="@part.Reference"
+                          x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
+                          @onclick="() => selected = part.Reference">
+                        <title>@part.Reference</title>
+                    </rect>
+                }
                 @foreach (var pin in pins)
                 {
                     <circle class="@(pin.Ref == pending ? "pin pending" : "pin")" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
@@ -37,6 +46,8 @@
     enum Tool { Wire, Ground }
 
     sealed record PinView(PinRef Ref, string Node, Point Position);
+
+    sealed record PartView(string Reference, Point Min, Point Max);
 
     static readonly Regex ViewBox = new("viewBox=\"([^\"]*)\"");
 
@@ -58,6 +69,8 @@
     string? svg;
     string viewBox = "";
     List<PinView> pins = [];
+    List<PartView> outlines = [];
+    string? selected;
     Tool tool = Tool.Wire;
     PinRef? pending;
 
@@ -77,6 +90,7 @@
         pending = null;
         svg = null;
         pins = [];
+        outlines = [];
         var circuit = NetlistLoader.Load(netlist);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
         if (hasErrors) return;
@@ -91,9 +105,13 @@
         foreach (var c in circuit.Circuit.OfType<SpiceComponent>().OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
             if (!placements.TryGetValue(c.Name, out var placement)) continue;
-            var positions = SchematicRenderer.Pins(c, placement, parts.Parts.GetValueOrDefault(c.Name));
+            var row = parts.Parts.GetValueOrDefault(c.Name);
+            var (min, max) = SchematicRenderer.Outline(c, placement, row);
+            outlines.Add(new PartView(c.Name, min, max));
+            var positions = SchematicRenderer.Pins(c, placement, row);
             pins.AddRange(positions.Select((p, i) => new PinView(new PinRef(c.Name, i), c.Nodes[i], p)));
         }
+        if (!outlines.Any(p => p.Reference == selected)) selected = null;
     }
 
     Task Place(string kind) => Apply(SchematicEdits.Place(netlist, layout, kind));
@@ -122,6 +140,32 @@
         {
             await Apply(SchematicEdits.Wire(netlist, layout, parts!, pending, pin));
         }
+    }
+
+    // NOTE: Escape clears the selection, so that Tab can move the focus out of the schematic again.
+    async Task Key(KeyboardEventArgs e)
+    {
+        if (selected is not { } part) return;
+        const int Step = Symbols.Grid;
+        SchematicChange? change = e.Key switch
+        {
+            "r" or "R" => SchematicEdits.Rotate(netlist, layout, part),
+            "h" or "H" => SchematicEdits.Flip(netlist, layout, part, leftToRight: true),
+            "v" or "V" => SchematicEdits.Flip(netlist, layout, part, leftToRight: false),
+            "ArrowLeft" => SchematicEdits.Move(netlist, layout, part, -Step, 0),
+            "ArrowRight" => SchematicEdits.Move(netlist, layout, part, Step, 0),
+            "ArrowUp" => SchematicEdits.Move(netlist, layout, part, 0, -Step),
+            "ArrowDown" => SchematicEdits.Move(netlist, layout, part, 0, Step),
+            "Delete" or "Backspace" => SchematicEdits.Delete(netlist, layout, part),
+            "d" or "D" when e.MetaKey || e.CtrlKey => SchematicEdits.Duplicate(netlist, layout, part),
+            _ => null,
+        };
+        if (e.Key == "Escape") selected = null;
+        if (change is null) return;
+
+        await Apply(change);
+        // NOTE: Duplicate puts the copy last in the layout.
+        if (e.Key is "d" or "D") selected = change.Layout.Parts[^1].Reference;
     }
 
     async Task Apply(SchematicChange change)

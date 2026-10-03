@@ -39,11 +39,7 @@ public static class SchematicRenderer
             body.Append("<g data-ref=\"").Append(Escape(c.Name)).Append("\" transform=\"").Append(transform).Append("\">")
                 .Append(inner).Append("</g>\n");
 
-            var part = new Bounds();
-            foreach (var (x, y) in new[] { (box.X, box.Y), (box.X + box.W, box.Y), (box.X, box.Y + box.H), (box.X + box.W, box.Y + box.H) })
-            {
-                part.Add(Place(p, x, y));
-            }
+            var part = Outline(p, box);
             bounds.Add(part);
             var labelX = (part.MinX + part.MaxX) / 2;
             var labelY = part.MinY - LabelGap;
@@ -85,6 +81,23 @@ public static class SchematicRenderer
             ? symbol.Pins.Select(p => ((double)p.X, (double)p.Y))
             : Enumerable.Range(0, count).Select(i => (i % 2 == 0 ? 0.0 : 60.0, 2.0 * Symbols.Grid * (i / 2)));
         return local.Select(p => Place(placement, p.X, p.Y)).Select(p => new Point(Math.Round(p.X, 2) + 0.0, Math.Round(p.Y, 2) + 0.0)).ToList();
+    }
+
+    /// <summary>The top-left and bottom-right corners of the drawing of a placed component, in schematic units.</summary>
+    public static (Point Min, Point Max) Outline(IComponent component, PartPlacement placement, PartRow? row)
+    {
+        var outline = Outline(placement, Drawing(row, component.Nodes.Count).Box);
+        return (new Point(outline.MinX, outline.MinY), new Point(outline.MaxX, outline.MaxY));
+    }
+
+    static Bounds Outline(PartPlacement p, Box box)
+    {
+        var part = new Bounds();
+        foreach (var (x, y) in new[] { (box.X, box.Y), (box.X + box.W, box.Y), (box.X, box.Y + box.H), (box.X + box.W, box.Y + box.H) })
+        {
+            part.Add(Place(p, x, y));
+        }
+        return part;
     }
 
     readonly record struct Box(double X, double Y, double W, double H);
