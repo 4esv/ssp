@@ -10,7 +10,7 @@ Status values: planned, in progress, done.
 | core | Frequency response | done |
 | core | Input and output impedance | done |
 | core | WAV read and write | done |
-| core | Transient render | planned |
+| core | Transient render | done |
 | core | Value overrides | done |
 | core | Diagnostics engine and structural rules | done |
 | core | Solver failure to diagnostic | done |

@@ -1,6 +1,7 @@
 using System.Numerics;
 using SpiceSharp.Components;
 using SpiceSharp.Simulations;
+using SpiceSharp.Simulations.IntegrationMethods;
 using Ssp.Core.Netlist;
 
 namespace Ssp.Core.Analysis;
@@ -222,5 +223,88 @@ public static class Analyses
         return new NoiseResult(frequencies, density, []);
 
         static NoiseResult Skip(string message) => new([], [], [new Diagnostic(Severity.Warning, message, null)]);
+    }
+
+    /// <summary>
+    /// Renders an input signal through a circuit and returns the output samples, one for each input sample.
+    /// The input drives the <c>ssp:input</c> node through a piecewise-linear source.
+    /// The output is the voltage at the <c>ssp:output</c> node, or <c>out</c>.
+    /// The solver uses fixed trapezoidal steps of 1 / (fs * oversample). The circuit is the same afterwards.
+    /// </summary>
+    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample)
+    {
+        if (fs <= 0 || oversample < 1)
+        {
+            throw new ArgumentException("Render needs fs > 0 and oversample >= 1.");
+        }
+
+        if (input.Length == 0)
+        {
+            return [];
+        }
+
+        var inNode = circuit.Directives.Input
+            ?? throw new InvalidOperationException("Render needs an ssp:input node.");
+        var outNode = circuit.Directives.Output ?? "out";
+        if (!circuit.NodeNames.Contains(outNode, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException($"The output node '{outNode}' is not in the circuit.");
+        }
+
+        var points = new double[2 * Math.Max(input.Length, 2)];
+        for (var i = 0; i < points.Length / 2; i++)
+        {
+            points[2 * i] = (double)i / fs;
+            points[(2 * i) + 1] = input[Math.Min(i, input.Length - 1)];
+        }
+
+        var pwl = new Pwl();
+        pwl.SetPoints(points);
+
+        var existing = circuit.Circuit.OfType<VoltageSource>()
+            .FirstOrDefault(v => string.Equals(v.Nodes[0], inNode, StringComparison.Ordinal)
+                && string.Equals(v.Nodes[1], "0", StringComparison.Ordinal));
+        var source = existing ?? new VoltageSource("V_ssp_render", inNode, "0", 0.0);
+        var saved = source.Parameters.Waveform;
+        var step = 1.0 / ((double)fs * oversample);
+        var output = new double[input.Length];
+        var written = 0;
+        try
+        {
+            source.Parameters.Waveform = pwl;
+            if (existing is null)
+            {
+                circuit.Circuit.Add(source);
+            }
+
+            var tran = new Transient("render", new FixedTrapezoidal { Step = step, StopTime = (input.Length - 1) * oversample * step });
+            var voltage = new RealVoltageExport(tran, outNode);
+
+            // Stream the steps: keep every oversample-th one and do not collect the rest.
+            foreach (var _ in tran.Run(circuit.Circuit, Transient.ExportTransient))
+            {
+                var k = (long)Math.Round(tran.Time / step);
+                if (k % oversample == 0 && k / oversample < output.Length)
+                {
+                    output[k / oversample] = voltage.Value;
+                    written++;
+                }
+            }
+        }
+        finally
+        {
+            source.Parameters.Waveform = saved;
+            if (existing is null)
+            {
+                circuit.Circuit.Remove(source);
+            }
+        }
+
+        if (written != output.Length)
+        {
+            throw new InvalidOperationException($"The solver gave {written} of {output.Length} output samples.");
+        }
+
+        return output;
     }
 }

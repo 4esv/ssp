@@ -1,0 +1,34 @@
+* ssp:title BJT gain stage into a silicon diode clipper
+* ssp:input in
+* ssp:output out
+* provenance: first principles, textbook generic silicon junction values; no datasheet and no third-party model or circuit
+* fit: none; NPN IS = 1e-14 A, BF = 300, VAF = 100 V; diode IS = 1e-14 A, N = 1 (Vf = Vt ln(I/IS) = 0.65 V at 1 mA)
+* author: 4esv
+* license: MIT
+* Bias (ignore base current, Vbe = 0.65 V):
+*   Vb = 9 * 22k / (100k + 22k) = 1.623 V
+*   Ve = 1.623 - 0.65 = 0.973 V, Ie = 0.973 V / (100 + 820) = 1.06 mA
+*   Vc = 9 - 1.06 mA * 4.7k = 4.03 V
+* Gain at 440 Hz (RE2 bypassed): about RC / (RE1 + re) = 4.7k / (100 + 25) = 38.
+* The stage drives the diode pair through RC = 4.7k. The diodes clamp the clip node near +-0.65 V.
+* The 4.7k / 100k divider and the 3.4 kHz low-pass give out a little less than clip.
+.MODEL QNPN NPN (IS=1e-14 BF=300 VAF=100)
+.MODEL DSI D (IS=1e-14 N=1)
+VCC vcc 0 9
+V1 in 0 0
+CIN in b 1u
+R1 vcc b 100k
+R2 b 0 22k
+RC vcc c 4.7k
+RE1 e e2 100
+RE2 e2 0 820
+CE e2 0 22u
+Q1 c b e 0 QNPN
+CC c clip 1u
+RCLIP clip 0 10k
+D1 clip 0 DSI
+D2 0 clip DSI
+RLP clip out 4.7k
+CLP out 0 10n
+RL out 0 100k
+.END
