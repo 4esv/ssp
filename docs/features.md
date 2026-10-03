@@ -38,7 +38,7 @@ Status values: planned, in progress, done.
 | web | DC overlay and probes | done |
 | web | Place and wire | done |
 | web | Edit operations | done |
-| web | Undo and redo | planned |
+| web | Undo and redo | done |
 | web | Knobs | done |
 | web | Multi-value compare | done |
 | core | Impulse response convolution | planned |
