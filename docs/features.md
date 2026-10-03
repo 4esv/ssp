@@ -40,7 +40,7 @@ Status values: planned, in progress, done.
 | web | Edit operations | planned |
 | web | Undo and redo | planned |
 | web | Knobs | planned |
-| web | Multi-value compare | planned |
+| web | Multi-value compare | done |
 | core | Impulse response convolution | planned |
 | web | Play a clip through the circuit | planned |
 | web | Live monitor | planned |
