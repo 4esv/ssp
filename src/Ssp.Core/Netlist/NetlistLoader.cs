@@ -1,6 +1,7 @@
 using SpiceSharp;
 using SpiceSharp.Components;
 using SpiceSharpParser;
+using ParsedComponent = SpiceSharpParser.Models.Netlist.Spice.Objects.Component;
 
 namespace Ssp.Core.Netlist;
 
@@ -22,6 +23,7 @@ public static class NetlistLoader
             {
                 var model = new SpiceSharpReader().Read(parsed.FinalModel);
                 circuit = model.Circuit;
+                BindBjtModels(parsed.FinalModel.Statements.OfType<ParsedComponent>(), circuit);
                 foreach (var error in model.ValidationResult.Errors)
                 {
                     diagnostics.Add(new Diagnostic(Severity.Error, error.Message, error.LineInfo?.LineNumber));
@@ -43,5 +45,18 @@ public static class NetlistLoader
         }
 
         return new LoadedCircuit(circuit, nodes, diagnostics);
+    }
+
+    // NOTE: the parser leaves BipolarJunctionTransistor.Model unset, so a simulation throws. Bind it from the netlist.
+    private static void BindBjtModels(IEnumerable<ParsedComponent> components, Circuit circuit)
+    {
+        var byName = components.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
+        foreach (var bjt in circuit.OfType<BipolarJunctionTransistor>())
+        {
+            if (string.IsNullOrEmpty(bjt.Model) && byName.TryGetValue(bjt.Name, out var statement))
+            {
+                bjt.Model = statement.PinsAndParameters[statement.PinsAndParameters.Count - 1].Value;
+            }
+        }
     }
 }
