@@ -5,7 +5,7 @@ Status values: planned, in progress, done.
 | Area | Feature | Status |
 |---|---|---|
 | core | Load a SPICE netlist | done |
-| core | ssp directives | planned |
+| core | ssp directives | done |
 | core | Operating point | done |
 | core | Frequency response | planned |
 | core | Input and output impedance | planned |
