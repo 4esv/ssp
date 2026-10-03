@@ -63,3 +63,12 @@ symbol = "led"
 footprint = "LED-5MM"
 buy_url = "https://www.mouser.com/c/?q={id}"
 provenance = "models/led.lib, generic 5 mm LED typical Vf at 10 mA"
+
+[[part]]
+id = "TRANSFORMER"
+kind = "transformer"
+model = "transformer"
+symbol = "transformer"
+footprint = "none"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "Ideal two-winding transformer, coupled inductors, models/transformer.cir"
