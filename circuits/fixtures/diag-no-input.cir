@@ -1,0 +1,6 @@
+* ssp:title No input
+* No voltage source and no ssp:input directive.
+R1 in out 1k
+R2 out 0 2k
+R3 in 0 1k
+.END

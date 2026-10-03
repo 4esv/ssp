@@ -1,0 +1,6 @@
+* ssp:title No ground
+* Nothing connects to node 0.
+V1 in a 1
+R1 in out 1k
+R2 out a 2k
+.END
