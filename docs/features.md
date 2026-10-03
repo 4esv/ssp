@@ -26,7 +26,7 @@ Status values: planned, in progress, done.
 | core | Layout sidecar | done |
 | cli | `ssp run` | done |
 | cli | `ssp render` | planned |
-| cli | `ssp sweep` | planned |
+| cli | `ssp sweep` | done |
 | cli | `ssp mcp` | planned |
 | web | Simulation host interface | done |
 | web | Netlist editor, run, results | done |
