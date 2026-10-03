@@ -1,0 +1,17 @@
+* provenance: LM108/LM208/LM308 operational amplifiers datasheet, Texas Instruments, https://www.ti.com/product/LM308; values typed from memory of the sheet and UNVERIFIED against the current revision
+* fit: typical at +-15 V with 30 pF compensation: open-loop gain 300 V/mV, unity-gain frequency 1 MHz, slew rate 0.3 V/us, output swing +-14 V at RL = 10 kOhm (1 V rail drop), input resistance 40 MOhm; output resistance 100 Ohm is a typical value, not a sheet figure
+* author: 4esv
+* license: MIT
+
+* Pins: inp inn out vcc vee. Gain 300000 V/V, GBW 1E+06 Hz, slew rate 300000 V/s, rail drop 1 V.
+.subckt LM308 inp inn out vcc vee
+Rid inp inn 4E+07
+Bgm 0 x I={0.000143239*tanh(0.003*V(inp,inn)/0.000143239)}
+Rp x 0 1E+08
+Cc x 0 4.77465E-10
+Bclamp x 0 I={0.000143239*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bo o 0 V={V(x)}
+Rout o out 100
+Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))+V(vcc)-1-sqrt(((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))+0.000001))))}
+.ends LM308
+
