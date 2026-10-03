@@ -16,6 +16,7 @@ namespace Ssp.Web.Tests.Playwright;
 /// WebAssembly page that calls Ssp.Core through one [JSExport] method. The runtime is the same Mono WebAssembly
 /// runtime that Ssp.Web uses.
 /// </remarks>
+[Collection(PlaywrightCollection.Name)]
 public class EngineSpeedTests(ITestOutputHelper output)
 {
     private const int Fs = 44_100;
