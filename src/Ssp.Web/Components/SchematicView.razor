@@ -11,7 +11,8 @@
 </figure>
 
 @code {
-    static readonly PartsTable Table = LoadParts();
+    /// <summary>The shipped parts table.</summary>
+    internal static readonly PartsTable Table = LoadParts();
 
     [Parameter] public string Netlist { get; set; } = "";
 

@@ -3,7 +3,9 @@
 @using Ssp.Core
 @using Ssp.Core.Analysis
 @using Ssp.Core.Netlist
+@using Ssp.Web.Schematic
 @using Ssp.Web.Sharing
+@using LayoutDoc = Ssp.Core.Layout.Layout
 @inject ISimulationHost Host
 @inject NavigationManager Nav
 
@@ -11,17 +13,17 @@
 
 <h1>Editor</h1>
 
-<div class="editor-split">
-    <textarea @bind="netlist" @bind:event="oninput" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
-    <div class="schematic-pane">
-        <SchematicView Netlist="@netlist" />
-        <DcOverlay OperatingPoint="@result?.OperatingPoint" />
-    </div>
-</div>
-
 <button @onclick="Run" disabled="@running">Run</button>
 <a class="share" href="@ShareHref">Share link</a>
 <SchematicExport Netlist="@netlist" />
+
+<div class="editor-split">
+    <textarea @bind="netlist" @bind:event="oninput" @bind:after="ResetLayout" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+    <div class="schematic-pane">
+        <SchematicEditor Netlist="@netlist" Layout="schematicLayout" Changed="Edit" />
+        <DcOverlay OperatingPoint="@result?.OperatingPoint" />
+    </div>
+</div>
 
 <Knobs Netlist="@netlist" NetlistChanged="Retune" />
 
@@ -87,6 +89,7 @@
     const string Ground = "0";
 
     string netlist = "";
+    LayoutDoc? schematicLayout;
     bool running;
     RunResult? result;
     Diagnostic? shareError;
@@ -123,6 +126,15 @@
     {
         netlist = tuned;
         await Run();
+    }
+
+    // NOTE: A text edit can rename or remove parts, so the schematic goes back to the auto-placement.
+    void ResetLayout() => schematicLayout = null;
+
+    void Edit(SchematicChange change)
+    {
+        netlist = change.Netlist;
+        schematicLayout = change.Layout;
     }
 
     static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
