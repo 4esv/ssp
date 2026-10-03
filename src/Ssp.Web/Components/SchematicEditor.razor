@@ -1,0 +1,140 @@
+@using System.Globalization
+@using System.Text.RegularExpressions
+@using Ssp.Core.Netlist
+@using Ssp.Core.Parts
+@using Ssp.Web.Schematic
+@using SpiceComponent = SpiceSharp.Components.IComponent
+@using LayoutDoc = Ssp.Core.Layout.Layout
+@using Point = Ssp.Core.Layout.Point
+
+<section class="schematic-editor">
+    <div class="schematic-tools" role="toolbar" aria-label="Schematic tools">
+        @foreach (var kind in SchematicEdits.Kinds.Keys)
+        {
+            <button type="button" class="place" data-kind="@kind" disabled="@hasErrors" @onclick="() => Place(kind)">@Label(kind)</button>
+        }
+        <button type="button" class="tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)">Wire</button>
+        <button type="button" class="tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)">Ground</button>
+    </div>
+    <figure class="schematic" aria-label="Schematic">
+        @if (svg is not null)
+        {
+            @((MarkupString)svg)
+            <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox">
+                @foreach (var pin in pins)
+                {
+                    <circle class="@(pin.Ref == pending ? "pin pending" : "pin")" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="5" @onclick="() => Click(pin.Ref)">
+                        <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), node @pin.Node</title>
+                    </circle>
+                }
+            </svg>
+        }
+    </figure>
+</section>
+
+@code {
+    enum Tool { Wire, Ground }
+
+    sealed record PinView(PinRef Ref, string Node, Point Position);
+
+    static readonly Regex ViewBox = new("viewBox=\"([^\"]*)\"");
+
+    [Parameter] public string Netlist { get; set; } = "";
+
+    /// <summary>The layout of the netlist. With no layout the editor starts from the auto-placement.</summary>
+    [Parameter] public LayoutDoc? Layout { get; set; }
+
+    /// <summary>Gets the netlist and the layout after each place, wire and ground.</summary>
+    [Parameter] public EventCallback<SchematicChange> Changed { get; set; }
+
+    string? seenNetlist;
+    LayoutDoc? seenLayout;
+    string netlist = "";
+    LayoutDoc layout = new([], []);
+    LayoutDoc? given;
+    PartMap? parts;
+    bool hasErrors;
+    string? svg;
+    string viewBox = "";
+    List<PinView> pins = [];
+    Tool tool = Tool.Wire;
+    PinRef? pending;
+
+    // NOTE: The editor keeps its own copy, so a parent that does not pass the change back still sees each edit.
+    protected override void OnParametersSet()
+    {
+        if (Netlist == seenNetlist && ReferenceEquals(Layout, seenLayout)) return;
+        seenNetlist = Netlist;
+        seenLayout = Layout;
+        netlist = Netlist;
+        given = Layout;
+        Build();
+    }
+
+    void Build()
+    {
+        pending = null;
+        svg = null;
+        pins = [];
+        var circuit = NetlistLoader.Load(netlist);
+        hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
+        if (hasErrors) return;
+
+        parts = PartMap.Resolve(circuit, SchematicView.Table);
+        layout = given ?? AutoPlacer.Place(circuit, circuit.Directives);
+        if (!circuit.Circuit.OfType<SpiceComponent>().Any()) return;
+
+        svg = SchematicRenderer.ToSvg(circuit, layout, parts);
+        viewBox = ViewBox.Match(svg).Groups[1].Value;
+        var placements = layout.Parts.ToDictionary(p => p.Reference, StringComparer.OrdinalIgnoreCase);
+        foreach (var c in circuit.Circuit.OfType<SpiceComponent>().OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!placements.TryGetValue(c.Name, out var placement)) continue;
+            var positions = SchematicRenderer.Pins(c, placement, parts.Parts.GetValueOrDefault(c.Name));
+            pins.AddRange(positions.Select((p, i) => new PinView(new PinRef(c.Name, i), c.Nodes[i], p)));
+        }
+    }
+
+    Task Place(string kind) => Apply(SchematicEdits.Place(netlist, layout, kind));
+
+    void Select(Tool next)
+    {
+        tool = next;
+        pending = null;
+    }
+
+    async Task Click(PinRef pin)
+    {
+        if (tool == Tool.Ground)
+        {
+            await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));
+        }
+        else if (pending is null)
+        {
+            pending = pin;
+        }
+        else if (pending == pin)
+        {
+            pending = null;
+        }
+        else
+        {
+            await Apply(SchematicEdits.Wire(netlist, layout, parts!, pending, pin));
+        }
+    }
+
+    async Task Apply(SchematicChange change)
+    {
+        netlist = change.Netlist;
+        given = change.Layout;
+        Build();
+        await Changed.InvokeAsync(change);
+    }
+
+    string Pressed(Tool t) => t == tool ? "true" : "false";
+
+    static string Label(string kind) => char.ToUpperInvariant(kind[0]) + kind[1..];
+
+    static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+}
