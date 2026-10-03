@@ -5,6 +5,8 @@
 The user draws a pedal circuit and presses Run.
 The tool shows the frequency curve and the voltages.
 The tool plays a guitar through the circuit the user drew.
+The user builds a virtual amp from circuit blocks and tries it with a clip.
+The user arranges the panels in a dock layout.
 The user exports the parts list and the schematic to build the pedal.
 
 Hearing the circuit is a core feature, not an extra. The CLI writes the audio to a file. The web app plays it.
