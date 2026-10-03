@@ -60,7 +60,8 @@ public class EditorPageTests : BunitContext
 
         var page = Open(ShareCodec.Encode(netlist));
 
-        Assert.Equal(netlist, page.Find("textarea").GetAttribute("value"));
+        // NOTE: A textarea value has LF line endings. A Windows checkout gives CRLF fixtures.
+        Assert.Equal(netlist.Replace("\r\n", "\n"), page.Find("textarea").GetAttribute("value"));
         Assert.Empty(page.FindAll("ul.diagnostics li"));
     }
 
