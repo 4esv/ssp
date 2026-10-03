@@ -61,6 +61,14 @@
             <LineChart X="z.Frequencies" Series="Magnitudes(z)" LogX="true" LogY="true" XLabel="Frequency" XUnit="Hz" YLabel="Impedance" YUnit="Ω" />
         </section>
     }
+
+    @if (result.Noise is { } noise)
+    {
+        <section class="noise">
+            <h2>Noise</h2>
+            <LineChart X="noise.Frequencies" Series="Density(noise)" LogX="true" LogY="true" XLabel="Frequency" XUnit="Hz" YLabel="Noise density" YUnit="V/√Hz" />
+        </section>
+    }
 }
 
 <Compare Netlist="@netlist" />
@@ -112,5 +120,10 @@
     {
         ["input"] = z.Input.Select(v => v.Magnitude).ToList(),
         ["output"] = z.Output.Select(v => v.Magnitude).ToList(),
+    };
+
+    static IReadOnlyDictionary<string, IReadOnlyList<double>> Density(NoiseResult noise) => new Dictionary<string, IReadOnlyList<double>>
+    {
+        ["output"] = noise.Density,
     };
 }
