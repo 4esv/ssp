@@ -1,0 +1,22 @@
+@* NOTE: A panel stays where the page declares it, and the layout gives it its place. A move does not make
+   its components again, so they keep their state. *@
+@if (Layout.Body(Id) is { } body)
+{
+    <section class="dock-panel" role="tabpanel" data-panel="@Id" aria-label="@Title" style="@body.Style" hidden="@(!body.Shown)">
+        @ChildContent
+    </section>
+}
+
+@code {
+    [CascadingParameter] public DockLayout Layout { get; set; } = default!;
+
+    /// <summary>The name of the panel in the dock tree.</summary>
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+
+    /// <summary>The text of the tab.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    protected override void OnParametersSet() => Layout.Register(Id, Title);
+}
