@@ -45,6 +45,26 @@ public class EditorPageTests : BunitContext
     }
 
     [Fact]
+    public void BodePlotShowsDbAndPhase()
+    {
+        var page = Run(Fixture("rc-lowpass.cir"));
+
+        var labels = page.FindAll(".bode svg.line-chart text.axis-label.y").Select(t => t.TextContent).ToList();
+        Assert.Equal(["Magnitude (dB)", "Phase (°)"], labels);
+        Assert.NotEmpty(page.FindAll(".bode svg.line-chart path.series"));
+    }
+
+    [Fact]
+    public void ImpedancePlotShowsInputAndOutput()
+    {
+        var page = Run(Fixture("rc-lowpass.cir"));
+
+        var chart = page.Find(".impedance svg.line-chart");
+        Assert.Equal("Impedance (Ω)", chart.QuerySelector("text.axis-label.y")!.TextContent);
+        Assert.Equal(["input", "output"], chart.QuerySelectorAll("path.series title").Select(t => t.TextContent));
+    }
+
+    [Fact]
     public void ErrorShowsNoTable()
     {
         var page = Run(Fixture("diag-no-ground.cir"));
@@ -53,5 +73,6 @@ public class EditorPageTests : BunitContext
         Assert.Contains("error", item.ClassList);
         Assert.StartsWith("Error", item.TextContent.Trim());
         Assert.Empty(page.FindAll("table.voltages"));
+        Assert.Empty(page.FindAll("svg.line-chart"));
     }
 }
