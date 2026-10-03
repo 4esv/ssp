@@ -6,6 +6,7 @@ using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
 using SpiceSharp.Components;
 using LayoutDoc = Ssp.Core.Layout.Layout;
+using Point = Ssp.Core.Layout.Point;
 
 namespace Ssp.Web.Schematic;
 
@@ -73,17 +74,39 @@ public static class SchematicRenderer
             .ToString();
     }
 
+    /// <summary>
+    /// The schematic position of each pin of a placed component, in node order. A component with a symbol uses the
+    /// symbol pins. Other components use the pins of the fallback box.
+    /// </summary>
+    public static IReadOnlyList<Point> Pins(IComponent component, PartPlacement placement, PartRow? row)
+    {
+        var count = component.Nodes.Count;
+        IEnumerable<(double X, double Y)> local = Symbol(row) is { } symbol && symbol.Pins.Count == count
+            ? symbol.Pins.Select(p => ((double)p.X, (double)p.Y))
+            : Enumerable.Range(0, count).Select(i => (i % 2 == 0 ? 0.0 : 60.0, 2.0 * Symbols.Grid * (i / 2)));
+        return local.Select(p => Place(placement, p.X, p.Y)).Select(p => new Point(Math.Round(p.X, 2) + 0.0, Math.Round(p.Y, 2) + 0.0)).ToList();
+    }
+
     readonly record struct Box(double X, double Y, double W, double H);
+
+    // NOTE: The symbol pins are in node order. Pins uses the fallback pins when the symbol has a different pin count.
+    static Symbol? Symbol(PartRow? row)
+    {
+        if (row is null) return null;
+        try
+        {
+            return Symbols.For(row.Kind);
+        }
+        catch (KeyNotFoundException)
+        {
+            return null;
+        }
+    }
 
     // The symbol content without its outer svg element, and its view box.
     static (string Inner, Box Box) Drawing(PartRow? row, int pins)
     {
-        Symbol? symbol = null;
-        if (row is not null)
-        {
-            try { symbol = Symbols.For(row.Kind); }
-            catch (KeyNotFoundException) { }
-        }
+        var symbol = Symbol(row);
         if (symbol is null) return Fallback(pins);
 
         var svg = symbol.Svg;

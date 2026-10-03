@@ -81,3 +81,37 @@ body {
     max-width: 100%;
     height: auto;
 }
+
+/* NOTE: The pin layer has the same view box as the schematic, so it sits on the pins. */
+.schematic-editor .schematic {
+    position: relative;
+}
+
+.schematic svg.schematic-pins {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.schematic-pins .pin {
+    fill: transparent;
+    stroke: currentColor;
+    stroke-width: 1;
+    cursor: pointer;
+}
+
+.schematic-pins .pin:hover,
+.schematic-pins .pin.pending {
+    fill: currentColor;
+}
+
+.schematic-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.schematic-tools [aria-pressed="true"] {
+    font-weight: bold;
+}
