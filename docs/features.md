@@ -48,7 +48,7 @@ Status values: planned, in progress, done.
 | core | KiCad export | planned |
 | web | Schematic SVG and PDF export | planned |
 | core | Blocks library | planned |
-| core | Calculators | planned |
+| core | Calculators | done |
 | web | Calculator write-back | planned |
 | repo | Public circuit library | planned |
 | core | Noise analysis | planned |
