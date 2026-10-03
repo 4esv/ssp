@@ -4,7 +4,7 @@ Status values: planned, in progress, done.
 
 | Area | Feature | Status |
 |---|---|---|
-| core | Load a SPICE netlist | planned |
+| core | Load a SPICE netlist | done |
 | core | ssp directives | planned |
 | core | Operating point | planned |
 | core | Frequency response | planned |
