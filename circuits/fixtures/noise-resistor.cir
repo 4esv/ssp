@@ -1,0 +1,8 @@
+* ssp:title Resistor noise
+* ssp:input out
+* ssp:output out
+* Thermal noise of R1: density = sqrt(4kTR)
+* = sqrt(4 * 1.380649e-23 J/K * 300.15 K * 1k) = 4.071 nV/sqrt(Hz)
+I1 0 out 0 AC 1
+R1 out 0 1k
+.END
