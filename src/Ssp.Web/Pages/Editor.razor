@@ -13,7 +13,10 @@
 
 <div class="editor-split">
     <textarea @bind="netlist" @bind:event="oninput" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
-    <SchematicView Netlist="@netlist" />
+    <div class="schematic-pane">
+        <SchematicView Netlist="@netlist" />
+        <DcOverlay OperatingPoint="@result?.OperatingPoint" />
+    </div>
 </div>
 
 <button @onclick="Run" disabled="@running">Run</button>
