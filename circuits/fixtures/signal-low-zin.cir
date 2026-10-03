@@ -1,0 +1,10 @@
+* ssp:title Divider with a low input impedance
+* ssp:input in
+* ssp:output out
+* Input impedance: Zin = R1 + R2 = 1k + 9k = 10 kOhm, below 100 kOhm
+* Output impedance: Zout = R1 || R2 = 1k * 9k / (1k + 9k) = 900 Ohm, below 10 kOhm
+* Gain: R2 / (R1 + R2) = 0.9, so a 2 V peak input gives a 1.8 V peak output
+V1 in 0 0
+R1 in out 1k
+R2 out 0 9k
+.END
