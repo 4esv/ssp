@@ -6,10 +6,11 @@ Real-time factor = seconds of audio simulated / seconds of wall time.
 ## Circuit
 
 A discrete clipper: a BJT gain stage into a silicon diode clipper.
+The netlist is [`circuits/fixtures/clipper-bjt-si.cir`](../circuits/fixtures/clipper-bjt-si.cir).
 
 | Stage | Parts |
 |---|---|
-| Gain stage | BJT common-emitter booster. Gummel-Poon model, 2N-style, BetaF 300. |
+| Gain stage | BJT common-emitter booster. Gummel-Poon model, generic textbook values, BF 300. |
 | Coupling | 1 uF capacitor. |
 | Clipper | Antiparallel silicon diode pair over 10k. |
 | Low-pass filter | 4k7 series resistor, 10n capacitor. |
@@ -22,11 +23,13 @@ A discrete clipper: a BJT gain stage into a silicon diode clipper.
 | Input | Sine, 0.3 V peak, 440 Hz |
 | Time step | 1/44100 s (44.1 kHz) |
 | Runtime | Native .NET 9, Apple Silicon, warm JIT |
-| Output peak | 0.489 V |
+| Output peak | 0.639 V (`Analyses.Render` in the .NET 10 test run, oversample 1 and 4, last 100 ms of 200 ms) |
 
 The benchmark program is not in the repository yet. `scripts/bench.sh` will add it.
 
 ## Results
+
+The real-time factors below were measured before `clipper-bjt-si.cir` was written. They are not measured on it yet.
 
 | Platform | Method | Sample rate | Real-time factor |
 |---|---|---|---|
