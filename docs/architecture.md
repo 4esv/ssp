@@ -15,7 +15,7 @@ Hearing the circuit is a core feature, not an extra. The CLI writes the audio to
 |---|---|
 | `Ssp.Core` | Loads circuits, runs analyses, and makes results. It references the engine packages. |
 | `Ssp.Cli` | The `ssp` command. It reads files, calls `Ssp.Core`, and writes text or JSON. |
-| `Ssp.Web` | A static Blazor WebAssembly app. It calls `Ssp.Core` in the browser. |
+| `Ssp.Web` | A static Blazor WebAssembly app. It calls `Ssp.Core` in the browser through a simulation host. |
 
 `Ssp.Cli` and `Ssp.Web` do not reference each other.
 Only `Ssp.Core` references the engine packages.
@@ -37,7 +37,16 @@ Only `Ssp.Core` references the engine packages.
 The web app is a set of static files. No server runs simulations.
 All simulations run in the browser of the user.
 
+## Host boundary
+
+The UI calls `ISimulationHost` in `Ssp.Web.Hosting`. The UI does not call `Ssp.Core` directly.
+The interface has `Run`, `Render`, `Sweep` and `Versions`. Each method returns a `Task`.
+`Program.cs` registers the host for dependency injection. Components get the host with `@inject`.
+`InProcessSimulationHost` calls `Ssp.Core` on the calling thread. In the browser, a long run blocks the page.
+`InProcessSimulationHost.Render` throws `NotSupportedException` until `Ssp.Core` has a transient render (#7).
+No `.razor` file names `Ssp.Core`.
+
 ## Worker boundary (planned)
 
 Long simulations will run in a Web Worker so that the page continues to respond.
-The UI will call a simulation host interface. The UI will not call `Ssp.Core` directly.
+`WorkerSimulationHost` will implement `ISimulationHost`. The UI will not change.

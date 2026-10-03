@@ -1,7 +1,14 @@
 @page "/"
+@inject ISimulationHost Host
 
 <PageTitle>ssp</PageTitle>
 
 <h1>ssp</h1>
 
-<pre>@string.Join("\n", EngineInfo.VersionLines())</pre>
+<pre>@string.Join("\n", versions)</pre>
+
+@code {
+    IReadOnlyList<string> versions = [];
+
+    protected override async Task OnInitializedAsync() => versions = await Host.Versions();
+}
