@@ -51,7 +51,7 @@ Status values: planned, in progress, done.
 | core | Calculators | done |
 | web | Calculator write-back | planned |
 | repo | Public circuit library | planned |
-| core | Noise analysis | planned |
+| core | Noise analysis | done |
 | models | LED part | done |
 | models | Vactrol part | done |
 | models | Transformer part | done |
