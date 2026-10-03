@@ -139,4 +139,42 @@ public class EditorPageTests : BunitContext
         Assert.Empty(page.FindAll("table.voltages"));
         Assert.Empty(page.FindAll("svg.line-chart"));
     }
+
+    [Fact]
+    public void SchematicShowsNextToEditor()
+    {
+        Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
+        var page = Render<Editor>();
+
+        page.Find("textarea").Input(Fixture("divider-basic.cir"));
+
+        var split = page.Find(".editor-split");
+        Assert.NotNull(split.QuerySelector("textarea"));
+        var svg = split.QuerySelector(".schematic svg");
+        Assert.NotNull(svg);
+        Assert.Equal(["R1", "R2", "V1"], svg!.QuerySelectorAll("g[data-ref]").Select(g => g.GetAttribute("data-ref")));
+    }
+
+    [Fact]
+    public void SchematicUsesTheShippedPartsTable()
+    {
+        Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
+        var page = Render<Editor>();
+
+        page.Find("textarea").Input("* ssp:part D1 1N4148\nV1 a 0 5\nD1 a b DGEN\nR1 b 0 1k\n.MODEL DGEN D\n.END\n");
+
+        // NOTE: The diode symbol path. A reference with no part is a box.
+        Assert.Contains("M20 -10V10L40 0Z", page.Find(".schematic g[data-ref=\"D1\"]").InnerHtml);
+    }
+
+    [Fact]
+    public void BadNetlistShowsNoSchematic()
+    {
+        Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
+        var page = Render<Editor>();
+
+        page.Find("textarea").Input("R1 a\n.END\n");
+
+        Assert.Empty(page.FindAll(".schematic svg"));
+    }
 }

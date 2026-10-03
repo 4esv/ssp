@@ -1,0 +1,42 @@
+@using Ssp.Core.Layout
+@using Ssp.Core.Netlist
+@using Ssp.Core.Parts
+@using Ssp.Web.Schematic
+@using SpiceComponent = SpiceSharp.Components.IComponent
+
+<figure class="schematic" aria-label="Schematic">
+    @if (Svg() is { } svg)
+    {
+        @((MarkupString)svg)
+    }
+</figure>
+
+@code {
+    // NOTE: Same spacing for each part. The widest symbol is 80 wide.
+    const double Step = 100;
+
+    static readonly PartsTable Table = LoadParts();
+
+    [Parameter] public string Netlist { get; set; } = "";
+
+    string? Svg()
+    {
+        var circuit = NetlistLoader.Load(Netlist);
+        if (circuit.Diagnostics.Any(d => d.Severity == Severity.Error)) return null;
+        var references = circuit.Circuit.OfType<SpiceComponent>().Select(c => c.Name).ToList();
+        if (references.Count == 0) return null;
+        return SchematicRenderer.ToSvg(circuit, RowLayout(references), PartMap.Resolve(circuit, Table));
+    }
+
+    // TODO: Use the auto-placer from #35. Until then, the parts are in one row in netlist order, with no wires.
+    static Ssp.Core.Layout.Layout RowLayout(IReadOnlyList<string> references) =>
+        new(references.Select((r, i) => new PartPlacement(r, i * Step, 0, 0, false)).ToList(), []);
+
+    static PartsTable LoadParts()
+    {
+        // NOTE: The app is static. The build embeds models/parts.toml in this assembly.
+        using var stream = typeof(SchematicView).Assembly.GetManifestResourceStream("parts.toml")!;
+        using var reader = new StreamReader(stream);
+        return Ssp.Core.Parts.Parts.Parse(reader.ReadToEnd(), "parts.toml");
+    }
+}
