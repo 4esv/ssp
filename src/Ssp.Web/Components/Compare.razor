@@ -1,0 +1,125 @@
+@using Ssp.Core
+@using Ssp.Core.Netlist
+@using SpiceSharp.Components
+@inject ISimulationHost Host
+
+<section class="compare">
+    <h2>Compare values</h2>
+
+    <select class="part" @bind="part" aria-label="Part">
+        @foreach (var reference in parts)
+        {
+            <option value="@reference">@reference</option>
+        }
+    </select>
+    <input class="values" @bind="values" @bind:event="oninput" placeholder="1k, 4k7, 10k" aria-label="Values" />
+    <button class="compare" @onclick="Run" disabled="@(running || parts.Count == 0)">Compare</button>
+
+    @if (diagnostics.Count > 0)
+    {
+        <ul class="diagnostics">
+            @foreach (var d in diagnostics)
+            {
+                <li class="@d.Severity.ToString().ToLowerInvariant()">@d.Severity: @d.Message</li>
+            }
+        </ul>
+    }
+
+    @if (magnitude.Count > 0)
+    {
+        <div class="magnitude">
+            <LineChart X="frequencies" Series="magnitude" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
+        </div>
+        <div class="phase">
+            <LineChart X="frequencies" Series="phase" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
+        </div>
+    }
+</section>
+
+@code {
+    /// <summary>The netlist to run. The part list comes from it.</summary>
+    [Parameter, EditorRequired] public string Netlist { get; set; } = "";
+
+    string? loadedNetlist;
+    List<string> parts = [];
+    string part = "";
+    string values = "";
+    bool running;
+    List<Diagnostic> diagnostics = [];
+    IReadOnlyList<double> frequencies = [];
+    Dictionary<string, IReadOnlyList<double>> magnitude = [];
+    Dictionary<string, IReadOnlyList<double>> phase = [];
+
+    protected override void OnParametersSet()
+    {
+        if (Netlist == loadedNetlist)
+        {
+            return;
+        }
+        loadedNetlist = Netlist;
+
+        // NOTE: Only a resistor, capacitor or inductor value changes the frequency response.
+        parts = NetlistLoader.Load(Netlist).Circuit
+            .Where(e => e is Resistor or Capacitor or Inductor)
+            .Select(e => e.Name)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        if (!parts.Contains(part))
+        {
+            part = parts.FirstOrDefault() ?? "";
+        }
+    }
+
+    async Task Run()
+    {
+        diagnostics = [];
+        magnitude = [];
+        phase = [];
+
+        var texts = values.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Distinct().ToList();
+        if (texts.Count == 0)
+        {
+            diagnostics.Add(new Diagnostic(Severity.Error, "Type one or more values, for example 1k, 4k7, 10k.", null));
+            return;
+        }
+
+        var overrides = new List<double>();
+        foreach (var text in texts)
+        {
+            try
+            {
+                overrides.Add(Overrides.Parse($"{part}={text}").Value);
+            }
+            catch (FormatException e)
+            {
+                diagnostics.Add(new Diagnostic(Severity.Error, e.Message, null));
+            }
+        }
+        if (diagnostics.Count > 0)
+        {
+            return;
+        }
+
+        running = true;
+        var sweep = await Host.Sweep(Netlist, part, overrides, new RunOptions());
+        running = false;
+
+        diagnostics = sweep.Series.SelectMany(s => s.Result.Diagnostics).Distinct().ToList();
+        // NOTE: The output node is the ssp:output node, or "out". Analyses.Impedance uses the same rule.
+        var output = NetlistLoader.Load(Netlist).Directives.Output ?? "out";
+        for (var i = 0; i < texts.Count; i++)
+        {
+            if (sweep.Series[i].Result.FrequencyResponse is not { } ac || !ac.MagnitudeDb.ContainsKey(output))
+            {
+                continue;
+            }
+            frequencies = ac.Frequencies;
+            magnitude[$"{part} = {texts[i]}"] = ac.MagnitudeDb[output];
+            phase[$"{part} = {texts[i]}"] = ac.PhaseDegrees[output];
+        }
+        if (magnitude.Count == 0 && !diagnostics.Any(d => d.Severity == Severity.Error))
+        {
+            diagnostics.Add(new Diagnostic(Severity.Error, $"The output node {output} has no frequency response.", null));
+        }
+    }
+}
