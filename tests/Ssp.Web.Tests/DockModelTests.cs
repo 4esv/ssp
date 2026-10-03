@@ -80,7 +80,7 @@ public class DockModelTests
 
         model.MoveToNextGroup("knobs");
 
-        Assert.Equal("row(0.5 tabs(text*, knobs), 0.5 column(0.5 tabs(schematic*), 0.5 tabs(plots*)))", model.ToString());
+        Assert.Equal("row(0.5 tabs(text, knobs*), 0.5 column(0.5 tabs(schematic*), 0.5 tabs(plots*)))", model.ToString());
         AssertEachPanelOnce(model);
     }
 
