@@ -50,7 +50,7 @@ Status values: planned, in progress, done.
 | core | Blocks library | done |
 | core | Calculators | done |
 | web | Calculator write-back | planned |
-| repo | Public circuit library | planned |
+| repo | Public circuit library | done |
 | core | Noise analysis | done |
 | models | LED part | done |
 | models | Vactrol part | done |

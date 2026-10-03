@@ -30,6 +30,16 @@ jobs:
       - run: dotnet test -c Release --no-build
 
       - if: matrix.os == 'ubuntu-latest'
+        name: Run each library circuit
+        run: |
+          set -euo pipefail
+          for f in circuits/library/*; do
+            echo "::group::ssp run $f"
+            dotnet run -c Release --no-build --project src/Ssp.Cli -- run "$f"
+            echo "::endgroup::"
+          done
+
+      - if: matrix.os == 'ubuntu-latest'
         run: dotnet publish src/Ssp.Web -c Release -o publish
 
       - if: matrix.os == 'ubuntu-latest'
