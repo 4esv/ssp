@@ -45,9 +45,11 @@ public class OpAmpModelTests
     {
         var loaded = Buffer(name, file, 0);
 
-        var result = Analyses.FrequencyResponse(loaded, new DecadeSweep(1000, 1000, 1));
+        // A sweep needs start < stop. Ten points per decade from 100 Hz put a point at 1 kHz.
+        var result = Analyses.FrequencyResponse(loaded, new Ssp.Core.Analysis.DecadeSweep(100, 10_000, 10));
 
-        Assert.InRange(result.MagnitudeDb["out"][0], -0.1, 0.1);
+        var at1k = result.Frequencies.ToList().FindIndex(f => Math.Abs(f - 1000) < 1);
+        Assert.InRange(result.MagnitudeDb["out"][at1k], -0.1, 0.1);
     }
 
     [Theory]
@@ -108,21 +110,29 @@ public class OpAmpModelTests
         var samples = Square(name, file);
 
         // The largest slope of the output is the slew rate. A 3 MHz amplifier without a limit would reach 94 V/us.
+        // The solver takes steps of less than 1 ns at the pulse edge. Over such a step, an error inside the voltage tolerance
+        // looks like a large slope. So measure each slope over at least 100 ns.
         var maxSlope = 0.0;
-        for (var i = 1; i < samples.Count; i++)
+        for (var i = 0; i < samples.Count; i++)
         {
-            var dt = samples[i].T - samples[i - 1].T;
-            if (dt > 0)
+            var j = samples.FindIndex(i, s => s.T - samples[i].T >= 100e-9);
+            if (j > 0)
             {
-                maxSlope = Math.Max(maxSlope, Math.Abs(samples[i].V - samples[i - 1].V) / dt);
+                maxSlope = Math.Max(maxSlope, Math.Abs(samples[j].V - samples[i].V) / (samples[j].T - samples[i].T));
             }
         }
         Assert.InRange(maxSlope, 0.9 * slew, 1.1 * slew);
 
-        // The 10% to 90% rise takes 0.8 * 5 V / SR.
-        double Cross(double level) => samples.First(s => s.T > 10e-6 && s.V >= level).T;
-        var rise = 0.8 * 5.0 / slew;
-        Assert.InRange(Cross(4.5) - Cross(0.5), 0.9 * rise, 1.1 * rise);
+        // The rise from 1 V to 2.5 V takes 1.5 V / SR. Near 5 V the error signal is small and the stage is not slewing,
+        // so a 10% to 90% rise is longer than 0.8 * 5 V / SR. The solver takes long steps on a ramp, so interpolate each crossing.
+        double Cross(double level)
+        {
+            var k = samples.FindIndex(s => s.T > 10e-6 && s.V >= level);
+            var (a, b) = (samples[k - 1], samples[k]);
+            return a.T + (level - a.V) * (b.T - a.T) / (b.V - a.V);
+        }
+        var rise = 1.5 / slew;
+        Assert.InRange(Cross(2.5) - Cross(1.0), 0.9 * rise, 1.1 * rise);
     }
 
     [Theory]
