@@ -139,8 +139,9 @@ public static class Program
     }
 
     /// <summary>
-    /// <c>ssp render file.cir --in a.wav --out b.wav [--oversample N]</c>. Renders each channel of the input through the netlist
-    /// and writes a 24-bit WAV file with the same sample rate and length. Exits with 1 when a file is missing or the render fails.
+    /// <c>ssp render file.cir --in a.wav --out b.wav [--oversample N] [--ir cab.wav]</c>. Renders each channel of the input through
+    /// the netlist, convolves it with the first channel of the impulse response when one is given, and writes a 24-bit WAV file with
+    /// the same sample rate and length. Exits with 1 when a file is missing, the sample rates differ, or the render fails.
     /// </summary>
     private static Command RenderCommand()
     {
@@ -152,14 +153,19 @@ public static class Program
             Description = "The number of solver steps for each sample.",
             DefaultValueFactory = _ => 1,
         };
+        var irFile = new Option<FileInfo?>("--ir")
+        {
+            Description = "An impulse response WAV file, for example a cabinet. The output is convolved with it.",
+        };
 
-        var command = new Command("render", "Render a WAV file through a netlist.") { file, input, output, oversample };
+        var command = new Command("render", "Render a WAV file through a netlist.") { file, input, output, oversample, irFile };
         command.SetAction(parseResult =>
         {
             var error = parseResult.InvocationConfiguration.Error;
             var path = parseResult.GetValue(file)!;
             var inPath = parseResult.GetValue(input)!;
-            foreach (var f in new[] { path, inPath })
+            var irPath = parseResult.GetValue(irFile);
+            foreach (var f in new[] { path, inPath, irPath }.OfType<FileInfo>())
             {
                 if (!f.Exists)
                 {
@@ -192,9 +198,27 @@ public static class Program
                     wav = Wav.Read(stream);
                 }
 
+                double[]? ir = null;
+                if (irPath is not null)
+                {
+                    using var stream = irPath.OpenRead();
+                    var irWav = Wav.Read(stream);
+                    if (irWav.SampleRate != wav.SampleRate)
+                    {
+                        error.WriteLine(
+                            $"Impulse response sample rate {irWav.SampleRate} Hz is not the input sample rate {wav.SampleRate} Hz.");
+                        return 1;
+                    }
+
+                    ir = irWav.Channels[0];
+                }
+
                 rendered = wav with
                 {
-                    Channels = wav.Channels.Select(c => Analyses.Render(circuit, c, wav.SampleRate, factor)).ToArray(),
+                    Channels = wav.Channels
+                        .Select(c => Analyses.Render(circuit, c, wav.SampleRate, factor))
+                        .Select(c => ir is null ? c : Convolution.Convolve(c, ir)[..c.Length])
+                        .ToArray(),
                 };
             }
             catch (Exception e) when (e is InvalidDataException or NotSupportedException or InvalidOperationException
