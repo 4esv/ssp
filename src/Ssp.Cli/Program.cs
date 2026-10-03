@@ -1,5 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.Text;
+using System.Text.Json;
 using Ssp.Core;
 using Ssp.Core.Netlist;
 
@@ -24,6 +26,7 @@ public static class Program
         }
 
         root.Subcommands.Add(RunCommand(output));
+        root.Subcommands.Add(SweepCommand(output));
 
         return root.Parse(args).Invoke(new InvocationConfiguration { Output = output });
     }
@@ -73,6 +76,104 @@ public static class Program
         });
 
         return command;
+    }
+
+    /// <summary>
+    /// <c>ssp sweep file.cir --set R1=4k7,10k,22k [--json]</c>. Runs once for each value and gives one series for each run.
+    /// Exits with 1 when a diagnostic in a run has severity error.
+    /// </summary>
+    private static Command SweepCommand(TextWriter output)
+    {
+        var file = new Argument<FileInfo>("file") { Description = "The netlist to run." };
+        var json = new Option<bool>("--json") { Description = "Print the series as JSON." };
+        var set = new Option<string>("--set")
+        {
+            Description = "The part and its values, for example R1=4k7,10k,22k.",
+            Required = true,
+        };
+
+        var command = new Command("sweep", "Run a netlist once for each value of a part.") { file, json, set };
+        command.SetAction(parseResult =>
+        {
+            var path = parseResult.GetValue(file)!;
+            if (!path.Exists)
+            {
+                parseResult.InvocationConfiguration.Error.WriteLine($"File {path.FullName} does not exist.");
+                return 1;
+            }
+
+            string part;
+            List<(string Text, Override Override)> values;
+            try
+            {
+                (part, values) = ParseSweep(parseResult.GetValue(set)!);
+            }
+            catch (FormatException e)
+            {
+                parseResult.InvocationConfiguration.Error.WriteLine(e.Message);
+                return 1;
+            }
+
+            var netlist = File.ReadAllText(path.FullName);
+            var runs = values
+                .Select(v => (v.Text, v.Override, Result: Runner.Run(netlist, new RunOptions(overrides: [v.Override]))))
+                .ToList();
+
+            var text = parseResult.GetValue(json)
+                ? SweepJson(part, runs)
+                : string.Join(Environment.NewLine, runs.Select(r => $"{part} = {r.Text}{Environment.NewLine}{Report.Render(r.Result)}"));
+            output.Write(text);
+            if (!text.EndsWith('\n'))
+            {
+                output.WriteLine();
+            }
+
+            return runs.Any(r => r.Result.Diagnostics.Any(d => d.Severity == Severity.Error)) ? 1 : 0;
+        });
+
+        return command;
+    }
+
+    /// <summary>Parses <c>R1=4k7,10k,22k</c> into the part and one override for each value.</summary>
+    private static (string Part, List<(string Text, Override Override)> Values) ParseSweep(string text)
+    {
+        var parts = text.Split('=');
+        if (parts.Length != 2 || parts[0].Trim().Length == 0 || parts[1].Trim().Length == 0)
+        {
+            throw new FormatException($"Sweep '{text}' must have the form REF=VALUE,VALUE,...");
+        }
+
+        var part = parts[0].Trim();
+        var values = parts[1].Split(',')
+            .Select(v => v.Trim())
+            .Select(v => (v, Overrides.Parse($"{part}={v}")))
+            .ToList();
+        return (part, values);
+    }
+
+    private static string SweepJson(string part, List<(string Text, Override Override, RunResult Result)> runs)
+    {
+        using var stream = new MemoryStream();
+        using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
+        {
+            w.WriteStartObject();
+            w.WriteString("part", part);
+            w.WriteStartArray("series");
+            foreach (var run in runs)
+            {
+                w.WriteStartObject();
+                w.WriteString("value", run.Text);
+                w.WriteNumber("number", run.Override.Value);
+                w.WritePropertyName("result");
+                w.WriteRawValue(run.Result.ToJson());
+                w.WriteEndObject();
+            }
+
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
 
     private sealed class PrintVersion(TextWriter output) : SynchronousCommandLineAction
