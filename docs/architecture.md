@@ -23,11 +23,14 @@ Only `Ssp.Core` references the engine packages.
 ## Data flow
 
 1. The user gives a netlist (`.cir`) and, as an option, a layout file (`<name>.layout.toml`).
-2. `Ssp.Core` loads the netlist into an engine circuit.
-3. `Ssp.Core` runs the analyses and the diagnostic rules.
-4. `Ssp.Core` renders an audio clip through the circuit.
-5. `Ssp.Core` returns one result object.
-6. `Ssp.Cli` writes the result as text or JSON and the audio as WAV. `Ssp.Web` shows the result and plays the audio.
+2. `Runner.Run` loads the netlist into an engine circuit.
+3. `Runner.Run` sets the overrides from `RunOptions`.
+4. `Runner.Run` checks the circuit with the diagnostic rules. An error from the loader, the overrides or the rules stops the pipeline here. The analyses do not run.
+5. `Runner.Run` runs the operating point. A solver failure gives a diagnostic and stops the pipeline.
+6. `Runner.Run` runs the frequency response and the impedance over the sweep from `RunOptions`.
+7. `Runner.Run` returns one `RunResult`. It holds each analysis, the diagnostics and the time of each section in milliseconds. An analysis that did not run is null.
+8. `Ssp.Core` renders an audio clip through the circuit.
+9. `Ssp.Cli` writes the result as text or JSON and the audio as WAV. `Ssp.Web` shows the result and plays the audio.
 
 ## No backend
 
