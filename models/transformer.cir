@@ -1,0 +1,12 @@
+* provenance: Ideal two-winding transformer, coupled inductors with a turns ratio; no manufacturer part; ideal-coupling model, k below 1 sets the loss
+* fit: Vs/Vp = n at 1 kHz within 1% for a 100 kOhm load; n = Ns/Np
+* author: ssp contributors
+* license: MIT
+* WARNING: SpiceSharpParser 3.4.1 does not prefix inductor names in K lines inside a subcircuit,
+* so K1 names X1.L1 and X1.L2 and the instance must be called X1 until the loader handles it.
+* Pins: p1 p2 = primary, s1 s2 = secondary. Parameters: n = turns ratio Ns/Np, lp = primary inductance.
+.subckt transformer p1 p2 s1 s2 params: n=1 lp=10 k=0.9999
+L1 p1 p2 {lp}
+L2 s1 s2 {lp*n*n}
+K1 X1.L1 X1.L2 {k}
+.ends transformer
