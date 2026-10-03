@@ -1,7 +1,9 @@
 using Bunit;
+using Bunit.TestDoubles;
 using Microsoft.Extensions.DependencyInjection;
 using Ssp.Web.Hosting;
 using Ssp.Web.Pages;
+using Ssp.Web.Sharing;
 
 namespace Ssp.Web.Tests;
 
@@ -42,6 +44,49 @@ public class EditorPageTests : BunitContext
         Assert.StartsWith("Warning", item.TextContent.Trim());
         Assert.Contains("R3", item.TextContent);
         Assert.NotEmpty(page.FindAll("table.voltages tbody tr"));
+    }
+
+    IRenderedComponent<Editor> Open(string hash)
+    {
+        Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
+        Services.GetRequiredService<BunitNavigationManager>().NavigateTo("editor#" + hash);
+        return Render<Editor>();
+    }
+
+    [Fact]
+    public void HashLoadsNetlistIntoEditor()
+    {
+        var netlist = Fixture("divider-basic.cir");
+
+        var page = Open(ShareCodec.Encode(netlist));
+
+        // NOTE: A textarea value has LF line endings. A Windows checkout gives CRLF fixtures.
+        Assert.Equal(netlist.Replace("\r\n", "\n"), page.Find("textarea").GetAttribute("value"));
+        Assert.Empty(page.FindAll("ul.diagnostics li"));
+    }
+
+    [Fact]
+    public void BadHashShowsDiagnosticAndEmptyEditor()
+    {
+        var page = Open("not-a-netlist");
+
+        Assert.Equal("", page.Find("textarea").GetAttribute("value"));
+        var item = Assert.Single(page.FindAll("ul.diagnostics li"));
+        Assert.Contains("error", item.ClassList);
+        Assert.Contains("share link", item.TextContent);
+    }
+
+    [Fact]
+    public void ShareLinkCarriesNetlist()
+    {
+        var netlist = Fixture("divider-basic.cir");
+        Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
+        var page = Render<Editor>();
+
+        page.Find("textarea").Input(netlist);
+
+        var href = page.Find("a.share").GetAttribute("href")!;
+        Assert.Equal(netlist, ShareCodec.Decode(href[(href.IndexOf('#') + 1)..]));
     }
 
     [Fact]
