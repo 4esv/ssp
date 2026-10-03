@@ -9,6 +9,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <!-- NOTE: The app is static. The gallery reads the library circuits from the assembly. -->
+    <EmbeddedResource Include="..\..\circuits\library\*" LogicalName="library/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Ssp.Core\Ssp.Core.csproj" />
   </ItemGroup>
 </Project>

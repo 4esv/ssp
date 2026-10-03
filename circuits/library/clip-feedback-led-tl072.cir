@@ -1,0 +1,53 @@
+* ssp:title Feedback LED clipper, TL072
+* source: original design in this repo, circuits/blocks/clip-feedback-led-tl072.cir
+* Small-signal gain: 1 + RF / RG = 1 + 100k / 4.7k = 22.3 (26.9 dB).
+* D1 and D2 (red LEDs) sit across RF. When the output swings more than about 1.95 V from ground they conduct and the gain falls to about 1.
+* The knee is soft because the LEDs share the feedback with RF.
+* Output swing stays near +-2 V, inside the TL072 swing of +-3 V on +-4.5 V rails (1.5 V rail drop).
+* Gain-leg high-pass: 1 / (2 pi * 4.7k * 1u) = 33.9 Hz.
+* Supply: the 9 V rail is modelled as VCC = +4.5 V and VEE = -4.5 V around signal ground. Ground stands for the 4.5 V reference
+*   of power-9v.cir. The op-amp models in models/ do not find a DC operating point on a 0 V to 9 V single supply.
+* ssp:input in
+* ssp:output out
+* provenance: TL07xx low-noise JFET-input operational amplifiers datasheet SLOS080W (revised July 2025), Texas Instruments, https://www.ti.com/lit/ds/symlink/tl072.pdf; values read from the datasheet, typical column, VS = +-15 V, TA = 25 C
+* fit: open-loop gain 200 V/mV (p15), GBW 5.25 MHz for D and P packages (3 MHz for NS and PS packages) (p15), slew rate 20 V/us at RL = 2 kOhm, CL = 100 pF (p16), output swing +-13.5 V at RL = 10 kOhm (1.5 V rail drop) (p15), input resistance 1e12 Ohm (p15); output resistance 200 Ohm is a typical value, not a sheet figure
+* author: 4esv
+* license: MIT
+
+* Pins: inp inn out vcc vee. Gain 200000 V/V, GBW 5.25E+06 Hz, slew rate 2E+07 V/s, rail drop 1.5 V.
+.subckt TL072 inp inn out vcc vee
+Rid inp inn 1E+12
+Bgm 0 x I={0.00121261*tanh(0.002*V(inp,inn)/0.00121261)}
+Rp x 0 1E+08
+Cc x 0 6.06305E-11
+Bclamp x 0 I={0.00121261*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bo o 0 V={V(x)}
+Rout o out 200
+Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))+V(vcc)-1.5-sqrt(((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))+0.000001))))}
+.ends TL072
+
+* provenance: generic 5 mm LED family typical Vf at IF = 10 mA, no single datasheet; values are UNVERIFIED against a manufacturer sheet (Kingbright WP7113 series is the nearest published family)
+* fit: Vf at IF = 10 mA: red 1.95 V, yellow 2.10 V, green 2.15 V, blue 3.00 V, white 3.10 V; N = 2
+* author: 4esv
+* license: MIT
+
+.model LED_RED D(Is=4.2555e-19 N=2)
+.model LED_YELLOW D(Is=2.3423e-20 N=2)
+.model LED_GREEN D(Is=8.9099e-21 N=2)
+.model LED_BLUE D(Is=6.5129e-28 N=2)
+.model LED_WHITE D(Is=9.4240e-29 N=2)
+
+V1 in 0 DC 0 AC 1
+VCC vcc 0 DC 4.5
+VEE vee 0 DC -4.5
+CIN in a 100n
+RB a 0 1Meg
+X1 a fb o vcc vee TL072
+RF o fb 100k
+D1 o fb LED_RED
+D2 fb o LED_RED
+RG fb g 4.7k
+CG g 0 1u
+COUT o out 10u
+RL out 0 100k
+.END
