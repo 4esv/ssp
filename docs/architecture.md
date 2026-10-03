@@ -78,10 +78,24 @@ The interface has `Run`, `Render`, `Sweep` and `Versions`. Each method returns a
 `InProcessSimulationHost.Render` throws `NotSupportedException` until `Ssp.Core` has a transient render (#7).
 No `.razor` file names `Ssp.Core`.
 
-## Worker boundary (planned)
+## Worker boundary (done)
 
-Long simulations will run in a Web Worker so that the page continues to respond.
-`WorkerSimulationHost` will implement `ISimulationHost`. The UI will not change.
+Long simulations run in a Web Worker so that the page continues to respond.
+`WorkerSimulationHost` implements `ISimulationHost`. `Program.cs` registers it. The UI did not change.
+
+| Part | Role |
+|---|---|
+| `Hosting/WorkerSimulationHost.cs` | Calls the page module through `IJSRuntime` and reads the JSON that comes back. |
+| `wwwroot/js/simulation-worker-client.js` | Starts the worker and posts the netlist and the input samples. The input moves to the worker as a transferred `Float64Array`. |
+| `wwwroot/js/simulation-worker.js` | Starts a second .NET runtime with `dotnet.create()` and calls the `[JSExport]` methods. |
+| `Hosting/WorkerExports.cs` | The `[JSExport]` methods. Each one returns JSON. |
+
+The worker uses the boot API of the `wasmbrowser` template on the `_framework` files of Ssp.Web. It does not use a second project.
+The page gives the worker the fingerprinted URL of `dotnet.js` from its import map, because a worker has no import map.
+The worker sets `globalThis.dotnetSidecar = true` before it imports `dotnet.js`. Without the flag, `dotnet.js` takes a worker that has `onmessage` for a runtime thread, and the start never ends.
+
+`Render` and `Versions` run in the worker. `Run` and `Sweep` stay on the calling thread: they take milliseconds, and Ssp.Web has no reader for the run result JSON yet.
+`WorkerHostTests` clicks the page during a render of about 10 s and measures the response. The [benchmarks](benchmarks.md#worker) have the numbers and the payload size.
 
 ### Worker block size
 
