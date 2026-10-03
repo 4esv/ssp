@@ -65,3 +65,27 @@ The browser output agrees with native `Analyses.Render` to 1 uV on each sample.
 | 0.1 s of audio | 366 ms (360 to 377) | 0.27x |
 
 The browser renders slower than real time. The wall time is linear in the length: 0.1 s takes 0.11 of the time of 1 s.
+
+## Worker
+
+`WorkerHostTests` renders through the Web Worker of the published Ssp.Web, clicks the page during the render, and records the payload size.
+Run it with `scripts/playwright.sh`. The test log shows the values at detailed verbosity.
+
+The conditions are the same as in [Browser](#browser): the same machine, browser, runtime, circuit and input. The render is 3 s of audio, oversample 1.
+The render time is from the post to the reply in the page. It includes the start of the second runtime in the worker.
+The click response is from the click to the click handler in the page.
+
+| Item | Value |
+|---|---|
+| Runs | 5. The values are the median, with the range. |
+| Render of 3 s of audio | 10414 ms (10373 to 10579) |
+| Click response during the render | 3.6 ms (3.1 to 7.9) |
+
+| Payload | Size |
+|---|---|
+| Request: netlist | 1121 bytes |
+| Request: input samples, `Float64Array`, transferred | 1058400 bytes (8 bytes for each sample) |
+| Response: output samples, JSON | 2563886 bytes (19.4 bytes for each sample) |
+
+The payload sizes are the same in each run.
+A test with the render on the page thread fails: the page handles the click only after the render.
