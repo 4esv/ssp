@@ -7,7 +7,7 @@ Status values: planned, in progress, done.
 | core | Load a SPICE netlist | done |
 | core | ssp directives | done |
 | core | Operating point | done |
-| core | Frequency response | planned |
+| core | Frequency response | done |
 | core | Input and output impedance | planned |
 | core | WAV read and write | done |
 | core | Transient render | planned |
