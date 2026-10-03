@@ -6,6 +6,7 @@
 | [file-format.md](file-format.md) | The circuit file and the layout file. |
 | [features.md](features.md) | Features and their status. |
 | [benchmarks.md](benchmarks.md) | Measured simulation speed. |
+| [schema/run-result.schema.json](schema/run-result.schema.json) | The JSON schema for a run result. |
 | [decisions/](decisions/) | Decision records. |
 
 ## Browser tests
