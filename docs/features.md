@@ -12,7 +12,7 @@ Status values: planned, in progress, done.
 | core | WAV read and write | done |
 | core | Transient render | planned |
 | core | Value overrides | done |
-| core | Diagnostics engine and structural rules | planned |
+| core | Diagnostics engine and structural rules | done |
 | core | Solver failure to diagnostic | planned |
 | core | Run pipeline | planned |
 | core | Result JSON schema | planned |
