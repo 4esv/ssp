@@ -1,0 +1,12 @@
+* ssp:title BJT driven into saturation
+* Hand calculation (assume Vbe = 0.7 V, Vce(sat) near 0.1 V):
+*   Ib      = (Vcc - Vbe) / RB = (9 - 0.7) / 10k = 0.83 mA
+*   BF * Ib = 200 * 0.83 mA = 166 mA
+*   Ic(max) = (Vcc - Vce(sat)) / RC = (9 - 0.1) / 10k = 0.89 mA
+*   BF * Ib is much more than Ic(max), so Q1 saturates and Vce is less than 0.3 V.
+.MODEL QGEN NPN (IS=1e-14 BF=200)
+VCC vcc 0 9
+RB vcc b 10k
+RC vcc c 10k
+Q1 c b 0 0 QGEN
+.END

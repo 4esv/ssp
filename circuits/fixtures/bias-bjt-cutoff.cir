@@ -1,0 +1,12 @@
+* ssp:title BJT with no base bias
+* Hand calculation (ignore base current):
+*   Vb = Vcc * R2 / (R1 + R2) = 9 * 10k / (1Meg + 10k) = 0.089 V
+*   Vbe = 0.089 V. Ic = IS * exp(Vbe / 25.85 mV) = 1e-14 * exp(3.44) = 3e-13 A, so Q1 is cut off.
+.MODEL QGEN NPN (IS=1e-14 BF=200)
+VCC vcc 0 9
+R1 vcc b 1Meg
+R2 b 0 10k
+RC vcc c 4.7k
+RE e 0 1k
+Q1 c b e 0 QGEN
+.END
