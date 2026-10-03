@@ -1,0 +1,166 @@
+@using System.Globalization
+
+<svg class="line-chart" viewBox="0 0 @Width @Height" width="@Width" height="@Height" role="img" aria-label="@($"{YLabel} against {XLabel}")">
+    <rect class="plot-area" x="@Left" y="@Top" width="@Num(PlotWidth)" height="@Num(PlotHeight)" />
+
+    @foreach (var (value, text) in xTicks)
+    {
+        var x = Num(MapX(value));
+        <g>
+            <line class="grid" x1="@x" y1="@Top" x2="@x" y2="@Num(Bottom)" />
+            <text class="tick x" x="@x" y="@Num(Bottom + 14)" text-anchor="middle">@text</text>
+        </g>
+    }
+    @foreach (var (value, text) in yTicks)
+    {
+        var y = Num(MapY(value));
+        <g>
+            <line class="grid" x1="@Left" y1="@y" x2="@Num(Right)" y2="@y" />
+            <text class="tick y" x="@(Left - 4)" y="@y" text-anchor="end" dominant-baseline="middle">@text</text>
+        </g>
+    }
+
+    @foreach (var (name, path, index) in paths)
+    {
+        <path class="series series-@index" d="@path" fill="none"><title>@name</title></path>
+    }
+
+    @if (paths.Count > 1)
+    {
+        @foreach (var (name, _, index) in paths)
+        {
+            <g class="legend">
+                <text class="series-@index" x="@Num(Right - 4)" y="@(Top + 12 + index * 12)" text-anchor="end">@name</text>
+            </g>
+        }
+    }
+
+    <text class="axis-label x" x="@Num(Left + PlotWidth / 2)" y="@(Height - 4)" text-anchor="middle">@XLabel (@XUnit)</text>
+    <text class="axis-label y" transform="translate(12 @Num(Top + PlotHeight / 2)) rotate(-90)" text-anchor="middle">@YLabel (@YUnit)</text>
+</svg>
+
+@code {
+    public const int Width = 480;
+    public const int Height = 240;
+    const int Left = 56;
+    const int Top = 8;
+    const double Right = Width - 12;
+    const double Bottom = Height - 40;
+    const double PlotWidth = Right - Left;
+    const double PlotHeight = Bottom - Top;
+
+    /// <summary>The x value of each point. Each series has the same length.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<double> X { get; set; } = [];
+
+    /// <summary>The y values of each series, keyed by series name.</summary>
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, IReadOnlyList<double>> Series { get; set; } = new Dictionary<string, IReadOnlyList<double>>();
+
+    [Parameter, EditorRequired] public string XLabel { get; set; } = "";
+    [Parameter, EditorRequired] public string XUnit { get; set; } = "";
+    [Parameter, EditorRequired] public string YLabel { get; set; } = "";
+    [Parameter, EditorRequired] public string YUnit { get; set; } = "";
+    [Parameter] public bool LogX { get; set; }
+    [Parameter] public bool LogY { get; set; }
+
+    (double Min, double Max) xRange;
+    (double Min, double Max) yRange;
+    List<(double Value, string Text)> xTicks = [];
+    List<(double Value, string Text)> yTicks = [];
+    List<(string Name, string Path, int Index)> paths = [];
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(XUnit) || string.IsNullOrWhiteSpace(YUnit))
+        {
+            throw new ArgumentException("Each axis label must have a unit.");
+        }
+
+        // NOTE: A log axis works in log10 space. Points that cannot go on the axis (zero, negative, NaN) are left out.
+        var xs = X.Select(v => Scale(v, LogX)).ToList();
+        var ys = Series.Values.SelectMany(s => s.Select(v => Scale(v, LogY))).Where(double.IsFinite).ToList();
+        xRange = Range(xs.Where(double.IsFinite));
+        yRange = Range(ys);
+        xTicks = Ticks(xRange, LogX);
+        yTicks = Ticks(yRange, LogY);
+
+        paths = Series.Select((kv, index) => (kv.Key, Path(xs, kv.Value), index)).ToList();
+    }
+
+    string Path(List<double> xs, IReadOnlyList<double> values)
+    {
+        var parts = new List<string>(xs.Count);
+        var command = "M";
+        for (var i = 0; i < Math.Min(xs.Count, values.Count); i++)
+        {
+            var y = Scale(values[i], LogY);
+            if (!double.IsFinite(xs[i]) || !double.IsFinite(y))
+            {
+                command = "M";
+                continue;
+            }
+            parts.Add($"{command}{Num(MapScaledX(xs[i]))} {Num(MapScaledY(y))}");
+            command = "L";
+        }
+        return string.Join(" ", parts);
+    }
+
+    static double Scale(double value, bool log) => log ? (value > 0 ? Math.Log10(value) : double.NaN) : value;
+
+    static (double, double) Range(IEnumerable<double> values)
+    {
+        var list = values.ToList();
+        if (list.Count == 0)
+        {
+            return (0, 1);
+        }
+        var (min, max) = (list.Min(), list.Max());
+        // NOTE: A flat series still needs a range, so the axis spans one unit around it.
+        return max - min < 1e-12 ? (min - 0.5, max + 0.5) : (min, max);
+    }
+
+    double MapX(double value) => MapScaledX(Scale(value, LogX));
+    double MapY(double value) => MapScaledY(Scale(value, LogY));
+    double MapScaledX(double scaled) => Left + (scaled - xRange.Min) / (xRange.Max - xRange.Min) * PlotWidth;
+    double MapScaledY(double scaled) => Bottom - (scaled - yRange.Min) / (yRange.Max - yRange.Min) * PlotHeight;
+
+    static List<(double, string)> Ticks((double Min, double Max) range, bool log)
+    {
+        if (log)
+        {
+            var decades = new List<(double, string)>();
+            for (var e = Math.Ceiling(range.Min - 1e-9); e <= range.Max + 1e-9; e++)
+            {
+                var value = Math.Pow(10, e);
+                decades.Add((value, Si(value)));
+            }
+            return decades;
+        }
+
+        // NOTE: Pick a step of 1, 2 or 5 times a power of ten that gives about five ticks.
+        var raw = (range.Max - range.Min) / 5;
+        var power = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        var step = new[] { 1.0, 2.0, 5.0, 10.0 }.Select(m => m * power).First(s => s >= raw);
+        var ticks = new List<(double, string)>();
+        for (var v = Math.Ceiling(range.Min / step - 1e-9) * step; v <= range.Max + step * 1e-9; v += step)
+        {
+            var rounded = Math.Abs(v) < step * 1e-9 ? 0 : v;
+            ticks.Add((rounded, Si(rounded)));
+        }
+        return ticks;
+    }
+
+    static readonly (double Factor, string Prefix)[] Prefixes =
+        [(1e9, "G"), (1e6, "M"), (1e3, "k"), (1, ""), (1e-3, "m"), (1e-6, "µ"), (1e-9, "n"), (1e-12, "p")];
+
+    static string Si(double value)
+    {
+        if (value == 0)
+        {
+            return "0";
+        }
+        var (factor, prefix) = Prefixes.FirstOrDefault(p => Math.Abs(value) >= p.Factor * (1 - 1e-9), Prefixes[^1]);
+        return (value / factor).ToString("0.##", CultureInfo.InvariantCulture) + prefix;
+    }
+
+    static string Num(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+}

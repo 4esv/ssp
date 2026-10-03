@@ -1,6 +1,7 @@
 @page "/editor"
 @using System.Globalization
 @using Ssp.Core
+@using Ssp.Core.Analysis
 @using Ssp.Core.Netlist
 @inject ISimulationHost Host
 
@@ -33,6 +34,23 @@
             </tbody>
         </table>
     }
+
+    @if (result.FrequencyResponse is { } ac)
+    {
+        <section class="bode">
+            <h2>Frequency response</h2>
+            <LineChart X="ac.Frequencies" Series="WithoutGround(ac.MagnitudeDb)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
+            <LineChart X="ac.Frequencies" Series="WithoutGround(ac.PhaseDegrees)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
+        </section>
+    }
+
+    @if (result.Impedance is { } z)
+    {
+        <section class="impedance">
+            <h2>Impedance</h2>
+            <LineChart X="z.Frequencies" Series="Magnitudes(z)" LogX="true" LogY="true" XLabel="Frequency" XUnit="Hz" YLabel="Impedance" YUnit="Ω" />
+        </section>
+    }
 }
 
 @code {
@@ -53,4 +71,13 @@
     static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
 
     static string Volts(double value) => value.ToString("G4", CultureInfo.InvariantCulture) + " V";
+
+    static IReadOnlyDictionary<string, IReadOnlyList<double>> WithoutGround(IReadOnlyDictionary<string, IReadOnlyList<double>> series) =>
+        series.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+    static IReadOnlyDictionary<string, IReadOnlyList<double>> Magnitudes(ZResult z) => new Dictionary<string, IReadOnlyList<double>>
+    {
+        ["input"] = z.Input.Select(v => v.Magnitude).ToList(),
+        ["output"] = z.Output.Select(v => v.Magnitude).ToList(),
+    };
 }
