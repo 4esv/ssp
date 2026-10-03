@@ -2,6 +2,7 @@ using Microsoft.Playwright;
 
 namespace Ssp.Web.Tests.Playwright;
 
+[Collection(PlaywrightCollection.Name)]
 public class SmokeTests
 {
     [PlaywrightFact]
