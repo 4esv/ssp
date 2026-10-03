@@ -49,7 +49,7 @@ Status values: planned, in progress, done.
 | web | Schematic SVG and PDF export | done |
 | core | Blocks library | done |
 | core | Calculators | done |
-| web | Calculator write-back | planned |
+| web | Calculator write-back | done |
 | repo | Public circuit library | done |
 | core | Noise analysis | done |
 | models | LED part | done |
