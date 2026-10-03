@@ -3,7 +3,9 @@
 @using Ssp.Core
 @using Ssp.Core.Analysis
 @using Ssp.Core.Netlist
+@using Ssp.Web.Sharing
 @inject ISimulationHost Host
+@inject NavigationManager Nav
 
 <PageTitle>ssp editor</PageTitle>
 
@@ -12,6 +14,14 @@
 <textarea @bind="netlist" @bind:event="oninput" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
 
 <button @onclick="Run" disabled="@running">Run</button>
+<a class="share" href="@ShareHref">Share link</a>
+
+@if (shareError is not null)
+{
+    <ul class="diagnostics">
+        <li class="@Class(shareError.Severity)">@shareError.Severity: @shareError.Message</li>
+    </ul>
+}
 
 @if (result is not null)
 {
@@ -60,9 +70,30 @@
     string netlist = "";
     bool running;
     RunResult? result;
+    Diagnostic? shareError;
+
+    string ShareHref => "editor#" + ShareCodec.Encode(netlist);
+
+    protected override void OnInitialized()
+    {
+        var hash = new Uri(Nav.Uri).Fragment.TrimStart('#');
+        if (hash.Length == 0)
+        {
+            return;
+        }
+        try
+        {
+            netlist = ShareCodec.Decode(hash);
+        }
+        catch (FormatException e)
+        {
+            shareError = new Diagnostic(Severity.Error, e.Message, null);
+        }
+    }
 
     async Task Run()
     {
+        shareError = null;
         running = true;
         result = await Host.Run(netlist, new RunOptions());
         running = false;
