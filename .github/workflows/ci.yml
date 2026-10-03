@@ -37,3 +37,17 @@ jobs:
         with:
           name: web
           path: publish/wwwroot
+
+  playwright:
+    name: playwright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - run: scripts/playwright.sh
+        env:
+          SSP_PLAYWRIGHT_WITH_DEPS: "1"
