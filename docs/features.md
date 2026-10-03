@@ -53,7 +53,7 @@ Status values: planned, in progress, done.
 | repo | Public circuit library | planned |
 | core | Noise analysis | planned |
 | models | LED part | done |
-| models | Vactrol part | planned |
+| models | Vactrol part | done |
 | models | Transformer part | done |
 | core | LTspice symbol pin table | done |
 | core | LTspice `.asc` to netlist | planned |

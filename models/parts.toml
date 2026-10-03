@@ -72,3 +72,12 @@ symbol = "transformer"
 footprint = "none"
 buy_url = "https://www.mouser.com/c/?q={id}"
 provenance = "Ideal two-winding transformer, coupled inductors, models/transformer.cir"
+
+[[part]]
+id = "VACTROL"
+kind = "vactrol"
+model = "vactrol"
+symbol = "vactrol"
+footprint = "none"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "Generic vactrol, LED plus lagged LDR, models/vactrol.cir"
