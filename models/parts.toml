@@ -1,0 +1,20 @@
+# Parts table. One [[part]] row for each part. All seven fields are required.
+# buy_url: {id} is replaced with the part id.
+
+[[part]]
+id = "1N4148"
+kind = "diode"
+model = "1N4148"
+symbol = "diode"
+footprint = "DO-35"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "1N4148 datasheet, onsemi"
+
+[[part]]
+id = "TL072"
+kind = "opamp"
+model = "TL072"
+symbol = "opamp-dual"
+footprint = "DIP-8"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "TL07xx datasheet, Texas Instruments"

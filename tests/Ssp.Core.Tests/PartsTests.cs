@@ -1,4 +1,5 @@
 using Ssp.Core.Parts;
+using PartsApi = Ssp.Core.Parts.Parts;
 
 namespace Ssp.Core.Tests;
 
@@ -27,7 +28,7 @@ public class PartsTests
     [Fact]
     public void ShippedTableResolves()
     {
-        var table = Parts.Load(Path.Combine(RepoPaths.Root, "models", "parts.toml"));
+        var table = PartsApi.Load(Path.Combine(RepoPaths.Root, "models", "parts.toml"));
         Assert.NotEmpty(table.Rows);
         foreach (var r in table.Rows)
         {
@@ -41,7 +42,7 @@ public class PartsTests
     public void DuplicateIdFailsAndNamesTheId()
     {
         var path = Write(string.Format(Row, "D1", Prov()) + "\n" + string.Format(Row, "D1", Prov()));
-        var ex = Assert.Throws<InvalidDataException>(() => Parts.Load(path));
+        var ex = Assert.Throws<InvalidDataException>(() => PartsApi.Load(path));
         Assert.Contains("D1", ex.Message);
     }
 
@@ -49,7 +50,7 @@ public class PartsTests
     public void MissingProvenanceFailsAndNamesTheRow()
     {
         var path = Write(string.Format(Row, "D7", ""));
-        var ex = Assert.Throws<InvalidDataException>(() => Parts.Load(path));
+        var ex = Assert.Throws<InvalidDataException>(() => PartsApi.Load(path));
         Assert.Contains("D7", ex.Message);
         Assert.Contains("provenance", ex.Message);
     }
@@ -58,7 +59,7 @@ public class PartsTests
     public void EmptyProvenanceFails()
     {
         var path = Write(string.Format(Row, "D8", Prov("  ")));
-        var ex = Assert.Throws<InvalidDataException>(() => Parts.Load(path));
+        var ex = Assert.Throws<InvalidDataException>(() => PartsApi.Load(path));
         Assert.Contains("D8", ex.Message);
     }
 }
