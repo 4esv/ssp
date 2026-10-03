@@ -3,6 +3,7 @@
 @using Ssp.Core
 @using Ssp.Core.Analysis
 @using Ssp.Core.Netlist
+@using Ssp.Web.Editing
 @using Ssp.Web.Schematic
 @using Ssp.Web.Sharing
 @using LayoutDoc = Ssp.Core.Layout.Layout
@@ -14,6 +15,8 @@
 <h1>Editor</h1>
 
 <button @onclick="Run" disabled="@running">Run</button>
+<button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
+<button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
 <a class="share" href="@ShareHref">Share link</a>
 <SchematicExport Netlist="@netlist" />
 
@@ -92,6 +95,7 @@
 
     string netlist = "";
     LayoutDoc? schematicLayout;
+    readonly CommandStack history = new();
     bool running;
     RunResult? result;
     Diagnostic? shareError;
@@ -108,6 +112,7 @@
         try
         {
             netlist = ShareCodec.Decode(hash);
+            history.Reset(netlist, null);
         }
         catch (FormatException e)
         {
@@ -127,16 +132,41 @@
     async Task Retune(string tuned)
     {
         netlist = tuned;
+        history.Reset(netlist, schematicLayout);
         await Run();
     }
 
     // NOTE: A text edit can rename or remove parts, so the schematic goes back to the auto-placement.
-    void ResetLayout() => schematicLayout = null;
+    // A text edit or a knob change is not in the history, so it clears the history.
+    void ResetLayout()
+    {
+        schematicLayout = null;
+        history.Reset(netlist, null);
+    }
 
+    // NOTE: Each edit from the schematic editor and the calculator panel goes on the one history.
     void Edit(SchematicChange change)
     {
-        netlist = change.Netlist;
-        schematicLayout = change.Layout;
+        history.Do(new ChangeCommand(change));
+        Show();
+    }
+
+    void Undo()
+    {
+        history.Undo();
+        Show();
+    }
+
+    void Redo()
+    {
+        history.Redo();
+        Show();
+    }
+
+    void Show()
+    {
+        netlist = history.Netlist;
+        schematicLayout = history.Layout;
     }
 
     static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
