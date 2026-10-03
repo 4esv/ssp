@@ -52,7 +52,7 @@ Status values: planned, in progress, done.
 | web | Calculator write-back | planned |
 | repo | Public circuit library | planned |
 | core | Noise analysis | planned |
-| models | LED part | planned |
+| models | LED part | done |
 | models | Vactrol part | planned |
 | models | Transformer part | planned |
 | core | LTspice symbol pin table | done |
