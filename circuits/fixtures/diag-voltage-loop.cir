@@ -1,0 +1,7 @@
+* ssp:title Voltage loop
+* V1 and V2 are in parallel with different values.
+V1 in 0 1
+V2 in 0 2
+R1 in out 1k
+R2 out 0 1k
+.END
