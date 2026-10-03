@@ -1,0 +1,104 @@
+@using System.Globalization
+@using Ssp.Core.Netlist
+@implements IDisposable
+
+@if (knobs.Count > 0)
+{
+    <section class="knobs">
+        <h2>Knobs</h2>
+        @for (var i = 0; i < knobs.Count; i++)
+        {
+            var index = i;
+            var knob = knobs[index];
+            <label class="knob">
+                <span class="part">@knob.Part</span>
+                <input type="range" min="0" max="1" step="0.01" value="@Number(knob.Position)" @oninput="e => Move(index, e)" />
+                <span class="taper">@knob.Taper</span>
+                <span class="position">@Percent(knob.Position)</span>
+            </label>
+        }
+    </section>
+}
+
+@code {
+    /// <summary>The wait after the last slider change before the netlist changes.</summary>
+    public static readonly TimeSpan DefaultDebounce = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>The netlist text. Each <c>knob</c> directive gives one slider.</summary>
+    [Parameter] public string Netlist { get; set; } = "";
+
+    /// <summary>Gets the netlist with the new knob positions, once for each burst of slider changes.</summary>
+    [Parameter] public EventCallback<string> NetlistChanged { get; set; }
+
+    [Parameter] public TimeSpan Debounce { get; set; } = DefaultDebounce;
+
+    string? seen;
+    List<KnobDirective> knobs = [];
+    CancellationTokenSource? pending;
+
+    protected override void OnParametersSet()
+    {
+        if (Netlist == seen)
+        {
+            return;
+        }
+        seen = Netlist;
+        knobs = DirectiveParser.Parse(Netlist).Directives.Knobs.ToList();
+    }
+
+    void Move(int index, ChangeEventArgs e)
+    {
+        if (!double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var position))
+        {
+            return;
+        }
+        knobs[index] = knobs[index] with { Position = position };
+
+        pending?.Cancel();
+        pending?.Dispose();
+        pending = new CancellationTokenSource();
+        _ = Fire(pending.Token);
+    }
+
+    async Task Fire(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(Debounce, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        await InvokeAsync(() => token.IsCancellationRequested ? Task.CompletedTask : NetlistChanged.InvokeAsync(WithPositions(Netlist, knobs)));
+    }
+
+    /// <summary>Writes the positions into the <c>knob</c> lines of the netlist, in order. Other lines do not change.</summary>
+    static string WithPositions(string netlist, IReadOnlyList<KnobDirective> positions)
+    {
+        var lines = netlist.Split('\n');
+        var next = 0;
+        for (var i = 0; i < lines.Length && next < positions.Count; i++)
+        {
+            // NOTE: The parser decides which lines are knobs, so a malformed knob line keeps its text and gets no slider.
+            if (DirectiveParser.Parse(lines[i]).Directives.Knobs.Count == 0)
+            {
+                continue;
+            }
+            var knob = positions[next++];
+            var end = lines[i].EndsWith('\r') ? "\r" : "";
+            lines[i] = $"* ssp:knob {knob.Part} {knob.Taper} {Number(knob.Position)}{end}";
+        }
+        return string.Join('\n', lines);
+    }
+
+    static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+    static string Percent(double value) => value.ToString("0%", CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        pending?.Cancel();
+        pending?.Dispose();
+    }
+}
