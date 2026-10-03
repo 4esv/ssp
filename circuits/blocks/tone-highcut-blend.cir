@@ -1,0 +1,15 @@
+* ssp:title High-cut blend tone control
+* R1 and C1 make a low-pass: 1 / (2 pi * 10k * 47n) = 339 Hz.
+* RV1 blends the dry input (top) with the low-pass node (bottom). The wiper is the output.
+* Knob at 1: dry signal, full treble. Knob at 0: only the 339 Hz low-pass.
+* Feed it from a low-impedance source and load it with 1 MOhm or more.
+* ssp:input in
+* ssp:output out
+* ssp:knob RV1 linear 0.5
+V1 in 0 DC 0 AC 1
+R1 in lp 10k
+C1 lp 0 47n
+RV1_1 in out 50k
+RV1_2 out lp 50k
+RL out 0 1Meg
+.END
