@@ -104,7 +104,8 @@ public sealed class Layout : IEquatable<Layout>
     public IReadOnlyList<Diagnostic> Validate(LoadedCircuit circuit)
     {
         var diagnostics = new List<Diagnostic>();
-        var references = circuit.Circuit.Select(e => e.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // NOTE: the parser flattens a subcircuit instance X1 into parts named X1.<part>. The layout places X1.
+        var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var nets = new HashSet<string>(circuit.NodeNames, StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
