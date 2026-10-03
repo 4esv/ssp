@@ -42,4 +42,34 @@ C1 out 0 10n
 
 ## Layout file
 
-The layout file format is not specified yet.
+The layout file holds the schematic position of each reference and the points of each wire. It is TOML.
+
+```toml
+[[part]]
+ref = "R1"
+x = 40.0
+y = -20.0
+rotation = 90
+flip = false
+
+[[wire]]
+net = "out"
+points = [[40.0, 0.0], [80.0, 0.0]]
+```
+
+| Table | Key | Meaning |
+|---|---|---|
+| `part` | `ref` | A reference in the netlist. Required. |
+| `part` | `x`, `y` | The position. Numbers. Required. |
+| `part` | `rotation` | Degrees. A multiple of 90. Default 0. |
+| `part` | `flip` | `true` or `false`. Default `false`. |
+| `wire` | `net` | The net that the wire belongs to. Required. |
+| `wire` | `points` | A list of `[x, y]` points. At least two. Required. |
+
+Rules:
+
+- A file that is not valid TOML, or that has a missing or wrongly typed key, is an error. `Layout.Read` throws `InvalidDataException`.
+- `Layout.Validate` checks the layout against the netlist. Each of these gives a diagnostic with severity error: a reference that is not in the netlist, a reference that is placed more than once, a rotation that is not a multiple of 90, a net that is not in the netlist, a wire with fewer than two points.
+- References and nets match without regard to case.
+- A reference with no `part` entry is allowed.
+- `Layout.Write` gives the same text for the same layout.
