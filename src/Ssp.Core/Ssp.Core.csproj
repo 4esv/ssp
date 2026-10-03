@@ -7,5 +7,6 @@
     <PackageReference Include="SpiceSharp-Parser" />
     <PackageReference Include="SpiceSharpBehavioral" />
     <PackageReference Include="SpiceSharpParser.CustomComponents" />
+    <PackageReference Include="Tomlyn" />
   </ItemGroup>
 </Project>
