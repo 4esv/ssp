@@ -1,3 +1,4 @@
+using System.Numerics;
 using SpiceSharp.Components;
 using SpiceSharp.Simulations;
 using Ssp.Core.Netlist;
@@ -86,5 +87,82 @@ public static class Analyses
             frequencies,
             magnitude.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<double>)kv.Value, StringComparer.Ordinal),
             phase.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<double>)kv.Value, StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Computes input and output impedance from 10 Hz to 100 kHz, 10 points in each decade.
+    /// </summary>
+    public static ZResult Impedance(LoadedCircuit circuit) => Impedance(circuit, new DecadeSweep(10, 100_000, 10));
+
+    /// <summary>
+    /// Computes input and output impedance over a sweep.
+    /// Input impedance is V/I at the input source. The input is the source on the <c>ssp:input</c> node, or the first voltage source.
+    /// Output impedance is the voltage at the output node for 1 A of AC current, with the input source set to zero.
+    /// The output node is the <c>ssp:output</c> node, or <c>out</c>. The circuit is the same afterwards.
+    /// </summary>
+    public static ZResult Impedance(LoadedCircuit circuit, DecadeSweep sweep)
+    {
+        var frequencies = sweep.Frequencies();
+        var sources = circuit.Circuit.OfType<VoltageSource>().ToList();
+        var input = (circuit.Directives.Input is { } inNode
+                ? sources.FirstOrDefault(v => string.Equals(v.Nodes[0], inNode, StringComparison.Ordinal))
+                : null)
+            ?? sources.FirstOrDefault()
+            ?? throw new InvalidOperationException("Impedance needs a voltage source as the input.");
+        var outNode = circuit.Directives.Output ?? "out";
+        if (!circuit.NodeNames.Contains(outNode, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException($"The output node '{outNode}' is not in the circuit.");
+        }
+
+        var saved = sources.ToDictionary(v => v, v => v.Parameters.AcMagnitude);
+        var zin = new List<Complex>(frequencies.Count);
+        var zout = new List<Complex>(frequencies.Count);
+        try
+        {
+            foreach (var v in sources)
+            {
+                v.Parameters.AcMagnitude = 0.0;
+            }
+
+            input.Parameters.AcMagnitude = 1.0;
+            var acIn = new AC("zin", frequencies);
+            var current = new ComplexPropertyExport(acIn, input.Name, "i");
+            var inVoltage = new ComplexVoltageExport(acIn, input.Nodes[0]);
+            foreach (var _ in acIn.Run(circuit.Circuit, AC.ExportSmallSignal))
+            {
+                // SPICE sign: the source current is positive into the positive pin, so the load current is its negative.
+                zin.Add(inVoltage.Value / -current.Value);
+            }
+
+            input.Parameters.AcMagnitude = 0.0;
+            var probe = new CurrentSource("I_ssp_zout");
+            probe.Connect("0", outNode);
+            probe.Parameters.DcValue = 0.0;
+            probe.Parameters.AcMagnitude = 1.0;
+            circuit.Circuit.Add(probe);
+            try
+            {
+                var acOut = new AC("zout", frequencies);
+                var outVoltage = new ComplexVoltageExport(acOut, outNode);
+                foreach (var _ in acOut.Run(circuit.Circuit, AC.ExportSmallSignal))
+                {
+                    zout.Add(outVoltage.Value);
+                }
+            }
+            finally
+            {
+                circuit.Circuit.Remove(probe);
+            }
+        }
+        finally
+        {
+            foreach (var (v, magnitude) in saved)
+            {
+                v.Parameters.AcMagnitude = magnitude;
+            }
+        }
+
+        return new ZResult(frequencies, zin, zout);
     }
 }
