@@ -1,0 +1,41 @@
+[[part]]
+ref = "V1"
+x = 0.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "C1"
+x = 40.0
+y = 0.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C2"
+x = 80.0
+y = 0.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R1"
+x = 120.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "R2"
+x = 160.0
+y = 0.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RL"
+x = 200.0
+y = 0.0
+rotation = 90
+flip = false
