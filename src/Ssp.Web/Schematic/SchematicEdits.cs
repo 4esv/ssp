@@ -118,6 +118,99 @@ public static partial class SchematicEdits
         return (component.Nodes[pin.Pin], positions[pin.Pin]);
     }
 
+    /// <summary>Turns a part 90 degrees counter-clockwise on screen. The netlist does not change.</summary>
+    public static SchematicChange Rotate(string netlist, LayoutDoc layout, string reference) =>
+        Edit(netlist, layout, reference, p => p with { Rotation = Norm(p.Rotation + 90) });
+
+    /// <summary>
+    /// Flips a part about its origin, left to right or top to bottom on screen. The netlist does not change.
+    /// </summary>
+    // NOTE: The layout flip is top to bottom, before the rotation. A left-to-right flip is that flip and a half turn.
+    public static SchematicChange Flip(string netlist, LayoutDoc layout, string reference, bool leftToRight) =>
+        Edit(netlist, layout, reference, p => p with
+        {
+            Rotation = Norm((leftToRight ? 180 : 0) - p.Rotation),
+            Flip = !p.Flip,
+        });
+
+    /// <summary>Moves a part by a distance in schematic units. The netlist does not change.</summary>
+    public static SchematicChange Move(string netlist, LayoutDoc layout, string reference, double dx, double dy) =>
+        Edit(netlist, layout, reference, p => p with { X = p.X + dx, Y = p.Y + dy });
+
+    /// <summary>
+    /// Removes a part from the netlist and the layout. The layout also loses the wires on nets that the netlist no
+    /// longer has.
+    /// </summary>
+    public static SchematicChange Delete(string netlist, LayoutDoc layout, string reference)
+    {
+        var lines = Lines(netlist);
+        var (at, count) = Element(lines, reference);
+        lines.RemoveRange(at, count);
+        var result = Join(lines);
+
+        var nets = new HashSet<string>(NetlistLoader.Load(result).NodeNames, StringComparer.Ordinal);
+        var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, reference)).ToList();
+        var wires = layout.Wires.Where(w => nets.Contains(w.Net)).ToList();
+        return new SchematicChange(result, new LayoutDoc(parts, wires));
+    }
+
+    /// <summary>
+    /// Copies a part with the next free reference of its prefix and a new node for each pin. The layout places the
+    /// copy one column to the right of the other parts, with the rotation and flip of the part.
+    /// </summary>
+    public static SchematicChange Duplicate(string netlist, LayoutDoc layout, string reference)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, reference));
+        var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).ToHashSet(Names);
+        var copy = Fresh(Prefix().Match(component.Name).Value, references);
+        var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
+
+        var lines = Lines(netlist);
+        var (at, count) = Element(lines, reference);
+        var words = Words().Split(lines[at]);
+        var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+        words[first] = copy;
+        for (var k = 1; k <= component.Nodes.Count; k++)
+        {
+            var node = Fresh("n", nodes);
+            nodes.Add(node);
+            words[first + 2 * k] = node;
+        }
+        lines.InsertRange(at + count, [string.Concat(words), .. lines.GetRange(at + 1, count - 1)]);
+
+        var source = layout.Parts.Single(p => Names.Equals(p.Reference, reference));
+        var placement = source with { Reference = copy, X = layout.Parts.Max(p => p.X) + ColumnStep };
+        return new SchematicChange(Join(lines), new LayoutDoc([.. layout.Parts, placement], layout.Wires));
+    }
+
+    static SchematicChange Edit(string netlist, LayoutDoc layout, string reference, Func<PartPlacement, PartPlacement> edit)
+    {
+        var parts = layout.Parts.Select(p => Names.Equals(p.Reference, reference) ? edit(p) : p).ToList();
+        return new SchematicChange(netlist, new LayoutDoc(parts, layout.Wires));
+    }
+
+    // The first line and the count of lines of an element: its line and the continuation lines after it.
+    // NOTE: Lines in a .subckt block are not elements of the circuit. The first line is the title.
+    static (int At, int Count) Element(List<string> lines, string reference)
+    {
+        var inSubcircuit = false;
+        for (var i = 1; i < lines.Count; i++)
+        {
+            var word = lines[i].TrimStart().Split((char[]?)null, 2)[0];
+            if (word.StartsWith(".subckt", StringComparison.OrdinalIgnoreCase)) inSubcircuit = true;
+            else if (word.StartsWith(".ends", StringComparison.OrdinalIgnoreCase)) inSubcircuit = false;
+            if (inSubcircuit || !Names.Equals(word, reference)) continue;
+
+            var end = i + 1;
+            while (end < lines.Count && lines[end].TrimStart().StartsWith('+')) end++;
+            return (i, end - i);
+        }
+        throw new KeyNotFoundException($"The netlist has no element '{reference}'.");
+    }
+
+    static int Norm(int degrees) => (degrees % 360 + 360) % 360;
+
     // Renames a node in the element lines, the ssp:input and ssp:output directives, and the layout wires.
     // NOTE: Lines in a .subckt block have their own nodes. They are not changed.
     static SchematicChange Rename(string netlist, LoadedCircuit circuit, LayoutDoc layout, string from, string to, IEnumerable<WireRoute> added)
@@ -171,4 +264,7 @@ public static partial class SchematicEdits
 
     [GeneratedRegex(@"(\s+)")]
     private static partial Regex Words();
+
+    [GeneratedRegex(@"^[A-Za-z]+")]
+    private static partial Regex Prefix();
 }
