@@ -21,6 +21,13 @@ ssp reads directives from comment lines in the netlist. Other SPICE tools ignore
 | `* ssp:knob <part> <taper> <pos>` | A potentiometer, its taper, and its position. |
 | `* ssp:part <ref> <part-id>` | The part in the parts table that a reference uses. |
 
+Rules:
+
+- A directive line starts with `* ssp:` at the start of the line. Leading white space is allowed.
+- `<pos>` is a number.
+- An unknown directive, or a directive with the wrong arguments, gives a diagnostic with severity warning. The line is ignored.
+- If a directive is given more than once, the last `title`, `input` or `output` is used. Every `knob` and `part` is kept.
+
 ## Example
 
 ```spice
