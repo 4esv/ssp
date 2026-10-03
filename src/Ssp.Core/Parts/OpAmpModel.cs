@@ -37,14 +37,14 @@ public sealed record OpAmpModel(
     // Squared size of the rounded corner of a clamp, in V^2.
     private const string Corner = "0.000001";
 
-    /// <summary>TL072. Values from the TI TL07x datasheet. See models/opamp-tl072.cir.</summary>
-    public static OpAmpModel Tl072 { get; } = new(Gain: 200e3, Gbw: 3e6, SlewRate: 13e6, RailDrop: 1.5, OutputResistance: 200, InputResistance: 1e12);
+    /// <summary>TL072. Values from the TI TL07x datasheet SLOS080W (D and P packages). See models/opamp-tl072.cir.</summary>
+    public static OpAmpModel Tl072 { get; } = new(Gain: 200e3, Gbw: 5.25e6, SlewRate: 20e6, RailDrop: 1.5, OutputResistance: 200, InputResistance: 1e12);
 
     /// <summary>LM308 with a 30 pF compensation capacitor. See models/opamp-lm308.cir.</summary>
     public static OpAmpModel Lm308 { get; } = new(Gain: 300e3, Gbw: 1e6, SlewRate: 0.3e6, RailDrop: 1.0, OutputResistance: 100, InputResistance: 40e6);
 
     /// <summary>JRC4558 (NJM4558). See models/opamp-jrc4558.cir.</summary>
-    public static OpAmpModel Jrc4558 { get; } = new(Gain: 100e3, Gbw: 3e6, SlewRate: 1.7e6, RailDrop: 2.0, OutputResistance: 75, InputResistance: 5e6);
+    public static OpAmpModel Jrc4558 { get; } = new(Gain: 100e3, Gbw: 3e6, SlewRate: 1e6, RailDrop: 1.0, OutputResistance: 75, InputResistance: 5e6);
 
     /// <summary>
     /// Writes the model as a SPICE subcircuit with the pins <c>inp inn out vcc vee</c>.

@@ -1,5 +1,5 @@
-* provenance: LM108/LM208/LM308 operational amplifiers datasheet, Texas Instruments, https://www.ti.com/product/LM308; values typed from memory of the sheet and UNVERIFIED against the current revision
-* fit: typical at +-15 V with 30 pF compensation: open-loop gain 300 V/mV, unity-gain frequency 1 MHz, slew rate 0.3 V/us, output swing +-14 V at RL = 10 kOhm (1 V rail drop), input resistance 40 MOhm; output resistance 100 Ohm is a typical value, not a sheet figure
+* provenance: LM108/LM208/LM308 operational amplifiers datasheet TL/H/7758, National Semiconductor, December 1994 (read from a third-party mirror; no current TI copy was reachable); gain, swing and input resistance read from the datasheet. GBW and slew rate are UNVERIFIED: the datasheet text states no value, and they are taken from the 30 pF compensation case
+* fit: open-loop gain 300 V/mV, output swing +-14 V at RL = 10 kOhm (1 V rail drop), input resistance 40 MOhm (all p2); GBW 1 MHz and slew rate 0.3 V/us with 30 pF are UNVERIFIED; output resistance 100 Ohm is a typical value, not a sheet figure
 * author: 4esv
 * license: MIT
 
