@@ -1,0 +1,199 @@
+@using System.Globalization
+@using Ssp.Core.Calculators
+@using Ssp.Core.Netlist
+@using Ssp.Web.Schematic
+@using SpiceComponent = SpiceSharp.Components.IComponent
+@using LayoutDoc = Ssp.Core.Layout.Layout
+
+<section class="calculator-panel">
+    <h2>Calculator</h2>
+    <select class="calculator" aria-label="Calculator" value="@key" @onchange="Pick">
+        @foreach (var (k, c) in All)
+        {
+            <option value="@k">@c.Label</option>
+        }
+    </select>
+    @for (var i = 0; i < calculator.Inputs.Length; i++)
+    {
+        var index = i;
+        var (name, unit) = calculator.Inputs[index];
+        <label class="input">
+            <span>@name (@unit)</span>
+            <input type="number" step="any" data-input="@name" value="@Number(values[index])" @onchange="e => Enter(index, e)" />
+        </label>
+    }
+    <p class="result">@result</p>
+    <table class="parts">
+        <thead><tr><th>Part</th><th>Value</th><th>Write to</th></tr></thead>
+        <tbody>
+            @for (var i = 0; i < parts.Length; i++)
+            {
+                var index = i;
+                var part = parts[index];
+                <tr class="part">
+                    <td>@part.Name</td>
+                    <td>@Spice(part.Value)</td>
+                    <td>
+                        <select class="target" data-part="@part.Name" aria-label="Write @part.Name to" value="@targets[index]" @onchange="e => Target(index, e)">
+                            <option value="">New part</option>
+                            @foreach (var reference in References(part.Kind))
+                            {
+                                <option value="@reference">@reference</option>
+                            }
+                        </select>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <button type="button" class="write" disabled="@(!CanWrite)" @onclick="Write">Write to schematic</button>
+    <button type="button" class="undo" disabled="@(history.Count == 0)" @onclick="Undo">Undo</button>
+</section>
+
+@code {
+    /// <summary>A part value of a calculator result. The kind is a key of <see cref="SchematicEdits.Kinds"/>.</summary>
+    sealed record PartValue(string Name, string Kind, double Value);
+
+    sealed record Calculator(string Label, (string Name, string Unit)[] Inputs, double[] Defaults, Func<double[], (string Result, PartValue[] Parts)> Solve);
+
+    const string Resistor = "resistor";
+    const string Capacitor = "capacitor";
+
+    static readonly IReadOnlyDictionary<string, Calculator> All = new Dictionary<string, Calculator>(StringComparer.Ordinal)
+    {
+        ["rc"] = new("RC filter", [("R", "Ω"), ("C", "F")], [10e3, 100e-9],
+            v => ($"Cutoff {G(Calculators.RcFilter(v[0], v[1]))} Hz", [new("R", Resistor, v[0]), new("C", Capacitor, v[1])])),
+        ["divider"] = new("Divider", [("Vin", "V"), ("R1", "Ω"), ("R2", "Ω")], [9, 10e3, 10e3],
+            v => ($"Output {G(Calculators.Divider(v[0], v[1], v[2]))} V", [new("R1", Resistor, v[1]), new("R2", Resistor, v[2])])),
+        ["gain"] = new("Non-inverting gain", [("Rf", "Ω"), ("Rg", "Ω")], [100e3, 10e3],
+            v => ($"Gain {G(Calculators.Gain(v[0], v[1]))}", [new("Rf", Resistor, v[0]), new("Rg", Resistor, v[1])])),
+        ["led"] = new("LED resistor", [("Supply", "V"), ("Vf", "V"), ("Current", "A")], [9, 2, 10e-3],
+            v => Led(Calculators.LedResistor(v[0], v[1], v[2]))),
+    };
+
+    // Longest scale first. Values under 1 p use "p".
+    static readonly (double Scale, string Suffix)[] Prefixes =
+        [(1e6, "meg"), (1e3, "k"), (1, ""), (1e-3, "m"), (1e-6, "u"), (1e-9, "n"), (1e-12, "p")];
+
+    [Parameter] public string Netlist { get; set; } = "";
+
+    /// <summary>The layout of the netlist. With no layout the write-back starts from the auto-placement.</summary>
+    [Parameter] public LayoutDoc? Layout { get; set; }
+
+    /// <summary>Gets the netlist and the layout after each write-back and undo.</summary>
+    [Parameter] public EventCallback<SchematicChange> Changed { get; set; }
+
+    string? seenNetlist;
+    LayoutDoc? seenLayout;
+    string netlist = "";
+    LayoutDoc? layout;
+    LoadedCircuit? circuit;
+    bool hasErrors;
+    readonly Stack<SchematicChange> history = new();
+
+    string key = "rc";
+    Calculator calculator = All["rc"];
+    double[] values = [];
+    string result = "";
+    PartValue[] parts = [];
+    string[] targets = [];
+
+    bool CanWrite => !hasErrors && parts.All(p => double.IsFinite(p.Value) && p.Value > 0);
+
+    protected override void OnInitialized() => Reset();
+
+    // NOTE: The panel keeps its own copy. An edit that does not come from the panel clears the undo history.
+    protected override void OnParametersSet()
+    {
+        if (Netlist == seenNetlist && ReferenceEquals(Layout, seenLayout)) return;
+        seenNetlist = Netlist;
+        seenLayout = Layout;
+        if (Netlist != netlist) history.Clear();
+        Load(Netlist, Layout);
+    }
+
+    void Load(string text, LayoutDoc? given)
+    {
+        netlist = text;
+        layout = given;
+        circuit = NetlistLoader.Load(text);
+        hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
+        var references = References(Resistor).Concat(References(Capacitor)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        targets = targets.Select(t => references.Contains(t) ? t : "").ToArray();
+    }
+
+    void Pick(ChangeEventArgs e)
+    {
+        if (e.Value?.ToString() is not { } next || !All.TryGetValue(next, out var c)) return;
+        key = next;
+        calculator = c;
+        Reset();
+    }
+
+    void Reset()
+    {
+        values = calculator.Defaults.ToArray();
+        Solve();
+        targets = parts.Select(_ => "").ToArray();
+    }
+
+    void Enter(int index, ChangeEventArgs e)
+    {
+        if (!double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) return;
+        values[index] = value;
+        Solve();
+    }
+
+    void Target(int index, ChangeEventArgs e) => targets[index] = e.Value?.ToString() ?? "";
+
+    void Solve() => (result, parts) = calculator.Solve(values);
+
+    IEnumerable<string> References(string kind) => hasErrors || circuit is null ? [] : circuit.Circuit.OfType<SpiceComponent>()
+        .Where(c => kind == Resistor ? c is SpiceSharp.Components.Resistor : c is SpiceSharp.Components.Capacitor)
+        // NOTE: A name with a dot is a part inside a subcircuit. Its line is not in the top level.
+        .Select(c => c.Name).Where(n => !n.Contains('.'))
+        .Order(StringComparer.OrdinalIgnoreCase);
+
+    // NOTE: Each part with a target updates the value of that part. Each part with no target is a new part.
+    async Task Write()
+    {
+        if (!CanWrite) return;
+        var before = new SchematicChange(netlist, layout ?? AutoPlacer.Place(circuit!, circuit!.Directives));
+        var change = before;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            var value = Spice(parts[i].Value);
+            change = targets[i].Length == 0
+                ? SchematicEdits.Place(change.Netlist, change.Layout, parts[i].Kind, value)
+                : SchematicEdits.SetValue(change.Netlist, change.Layout, targets[i], value);
+        }
+        history.Push(before);
+        await Apply(change);
+    }
+
+    async Task Undo()
+    {
+        if (history.Count == 0) return;
+        await Apply(history.Pop());
+    }
+
+    async Task Apply(SchematicChange change)
+    {
+        Load(change.Netlist, change.Layout);
+        await Changed.InvokeAsync(change);
+    }
+
+    static (string, PartValue[]) Led(double r) => ($"Resistor {G(r)} Ω", [new("R", Resistor, r)]);
+
+    /// <summary>A SPICE value with an engineering suffix, for example 4.7k or 100n.</summary>
+    static string Spice(double value)
+    {
+        var size = Math.Abs(value);
+        var (scale, suffix) = Prefixes.FirstOrDefault(p => size >= p.Scale * (1 - 1e-9), Prefixes[^1]);
+        return (value / scale).ToString("0.###", CultureInfo.InvariantCulture) + suffix;
+    }
+
+    static string G(double v) => v.ToString("G4", CultureInfo.InvariantCulture);
+
+    static string Number(double v) => v.ToString("R", CultureInfo.InvariantCulture);
+}
