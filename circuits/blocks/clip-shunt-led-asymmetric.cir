@@ -1,0 +1,25 @@
+* ssp:title Shunt LED clipper, asymmetric
+* R1 feeds one red LED (D1) for the positive half and two green LEDs in series (D2, D3) for the negative half.
+* Positive clip: about +1.95 V. Negative clip: about -2 * 2.15 = -4.3 V. The unequal halves add even harmonics.
+* Below the knee the LEDs do not conduct and the stage passes the signal at 0 dB.
+* ssp:input in
+* ssp:output out
+* provenance: generic 5 mm LED family typical Vf at IF = 10 mA, no single datasheet; values are UNVERIFIED against a manufacturer sheet (Kingbright WP7113 series is the nearest published family)
+* fit: Vf at IF = 10 mA: red 1.95 V, yellow 2.10 V, green 2.15 V, blue 3.00 V, white 3.10 V; N = 2
+* author: 4esv
+* license: MIT
+
+.model LED_RED D(Is=4.2555e-19 N=2)
+.model LED_YELLOW D(Is=2.3423e-20 N=2)
+.model LED_GREEN D(Is=8.9099e-21 N=2)
+.model LED_BLUE D(Is=6.5129e-28 N=2)
+.model LED_WHITE D(Is=9.4240e-29 N=2)
+
+V1 in 0 DC 0 AC 1
+C1 in a 1u
+R1 a out 4.7k
+D1 out 0 LED_RED
+D2 0 k LED_GREEN
+D3 k out LED_GREEN
+R2 out 0 1Meg
+.END

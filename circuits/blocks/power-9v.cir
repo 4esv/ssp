@@ -1,0 +1,29 @@
+* ssp:title 9 V power section with reference and indicator
+* VIN is the 9 V adapter. R1 and C1 filter it: 1 / (2 pi * 47 * 100u) = 34 Hz. C2 bypasses high frequencies.
+*   Drop across R1 at 2 mA load: 47 * 2m = 0.094 V.
+* Indicator: (9 - 1.95) / 4.7k = 1.5 mA through the red LED D1.
+* Reference: R3 and R4 divide v9 to vref = 4.5 V. C3 filters it: 1 / (2 pi * 5k * 47u) = 0.68 Hz.
+* The AC source on VIN models ripple. The response at v9 is the ripple rejection.
+* ssp:input vin
+* ssp:output v9
+* provenance: generic 5 mm LED family typical Vf at IF = 10 mA, no single datasheet; values are UNVERIFIED against a manufacturer sheet (Kingbright WP7113 series is the nearest published family)
+* fit: Vf at IF = 10 mA: red 1.95 V, yellow 2.10 V, green 2.15 V, blue 3.00 V, white 3.10 V; N = 2
+* author: 4esv
+* license: MIT
+
+.model LED_RED D(Is=4.2555e-19 N=2)
+.model LED_YELLOW D(Is=2.3423e-20 N=2)
+.model LED_GREEN D(Is=8.9099e-21 N=2)
+.model LED_BLUE D(Is=6.5129e-28 N=2)
+.model LED_WHITE D(Is=9.4240e-29 N=2)
+
+VIN vin 0 DC 9 AC 1
+R1 vin v9 47
+C1 v9 0 100u
+C2 v9 0 100n
+R2 v9 led 4.7k
+D1 led 0 LED_RED
+R3 v9 vref 10k
+R4 vref 0 10k
+C3 vref 0 47u
+.END

@@ -1,0 +1,62 @@
+[[part]]
+ref = "VIN"
+x = 0.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "R1"
+x = 40.0
+y = 0.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C1"
+x = 80.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "C2"
+x = 120.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "R2"
+x = 160.0
+y = 0.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "D1"
+x = 200.0
+y = 0.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "R3"
+x = 0.0
+y = 40.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R4"
+x = 40.0
+y = 40.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "C3"
+x = 80.0
+y = 40.0
+rotation = 90
+flip = false
