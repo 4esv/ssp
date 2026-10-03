@@ -1,17 +1,17 @@
-* provenance: NJM4558 dual operational amplifier datasheet, New Japan Radio (JRC), https://www.njr.com/semicon/products/NJM4558.html; values typed from memory of the sheet and UNVERIFIED against the current revision
-* fit: typical at +-15 V: open-loop gain 100 dB (100 V/mV), GBW 3 MHz, slew rate 1.7 V/us, output swing +-13 V at RL = 10 kOhm (2 V rail drop), input resistance 5 MOhm; output resistance 75 Ohm is a typical value, not a sheet figure
+* provenance: NJM4558 dual operational amplifier datasheet Ver. 20260723, Nisshinbo Micro Devices (JRC), https://www.nisshinbo-microdevices.co.jp/en/pdf/datasheet/NJM4558_E.pdf; values read from the datasheet, typical column, V+/V- = +-15 V, Ta = 25 C
+* fit: open-loop gain 100 dB (100 V/mV), GBW 3 MHz, slew rate 1 V/us, output swing +-14 V at RL >= 10 kOhm (1 V rail drop), input resistance 5 MOhm (all p2); output resistance 75 Ohm is a typical value, not a sheet figure
 * author: 4esv
 * license: MIT
 
-* Pins: inp inn out vcc vee. Gain 100000 V/V, GBW 3E+06 Hz, slew rate 1.7E+06 V/s, rail drop 2 V.
+* Pins: inp inn out vcc vee. Gain 100000 V/V, GBW 3E+06 Hz, slew rate 1E+06 V/s, rail drop 1 V.
 .subckt JRC4558 inp inn out vcc vee
 Rid inp inn 5E+06
-Bgm 0 x I={9.01878E-05*tanh(0.001*V(inp,inn)/9.01878E-05)}
+Bgm 0 x I={5.30516E-05*tanh(0.001*V(inp,inn)/5.30516E-05)}
 Rp x 0 1E+08
 Cc x 0 5.30516E-11
-Bclamp x 0 I={9.01878E-05*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bclamp x 0 I={5.30516E-05*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
 Bo o 0 V={V(x)}
 Rout o out 75
-Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+2+sqrt((V(out)-(V(vee)+2))*(V(out)-(V(vee)+2))+0.000001)))+V(vcc)-2-sqrt(((0.5*(V(out)+V(vee)+2+sqrt((V(out)-(V(vee)+2))*(V(out)-(V(vee)+2))+0.000001)))-(V(vcc)-2))*((0.5*(V(out)+V(vee)+2+sqrt((V(out)-(V(vee)+2))*(V(out)-(V(vee)+2))+0.000001)))-(V(vcc)-2))+0.000001))))}
+Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))+V(vcc)-1-sqrt(((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))+0.000001))))}
 .ends JRC4558
 
