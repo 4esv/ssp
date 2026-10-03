@@ -1,0 +1,56 @@
+@page "/editor"
+@using System.Globalization
+@using Ssp.Core
+@using Ssp.Core.Netlist
+@inject ISimulationHost Host
+
+<PageTitle>ssp editor</PageTitle>
+
+<h1>Editor</h1>
+
+<textarea @bind="netlist" @bind:event="oninput" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+
+<button @onclick="Run" disabled="@running">Run</button>
+
+@if (result is not null)
+{
+    <ul class="diagnostics">
+        @foreach (var d in result.Diagnostics)
+        {
+            <li class="@Class(d.Severity)">@d.Severity@(d.Line is int line ? $" (line {line})" : ""): @d.Message</li>
+        }
+    </ul>
+
+    @if (result.OperatingPoint is { } op)
+    {
+        <table class="voltages">
+            <thead><tr><th>Node</th><th>Voltage</th></tr></thead>
+            <tbody>
+                @foreach (var (node, volts) in op.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                {
+                    <tr><td>@node</td><td>@Volts(volts)</td></tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    // NOTE: Node 0 is the ground reference. It is always 0 V, so the table leaves it out.
+    const string Ground = "0";
+
+    string netlist = "";
+    bool running;
+    RunResult? result;
+
+    async Task Run()
+    {
+        running = true;
+        result = await Host.Run(netlist, new RunOptions());
+        running = false;
+    }
+
+    static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
+
+    static string Volts(double value) => value.ToString("G4", CultureInfo.InvariantCulture) + " V";
+}
