@@ -41,7 +41,7 @@ Status values: planned, in progress, done.
 | web | Undo and redo | done |
 | web | Knobs | done |
 | web | Multi-value compare | done |
-| core | Impulse response convolution | planned |
+| core | Impulse response convolution | done |
 | web | Play a clip through the circuit | planned |
 | web | Live monitor | planned |
 | core | BOM export | done |
