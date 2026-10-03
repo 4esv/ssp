@@ -1,0 +1,9 @@
+* ssp:title Divider with a high output impedance
+* ssp:input in
+* ssp:output out
+* Input impedance: Zin = R1 + R2 = 100k + 100k = 200 kOhm, above 100 kOhm
+* Output impedance: Zout = R1 || R2 = 100k * 100k / (100k + 100k) = 50 kOhm, above 10 kOhm
+V1 in 0 0
+R1 in out 100k
+R2 out 0 100k
+.END
