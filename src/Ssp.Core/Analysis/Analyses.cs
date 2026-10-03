@@ -170,4 +170,53 @@ public static class Analyses
 
         return new ZResult(frequencies, zin, zout);
     }
+
+    /// <summary>
+    /// Computes the output noise density from 10 Hz to 100 kHz, 10 points in each decade.
+    /// </summary>
+    public static NoiseResult Noise(LoadedCircuit circuit) => Noise(circuit, new DecadeSweep(10, 100_000, 10));
+
+    /// <summary>
+    /// Computes the output noise density over a sweep.
+    /// The input is the independent source on the <c>ssp:input</c> node. The output is the <c>ssp:output</c> node, or <c>out</c>, relative to ground.
+    /// If the input or the output is not in the circuit, the result has a diagnostic and no points.
+    /// </summary>
+    public static NoiseResult Noise(LoadedCircuit circuit, DecadeSweep sweep)
+    {
+        if (circuit.Directives.Input is not { } inNode)
+        {
+            return Skip("Noise needs an ssp:input directive.");
+        }
+
+        var input = circuit.Circuit
+            .Where(e => e is VoltageSource or CurrentSource)
+            .Cast<IComponent>()
+            .FirstOrDefault(c => c.Nodes.Contains(inNode, StringComparer.Ordinal));
+        if (input is null)
+        {
+            return Skip($"Noise needs a voltage or current source on the ssp:input node '{inNode}'.");
+        }
+
+        var outNode = circuit.Directives.Output ?? "out";
+        if (!circuit.NodeNames.Contains(outNode, StringComparer.Ordinal))
+        {
+            return Skip($"Noise needs the output node '{outNode}' in the circuit.");
+        }
+
+        var frequencies = sweep.Frequencies();
+        var noise = new Noise("noise", input.Name, outNode, "0", frequencies);
+        var export = new OutputNoiseDensityExport(noise);
+        var density = new List<double>(frequencies.Count);
+
+        // Exports are valid only while the simulation yields, so copy the values inside the loop.
+        foreach (var _ in noise.Run(circuit.Circuit, SpiceSharp.Simulations.Noise.ExportNoise))
+        {
+            // NOTE: The engine gives the density in V²/Hz.
+            density.Add(Math.Sqrt(export.Value));
+        }
+
+        return new NoiseResult(frequencies, density, []);
+
+        static NoiseResult Skip(string message) => new([], [], [new Diagnostic(Severity.Warning, message, null)]);
+    }
 }
