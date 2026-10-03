@@ -37,4 +37,31 @@ The real-time factors below were measured before `clipper-bjt-si.cir` was writte
 | Native .NET 9, Apple Silicon | Fixed trapezoidal | 44.1 kHz | 8.3x |
 | Native .NET 9, Apple Silicon | Fixed Euler | 44.1 kHz | 7.7x |
 | Native .NET 9, Apple Silicon | Fixed trapezoidal | 176.4 kHz (4x oversample) | 3.2x |
-| Browser (WebAssembly) | - | 44.1 kHz | not measured |
+| Browser (WebAssembly) | - | 44.1 kHz | see [Browser](#browser) |
+
+## Browser
+
+`EngineSpeedTests` renders 1 s of audio through `clipper-bjt-si.cir` in Chromium and records the wall time.
+Run it with `scripts/playwright.sh`. The test log shows the times at detailed verbosity.
+
+The test publishes a small WebAssembly page that calls `Analyses.Render` through one `[JSExport]` method.
+Ssp.Web has no render entry point yet. The runtime is the same Mono WebAssembly runtime (interpreter, no AOT).
+The page times the call with `performance.now()`. The time includes the marshalling of the samples.
+The browser output agrees with native `Analyses.Render` to 1 uV on each sample.
+
+| Item | Value |
+|---|---|
+| Machine | Apple M3 Pro, macOS |
+| Browser | Chrome for Testing 153.0.8010.12, headless (Playwright 1.63.0) |
+| Runtime | .NET 10 Mono WebAssembly, interpreter, no `wasm-tools` workload |
+| Method | `Analyses.Render`, fixed trapezoidal, oversample 1 |
+| Input | Sine, 0.3 V peak, 440 Hz, 44.1 kHz |
+| Runs | 5. The values are the median, with the range. |
+
+| Render | Wall time | Real-time factor |
+|---|---|---|
+| 1 s of audio, first call | 3660 ms (3625 to 3720) | 0.27x |
+| 1 s of audio, second call | 3410 ms (3381 to 3419) | 0.29x |
+| 0.1 s of audio | 366 ms (360 to 377) | 0.27x |
+
+The browser renders slower than real time. The wall time is linear in the length: 0.1 s takes 0.11 of the time of 1 s.

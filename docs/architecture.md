@@ -80,3 +80,16 @@ No `.razor` file names `Ssp.Core`.
 
 Long simulations will run in a Web Worker so that the page continues to respond.
 `WorkerSimulationHost` will implement `ISimulationHost`. The UI will not change.
+
+### Worker block size
+
+The worker renders each `Render` request as one block: the full input buffer. The page sends one message and gets one message back.
+
+The reasons:
+
+- `Analyses.Render` keeps no solver state between calls. Each call starts from the DC operating point.
+  A render in smaller blocks restarts the circuit at each block edge. The output then has a step, and the coupling capacitors charge again for about 50 ms.
+- The cost has no fixed part to amortize. In Chromium, 0.1 s of audio takes 366 ms and 1 s takes 3410 ms ([benchmarks](benchmarks.md#browser)).
+- The browser renders at 0.29x real time. Live streaming is not possible, so the worker gives the finished buffer.
+
+A smaller block will be useful for progress and cancel. That needs a render that continues from a saved state.
