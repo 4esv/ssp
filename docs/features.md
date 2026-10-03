@@ -54,7 +54,7 @@ Status values: planned, in progress, done.
 | core | Noise analysis | planned |
 | models | LED part | done |
 | models | Vactrol part | planned |
-| models | Transformer part | planned |
+| models | Transformer part | done |
 | core | LTspice symbol pin table | done |
 | core | LTspice `.asc` to netlist | planned |
 | core | LTspice `.asc` to layout | planned |
