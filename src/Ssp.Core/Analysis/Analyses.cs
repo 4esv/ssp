@@ -8,9 +8,14 @@ namespace Ssp.Core.Analysis;
 public static class Analyses
 {
     /// <summary>Computes the DC operating point of a loaded circuit.</summary>
-    public static OpResult OperatingPoint(LoadedCircuit circuit)
+    public static OpResult OperatingPoint(LoadedCircuit circuit, Action<BiasingParameters>? configure = null)
     {
         var op = new OP("op");
+        if (configure is not null)
+        {
+            configure(op.BiasingParameters);
+        }
+
         var nodeExports = circuit.NodeNames.ToDictionary(n => n, n => new RealVoltageExport(op, n), StringComparer.Ordinal);
         var sourceExports = new Dictionary<string, RealPropertyExport>(StringComparer.Ordinal);
         var powerExports = new Dictionary<string, RealPropertyExport>(StringComparer.Ordinal);
