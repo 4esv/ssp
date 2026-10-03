@@ -1,0 +1,4 @@
+SpiceSharp 3.2.3
+SpiceSharp-Parser 3.4.1
+SpiceSharpBehavioral 3.2.0
+SpiceSharpParser.CustomComponents 0.1.2

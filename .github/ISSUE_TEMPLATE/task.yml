@@ -1,0 +1,64 @@
+name: Task
+description: One unit of work that fits in one session.
+body:
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      description: One sentence.
+    validations:
+      required: true
+  - type: input
+    id: unit
+    attributes:
+      label: Unit
+      description: The public type or command that this task adds or changes.
+    validations:
+      required: true
+  - type: textarea
+    id: test-first
+    attributes:
+      label: Test first
+      description: The test file and the assertion that must fail before the change. Write "n/a" for kind:chore.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: A checklist. Each item must be observable.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: input
+    id: blocked-by
+    attributes:
+      label: Blocked by
+      description: Issue numbers, for example "#3, #7". Write "none" if no issue blocks this task.
+      value: none
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: Docs
+      description: The docs/*.md files that this task changes. Write "none" if no file changes.
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: S fits one session with margin. M fills one session.
+      options:
+        - S
+        - M
+    validations:
+      required: true
