@@ -43,7 +43,9 @@ public static class Runner
         }
 
         var ac = Time("frequencyResponse", timings, () => Analyses.FrequencyResponse(circuit, options.Sweep));
-        var z = Time("impedance", timings, () => Analyses.Impedance(circuit, options.Sweep));
+        var impedance = Time("impedance", timings, () => Analyses.Impedance(circuit, options.Sweep));
+        diagnostics.AddRange(impedance.Diagnostics);
+        var z = impedance.Frequencies.Count > 0 ? impedance : null;
         NoiseResult? noise = null;
         if (circuit.Directives.Input is not null)
         {
