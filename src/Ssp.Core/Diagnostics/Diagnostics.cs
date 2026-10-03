@@ -12,9 +12,12 @@ public static class Diagnostics
         new DanglingPinRule(),
         new FloatingNodeRule(),
         new VoltageLoopRule(),
+        new BjtSaturatedRule(),
+        new BjtCutOffRule(),
+        new OpAmpNearRailRule(),
     ];
 
-    /// <summary>Checks the circuit with every rule. No simulation runs.</summary>
+    /// <summary>Checks the circuit with every rule. Only the bias rules run a simulation: the operating point.</summary>
     public static IReadOnlyList<Diagnostic> Run(LoadedCircuit circuit) =>
         Rules.SelectMany(rule => rule.Check(circuit)).ToList();
 }

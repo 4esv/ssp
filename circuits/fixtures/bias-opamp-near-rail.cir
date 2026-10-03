@@ -1,0 +1,13 @@
+* ssp:title Op-amp with no bias on a single supply
+* The supply is 9 V and the negative rail is ground. The positive input goes to ground, not to Vcc/2.
+* A test adds the TL072 model from models/opamp-tl072.cir.
+* Hand calculation: the input is 0 V, so the output goes to the low limit, Vee + 1.5 V = 1.5 V.
+*   1.5 V is less than 2 V from the 0 V rail.
+* ssp:input in
+* ssp:output out
+V1 in 0 DC 0 AC 1
+Vcc vcc 0 DC 9
+Rin in 0 1Meg
+X1 in out out vcc 0 TL072
+Rl out 0 10k
+.END
