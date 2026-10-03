@@ -55,6 +55,6 @@ Status values: planned, in progress, done.
 | models | LED part | planned |
 | models | Vactrol part | planned |
 | models | Transformer part | planned |
-| core | LTspice symbol pin table | planned |
+| core | LTspice symbol pin table | done |
 | core | LTspice `.asc` to netlist | planned |
 | core | LTspice `.asc` to layout | planned |
