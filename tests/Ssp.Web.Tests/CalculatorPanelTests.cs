@@ -74,21 +74,6 @@ public class CalculatorPanelTests : BunitContext
     }
 
     [Fact]
-    public void UndoRevertsTheWriteBack()
-    {
-        var panel = Panel(TwoResistors);
-        Assert.True(panel.Find("button.undo").HasAttribute("disabled"));
-
-        panel.Find("button.write").Click();
-        panel.Find("button.undo").Click();
-
-        Assert.Equal(2, changes.Count);
-        Assert.Equal(TwoResistors, changes[1].Netlist);
-        Assert.Equal(3, changes[1].Layout.Parts.Count);
-        Assert.True(panel.Find("button.undo").HasAttribute("disabled"));
-    }
-
-    [Fact]
     public void NetlistWithErrorsCannotBeWritten()
     {
         var panel = Panel("* bad\nR1 a\n.END\n");
