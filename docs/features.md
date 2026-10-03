@@ -8,7 +8,7 @@ Status values: planned, in progress, done.
 | core | ssp directives | done |
 | core | Operating point | done |
 | core | Frequency response | done |
-| core | Input and output impedance | planned |
+| core | Input and output impedance | done |
 | core | WAV read and write | done |
 | core | Transient render | planned |
 | core | Value overrides | done |
