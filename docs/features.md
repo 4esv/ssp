@@ -17,7 +17,7 @@ Status values: planned, in progress, done.
 | core | Run pipeline | planned |
 | core | Result JSON schema | planned |
 | core | Plain-English report | planned |
-| core | Potentiometer | planned |
+| core | Potentiometer | done |
 | core | Op-amp macro-model | planned |
 | core | Bias rules | planned |
 | core | Signal rules | planned |

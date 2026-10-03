@@ -18,13 +18,14 @@ ssp reads directives from comment lines in the netlist. Other SPICE tools ignore
 | `* ssp:title <text>` | The title of the circuit. |
 | `* ssp:input <node>` | The node that receives the input signal. |
 | `* ssp:output <node>` | The node that gives the output signal. |
-| `* ssp:knob <part> <taper> <pos>` | A potentiometer, its taper, and its position. |
+| `* ssp:knob <part> <taper> <pos>` | A potentiometer, its taper, and its position. The netlist holds two resistors, `<part>_1` (top to wiper) and `<part>_2` (wiper to bottom). `Pot.Apply` keeps their sum and sets `<part>_2` to the share of the total that the taper gives. A missing resistor, an unknown taper, or a position outside 0 to 1 gives an error diagnostic. |
 | `* ssp:part <ref> <part-id>` | The part in the parts table that a reference uses. This mapping wins over the default mapping by kind and model name. An unknown part id gives an error diagnostic. A reference with no part gives a warning. |
 
 Rules:
 
 - A directive line starts with `* ssp:` at the start of the line. Leading white space is allowed.
-- `<pos>` is a number.
+- `<pos>` is a number. For `knob`, it is the fraction of the turn, from 0 (0%) to 1 (100%).
+- `<taper>` of a `knob` is `linear`, `log` or `revlog`. At the half-way position, the share below the wiper is 50% for `linear`, 10% for `log` and 90% for `revlog`.
 - An unknown directive, or a directive with the wrong arguments, gives a diagnostic with severity warning. The line is ignored.
 - If a directive is given more than once, the last `title`, `input` or `output` is used. Every `knob` and `part` is kept.
 
