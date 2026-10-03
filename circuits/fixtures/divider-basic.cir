@@ -1,0 +1,6 @@
+* ssp:title Resistor divider
+* Output: Vout = Vin * R2 / (R1 + R2) = 1 * 2k / (1k + 2k) = 0.6667 V
+V1 in 0 1
+R1 in out 1k
+R2 out 0 2k
+.END
