@@ -1,13 +1,14 @@
 using System.Globalization;
 using System.Text;
 using Ssp.Core.Netlist;
+using LayoutDoc = Ssp.Core.Layout.Layout;
 
 namespace Ssp.Core.Import.LtSpice;
 
 /// <summary>The netlist made from an LTspice <c>.asc</c> file, and the problems found.</summary>
 public sealed record AscImport(string Netlist, IReadOnlyList<Diagnostic> Diagnostics);
 
-/// <summary>Makes a SPICE netlist from an LTspice <c>.asc</c> schematic.</summary>
+/// <summary>Makes a SPICE netlist and a layout from an LTspice <c>.asc</c> schematic.</summary>
 public static class AscImporter
 {
     // NOTE: The SPICE prefix of each symbol in PinTable.Builtin. LTspice adds the prefix when the InstName does not start with it.
@@ -23,6 +24,22 @@ public static class AscImporter
         ["opamp"] = "X",
     };
 
+    // NOTE: How the ssp symbol at layout rotation 0 goes on the LTspice symbol at R0. Base is the layout rotation that turns the
+    // ssp symbol to the LTspice direction. (X, Y) is the point of the LTspice symbol where the ssp symbol origin goes.
+    // The two-pin LTspice symbols are vertical with pin A at top. The two-pin ssp symbols are horizontal with pin A at the origin.
+    // The ssp op-amp origin is between its inputs. The others have no ssp symbol; their origin goes on the first pin.
+    static readonly Dictionary<string, (int Base, int X, int Y)> Anchors = new()
+    {
+        ["res"] = (270, 16, 16),
+        ["cap"] = (270, 16, 0),
+        ["ind"] = (270, 16, 16),
+        ["diode"] = (270, 16, 0),
+        ["npn"] = (0, 64, 0),
+        ["pnp"] = (0, 64, 0),
+        ["njf"] = (0, 48, 0),
+        ["opamp"] = (0, -32, 64),
+    };
+
     sealed class Symbol(string name, int x, int y, string orientation, int line)
     {
         public string Name { get; } = name;
@@ -36,9 +53,125 @@ public static class AscImporter
 
     public static string ToNetlist(string asc) => Import(asc).Netlist;
 
+    /// <summary>
+    /// A layout with one entry for each symbol that <see cref="Import"/> puts in the netlist, and no wires.
+    /// The positions are in LTspice units. The rotation and flip come from the LTspice orientation.
+    /// </summary>
+    public static LayoutDoc ToLayout(string asc)
+    {
+        var placements = new List<Layout.PartPlacement>();
+        foreach (var (symbol, prefix) in Importable(Parse(asc).Symbols, []))
+        {
+            var (baseRotation, x, y) = Anchors[symbol.Name];
+            var at = Orient(x, y, symbol.Orientation)!.Value;
+            var mirror = symbol.Orientation[0] == 'M';
+            var turn = Int(symbol.Orientation[1..]);
+            // NOTE: LTspice turns clockwise and mirrors x. The layout turns counter-clockwise and flips y. Mirror x is flip y and a half turn.
+            var rotation = (((mirror ? 180 - baseRotation : baseRotation) - turn) % 360 + 360) % 360;
+            placements.Add(new Layout.PartPlacement(Reference(symbol, prefix), symbol.X + at.X, symbol.Y + at.Y, rotation, mirror));
+        }
+        return new LayoutDoc(placements, []);
+    }
+
     public static AscImport Import(string asc)
     {
         var diagnostics = new List<Diagnostic>();
+        var (wires, flags, symbols, directives) = Parse(asc);
+
+        var nodes = new UnionFind();
+        foreach (var (a, b) in wires)
+        {
+            nodes.Union(a, b);
+        }
+
+        var placed = new List<(Symbol Symbol, string Prefix, (int X, int Y)[] Pins)>();
+        foreach (var (symbol, prefix) in Importable(symbols, diagnostics))
+        {
+            var offsets = PinTable.Builtin[symbol.Name];
+            var pins = new (int X, int Y)[offsets.Length];
+            for (var p = 0; p < offsets.Length; p++)
+            {
+                var t = Orient(offsets[p].X, offsets[p].Y, symbol.Orientation)!.Value;
+                pins[p] = (symbol.X + t.X, symbol.Y + t.Y);
+                nodes.Add(pins[p]);
+            }
+            placed.Add((symbol, prefix, pins));
+        }
+
+        foreach (var (at, _) in flags)
+        {
+            nodes.Add(at);
+        }
+
+        // NOTE: A point on a wire, not only at its end, connects to that wire. This gives T-junctions.
+        foreach (var point in nodes.Points.ToList())
+        {
+            foreach (var (a, b) in wires)
+            {
+                if (OnSegment(point, a, b))
+                {
+                    nodes.Union(point, a);
+                }
+            }
+        }
+
+        // NOTE: Flags with the same name are one net.
+        var byLabel = new Dictionary<string, (int X, int Y)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (at, name) in flags)
+        {
+            if (byLabel.TryGetValue(name, out var first))
+            {
+                nodes.Union(at, first);
+            }
+            else
+            {
+                byLabel[name] = at;
+            }
+        }
+
+        var names = new Dictionary<(int X, int Y), string>();
+        foreach (var (at, name) in flags)
+        {
+            var root = nodes.Find(at);
+            if (name == "0" || !names.ContainsKey(root))
+            {
+                names[root] = name;
+            }
+        }
+
+        var netlist = new StringBuilder("* Imported from LTspice\n");
+        var unnamed = 0;
+        foreach (var (symbol, prefix, pins) in placed)
+        {
+            netlist.Append(Reference(symbol, prefix));
+            foreach (var pin in pins)
+            {
+                var root = nodes.Find(pin);
+                if (!names.TryGetValue(root, out var net))
+                {
+                    net = string.Create(CultureInfo.InvariantCulture, $"N{++unnamed:D3}");
+                    names[root] = net;
+                }
+                netlist.Append(' ').Append(net);
+            }
+            if (!string.IsNullOrEmpty(symbol.Value))
+            {
+                netlist.Append(' ').Append(symbol.Value);
+            }
+            netlist.Append('\n');
+        }
+
+        foreach (var directive in directives)
+        {
+            netlist.Append(directive).Append('\n');
+        }
+        netlist.Append(".end\n");
+
+        return new AscImport(netlist.ToString(), diagnostics);
+    }
+
+    static (List<((int X, int Y) A, (int X, int Y) B)> Wires, List<((int X, int Y) At, string Name)> Flags, List<Symbol> Symbols, List<string> Directives) Parse(string asc)
+    {
         var wires = new List<((int X, int Y) A, (int X, int Y) B)>();
         var flags = new List<((int X, int Y) At, string Name)>();
         var symbols = new List<Symbol>();
@@ -88,124 +221,40 @@ public static class AscImporter
             }
         }
 
-        var nodes = new UnionFind();
-        foreach (var (a, b) in wires)
-        {
-            nodes.Union(a, b);
-        }
+        return (wires, flags, symbols, directives);
+    }
 
-        var placed = new List<(Symbol Symbol, string Prefix, (int X, int Y)[] Pins)>();
+    // The symbols that are imported, with their SPICE prefix. Each symbol that is not imported gives a diagnostic.
+    static List<(Symbol Symbol, string Prefix)> Importable(List<Symbol> symbols, List<Diagnostic> diagnostics)
+    {
+        var importable = new List<(Symbol Symbol, string Prefix)>();
         foreach (var symbol in symbols)
         {
-            if (!PinTable.Builtin.TryGetValue(symbol.Name, out var offsets) || !Prefixes.TryGetValue(symbol.Name, out var prefix))
+            if (!PinTable.Builtin.ContainsKey(symbol.Name) || !Prefixes.TryGetValue(symbol.Name, out var prefix))
             {
                 diagnostics.Add(new Diagnostic(Severity.Error,
                     $"Unknown LTspice symbol '{symbol.Name}' ({symbol.InstName ?? "no InstName"}). The symbol is not imported.", symbol.Line));
-                continue;
             }
-
-            if (string.IsNullOrEmpty(symbol.InstName))
+            else if (string.IsNullOrEmpty(symbol.InstName))
             {
                 diagnostics.Add(new Diagnostic(Severity.Error,
                     $"LTspice symbol '{symbol.Name}' has no InstName. The symbol is not imported.", symbol.Line));
-                continue;
             }
-
-            var pins = new (int X, int Y)[offsets.Length];
-            var known = true;
-            for (var p = 0; p < offsets.Length && known; p++)
-            {
-                var turned = Orient(offsets[p].X, offsets[p].Y, symbol.Orientation);
-                known = turned is not null;
-                if (turned is { } t)
-                {
-                    pins[p] = (symbol.X + t.X, symbol.Y + t.Y);
-                    nodes.Add(pins[p]);
-                }
-            }
-
-            if (!known)
+            else if (Orient(0, 0, symbol.Orientation) is null)
             {
                 diagnostics.Add(new Diagnostic(Severity.Error,
                     $"Unknown orientation '{symbol.Orientation}' of {symbol.InstName}. The symbol is not imported.", symbol.Line));
-                continue;
-            }
-
-            placed.Add((symbol, prefix, pins));
-        }
-
-        foreach (var (at, _) in flags)
-        {
-            nodes.Add(at);
-        }
-
-        // NOTE: A point on a wire, not only at its end, connects to that wire. This gives T-junctions.
-        foreach (var point in nodes.Points.ToList())
-        {
-            foreach (var (a, b) in wires)
-            {
-                if (OnSegment(point, a, b))
-                {
-                    nodes.Union(point, a);
-                }
-            }
-        }
-
-        // NOTE: Flags with the same name are one net.
-        var byLabel = new Dictionary<string, (int X, int Y)>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (at, name) in flags)
-        {
-            if (byLabel.TryGetValue(name, out var first))
-            {
-                nodes.Union(at, first);
             }
             else
             {
-                byLabel[name] = at;
+                importable.Add((symbol, prefix));
             }
         }
-
-        var names = new Dictionary<(int X, int Y), string>();
-        foreach (var (at, name) in flags)
-        {
-            var root = nodes.Find(at);
-            if (name == "0" || !names.ContainsKey(root))
-            {
-                names[root] = name;
-            }
-        }
-
-        var netlist = new StringBuilder("* Imported from LTspice\n");
-        var unnamed = 0;
-        foreach (var (symbol, prefix, pins) in placed)
-        {
-            var instName = symbol.InstName!;
-            netlist.Append(instName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? instName : prefix + instName);
-            foreach (var pin in pins)
-            {
-                var root = nodes.Find(pin);
-                if (!names.TryGetValue(root, out var net))
-                {
-                    net = string.Create(CultureInfo.InvariantCulture, $"N{++unnamed:D3}");
-                    names[root] = net;
-                }
-                netlist.Append(' ').Append(net);
-            }
-            if (!string.IsNullOrEmpty(symbol.Value))
-            {
-                netlist.Append(' ').Append(symbol.Value);
-            }
-            netlist.Append('\n');
-        }
-
-        foreach (var directive in directives)
-        {
-            netlist.Append(directive).Append('\n');
-        }
-        netlist.Append(".end\n");
-
-        return new AscImport(netlist.ToString(), diagnostics);
+        return importable;
     }
+
+    static string Reference(Symbol symbol, string prefix) =>
+        symbol.InstName!.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? symbol.InstName : prefix + symbol.InstName;
 
     static int Int(string s) => int.Parse(s, NumberStyles.Integer, CultureInfo.InvariantCulture);
 
