@@ -62,4 +62,22 @@ public class ImpedanceTests
 
         Assert.Equal(names, loaded.Circuit.Select(e => e.Name).ToList());
     }
+
+    [Fact]
+    public void CircuitWithNoVoltageSourceGivesADiagnostic()
+    {
+        var result = Analyses.Impedance(NetlistLoader.Load(Fixtures.Read("noise-resistor.cir")));
+
+        Assert.Empty(result.Frequencies);
+        Assert.Contains(result.Diagnostics, d => d.Severity == Severity.Warning && d.Message.Contains("voltage source", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RunnerReturnsAResultForACircuitWithNoVoltageSource()
+    {
+        var result = Runner.Run(Fixtures.Read("noise-resistor.cir"), new RunOptions());
+
+        Assert.NotNull(result.OperatingPoint);
+        Assert.True(result.Impedance is not null || result.Diagnostics.Any(d => d.Message.Contains("Impedance", StringComparison.Ordinal)));
+    }
 }

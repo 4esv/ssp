@@ -104,6 +104,7 @@ public static class Analyses
     /// Input impedance is V/I at the input source. The input is the source on the <c>ssp:input</c> node, or the first voltage source.
     /// Output impedance is the voltage at the output node for 1 A of AC current, with the input source set to zero.
     /// The output node is the <c>ssp:output</c> node, or <c>out</c>. The circuit is the same afterwards.
+    /// If the circuit has no voltage source, the result has a diagnostic and no points.
     /// </summary>
     public static ZResult Impedance(LoadedCircuit circuit, DecadeSweep sweep)
     {
@@ -112,8 +113,11 @@ public static class Analyses
         var input = (circuit.Directives.Input is { } inNode
                 ? sources.FirstOrDefault(v => string.Equals(v.Nodes[0], inNode, StringComparison.Ordinal))
                 : null)
-            ?? sources.FirstOrDefault()
-            ?? throw new InvalidOperationException("Impedance needs a voltage source as the input.");
+            ?? sources.FirstOrDefault();
+        if (input is null)
+        {
+            return new ZResult([], [], [], [new Diagnostic(Severity.Warning, "Impedance needs a voltage source as the input.", null)]);
+        }
         var outNode = circuit.Directives.Output ?? "out";
         if (!circuit.NodeNames.Contains(outNode, StringComparer.Ordinal))
         {
@@ -168,7 +172,7 @@ public static class Analyses
             }
         }
 
-        return new ZResult(frequencies, zin, zout);
+        return new ZResult(frequencies, zin, zout, []);
     }
 
     /// <summary>
