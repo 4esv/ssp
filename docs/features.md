@@ -28,7 +28,7 @@ Status values: planned, in progress, done.
 | cli | `ssp render` | planned |
 | cli | `ssp sweep` | planned |
 | cli | `ssp mcp` | planned |
-| web | Simulation host interface | planned |
+| web | Simulation host interface | done |
 | web | Netlist editor, run, results | planned |
 | web | Plots | planned |
 | web | Share by URL | planned |
