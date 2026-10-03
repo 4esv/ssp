@@ -1,0 +1,4 @@
+ref,part,value,footprint,buy link
+D1,1N4148,1N4148,DO-35,https://www.mouser.com/c/?q=1N4148
+R1,,,,
+V1,,,,

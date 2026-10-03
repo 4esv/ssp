@@ -44,7 +44,7 @@ Status values: planned, in progress, done.
 | core | Impulse response convolution | planned |
 | web | Play a clip through the circuit | planned |
 | web | Live monitor | planned |
-| core | BOM export | planned |
+| core | BOM export | done |
 | core | KiCad export | planned |
 | web | Schematic SVG and PDF export | planned |
 | core | Blocks library | planned |
