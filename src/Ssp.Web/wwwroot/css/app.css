@@ -50,3 +50,21 @@ body {
 .line-chart .legend text {
     stroke: none;
 }
+
+.editor-split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.editor-split .schematic {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+.schematic svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}

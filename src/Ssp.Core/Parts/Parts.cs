@@ -8,12 +8,15 @@ public static class Parts
 {
     static readonly string[] Fields = ["id", "kind", "model", "symbol", "footprint", "buy_url", "provenance"];
 
-    public static PartsTable Load(string path)
+    public static PartsTable Load(string path) => Parse(File.ReadAllText(path), path);
+
+    /// <summary>Reads the parts table from TOML text. <paramref name="path"/> names the source in error messages.</summary>
+    public static PartsTable Parse(string toml, string path)
     {
         TomlTable doc;
         try
         {
-            doc = TomlSerializer.Deserialize<TomlTable>(File.ReadAllText(path)) ?? new TomlTable();
+            doc = TomlSerializer.Deserialize<TomlTable>(toml) ?? new TomlTable();
         }
         catch (TomlException ex)
         {
