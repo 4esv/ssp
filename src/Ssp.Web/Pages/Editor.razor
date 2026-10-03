@@ -16,6 +16,8 @@
 <button @onclick="Run" disabled="@running">Run</button>
 <a class="share" href="@ShareHref">Share link</a>
 
+<Knobs Netlist="@netlist" NetlistChanged="Retune" />
+
 @if (shareError is not null)
 {
     <ul class="diagnostics">
@@ -107,6 +109,13 @@
         running = true;
         result = await Host.Run(netlist, new RunOptions());
         running = false;
+    }
+
+    // NOTE: A knob change runs the operating point and the frequency response again.
+    async Task Retune(string tuned)
+    {
+        netlist = tuned;
+        await Run();
     }
 
     static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
