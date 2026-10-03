@@ -1,0 +1,17 @@
+@page "/gallery"
+@using Ssp.Web.Library
+@using Ssp.Web.Sharing
+
+<PageTitle>ssp gallery</PageTitle>
+
+<h1>Gallery</h1>
+
+<ul class="gallery">
+    @foreach (var circuit in CircuitLibrary.All)
+    {
+        <li>
+            <a href="@("editor#" + ShareCodec.Encode(circuit.Netlist))">@circuit.Title</a>
+            <span class="file">@circuit.FileName</span>
+        </li>
+    }
+</ul>
