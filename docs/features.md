@@ -32,7 +32,7 @@ Status values: planned, in progress, done.
 | web | Netlist editor, run, results | planned |
 | web | Plots | planned |
 | web | Share by URL | planned |
-| web | Symbol library | planned |
+| web | Symbol library | done |
 | web | Schematic renderer | planned |
 | web | Auto-placement | planned |
 | web | DC overlay and probes | planned |
