@@ -35,7 +35,7 @@ Status values: planned, in progress, done.
 | web | Symbol library | done |
 | web | Schematic renderer | in progress |
 | web | Auto-placement | done |
-| web | DC overlay and probes | planned |
+| web | DC overlay and probes | done |
 | web | Place and wire | planned |
 | web | Edit operations | planned |
 | web | Undo and redo | planned |
