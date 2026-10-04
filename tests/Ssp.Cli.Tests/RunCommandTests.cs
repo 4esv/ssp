@@ -15,7 +15,7 @@ public class RunCommandTests
 
     // NOTE: Timings are wall-clock values. Set them to 0 so that the golden JSON is stable.
     // The math library of each OS can change the last digit of a double. Round each number to 10 significant digits.
-    static string Stable(string json)
+    internal static string Stable(string json)
     {
         var root = JsonNode.Parse(json)!.AsObject();
         var timings = root["timingsMs"]!.AsObject();

@@ -34,6 +34,20 @@ Only `Ssp.Core` references the engine packages.
 8. `Ssp.Core` renders an audio clip through the circuit.
 9. `Ssp.Cli` writes the result as text or JSON and the audio as WAV. `Ssp.Web` shows the result and plays the audio.
 
+## MCP tools
+
+`ssp mcp` serves the CLI tools to agents over MCP on standard input and output. No other transport exists.
+Each tool calls the matching command, so its text is the text of the command.
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `run` | `file`, `set` (optional) | The result JSON. The same as `ssp run --json`. |
+| `explain` | `file`, `set` (optional) | The plain-English report. The same as `ssp run`. |
+| `sweep` | `file`, `set` | The series JSON. The same as `ssp sweep --json`. |
+| `render` | `file`, `input`, `output`, `oversample` (optional), `ir` (optional) | A line that names the output file. The same as `ssp render`. |
+
+A command that writes to the error stream, for example when a file does not exist, gives a tool error.
+
 ## No backend
 
 The web app is a set of static files. No server runs simulations.
