@@ -198,6 +198,8 @@
         if (Netlist == seenNetlist && ReferenceEquals(Layout, seenLayout)) return;
         seenNetlist = Netlist;
         seenLayout = Layout;
+        // NOTE: The parent passes each edit back. That echo keeps the undo, any other netlist drops it.
+        if (Netlist != netlist) ClearUndo();
         netlist = Netlist;
         given = Layout;
         Build();
@@ -206,7 +208,6 @@
 
     void Build()
     {
-        ClearUndo();
         selectedWire = null;
         pending = null;
         menuOpen = false;
@@ -605,7 +606,7 @@
         else return null;
         if (view is not { } v || paneBox[2] <= 0) return "";
 
-        const double BarWidth = 200, BarHeight = 52, Gap = 8;
+        const double BarWidth = 290, BarHeight = 52, Gap = 8;
         var (a, b) = (v.WorldToScreen(min), v.WorldToScreen(max));
         var left = Math.Clamp(a.X, Gap, Math.Max(Gap, paneBox[2] - BarWidth - Gap));
         var top = b.Y + Gap + BarHeight <= paneBox[3] ? b.Y + Gap : Math.Max(Gap, a.Y - BarHeight - Gap);
@@ -614,6 +615,7 @@
 
     async Task Apply(SchematicChange change)
     {
+        ClearUndo();
         netlist = change.Netlist;
         given = change.Layout;
         Build();

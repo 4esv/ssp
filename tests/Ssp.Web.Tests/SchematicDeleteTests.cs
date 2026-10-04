@@ -117,4 +117,19 @@ public class SchematicDeleteTests : BunitContext
         Assert.DoesNotContain("R3 ", seen[^1].Netlist);
         Assert.Contains("Deleted R3.", editor.Find(".delete-status").TextContent);
     }
+
+    [Fact]
+    public void The_undo_survives_the_parent_passing_the_change_back()
+    {
+        var seen = new List<SchematicChange>();
+        var editor = Editor(seen);
+        editor.Find("rect.part[data-ref=\"R3\"]").Click();
+        editor.Find(".selection-bar button[data-action=delete]").Click();
+
+        editor.Render(p => p.Add(c => c.Netlist, seen[^1].Netlist).Add(c => c.Layout, seen[^1].Layout));
+
+        Assert.Contains("Deleted R3.", editor.Find(".delete-status").TextContent);
+        editor.Find(".delete-status button").Click();
+        Assert.Contains("R3 a 0 2k", seen[^1].Netlist);
+    }
 }

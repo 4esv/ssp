@@ -721,6 +721,7 @@ h1[tabindex="-1"]:focus-visible {
     display: flex;
     gap: 0.25rem;
     padding: 0.25rem;
+    max-width: calc(100% - 1rem);
     background: var(--bg, Canvas);
     border: 1px solid currentColor;
     border-radius: 0.25rem;
