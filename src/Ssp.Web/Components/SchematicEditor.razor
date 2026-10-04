@@ -26,6 +26,10 @@
         </div>
     </div>
     <p class="schematic-hint" role="status">@Hint()</p>
+    @if (undo is { } undoable)
+    {
+        <p class="delete-status" role="status">Deleted @undoable.Name. <button type="button" @onclick="Undo">Undo</button></p>
+    }
     <div class="schematic-body">
     <div class="palette" role="group" aria-label="Parts palette">
         @foreach (var kind in SchematicEdits.Kinds.Keys)
@@ -39,7 +43,7 @@
         }
     </div>
     <figure class="schematic" aria-label="Schematic" tabindex="0" @ref="pane" data-view="@(view is null ? null : "")" style="@StageStyle()"
-            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null)"
+            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null)"
             @onwheel="Wheel" @onwheel:preventDefault>
         @if (svg is null && !hasErrors)
         {
@@ -52,12 +56,18 @@
             @((MarkupString)svg)
             <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox" @onclick="CanvasClick"
                  @onpointerdown="PanDown" @onpointermove="PanMove" @onpointerup="PanUp" @onpointercancel="PanUp">
+                @for (var i = 0; i < layout.Wires.Count; i++)
+                {
+                    var wireIndex = i;
+                    <polyline class="@(wireIndex == selectedWire ? "wire-hit selected" : "wire-hit")" data-wire="@wireIndex"
+                              points="@WirePoints(layout.Wires[wireIndex])" @onclick="() => SelectWire(wireIndex)" @onclick:stopPropagation />
+                }
                 @foreach (var part in outlines)
                 {
                     <rect class="@(part.Reference == selected ? "part selected" : "part")" data-ref="@part.Reference"
                           x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
                           @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartCancel"
-                          @onclick="() => selected = part.Reference" @onclick:stopPropagation>
+                          @onclick="() => SelectPart(part.Reference)" @onclick:stopPropagation>
                         <title>@part.Reference</title>
                     </rect>
                 }
@@ -88,6 +98,15 @@
                     {
                         <button type="button" role="menuitem" data-kind="@kind" @onclick="() => AddFromPin(kind)">@Label(kind)</button>
                     }
+                </div>
+            }
+            @if (BarStyle() is { } barStyle)
+            {
+                <div class="selection-bar" role="toolbar" aria-label="Selection" style="@barStyle">
+                    <button type="button" data-action="delete" @onclick="DeleteSelected">Delete</button>
+                    <button type="button" data-action="rotate" disabled="@(selected is null)" @onclick="RotateSelected">Rotate</button>
+                    <button type="button" data-action="flip" disabled="@(selected is null)" @onclick="FlipSelected">Flip</button>
+                    <button type="button" data-action="duplicate" disabled="@(selected is null)" @onclick="DuplicateSelected">Duplicate</button>
                 </div>
             }
             <div class="schematic-zoom" role="group" aria-label="Zoom">
@@ -130,6 +149,12 @@
     List<PinView> pins = [];
     List<PartView> outlines = [];
     string? selected;
+    int? selectedWire;
+
+    // NOTE: The state before the last delete, kept for UndoSeconds. Any other edit drops it.
+    const int UndoSeconds = 8;
+    (string Name, SchematicChange Before)? undo;
+    CancellationTokenSource? undoTimer;
     Tool? tool = Tool.Wire;
 
     // NOTE: The hit circle is 24 units across or more, the least that a finger can hit.
@@ -181,6 +206,8 @@
 
     void Build()
     {
+        ClearUndo();
+        selectedWire = null;
         pending = null;
         menuOpen = false;
         var wasBlank = svg is null;
@@ -222,6 +249,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        undoTimer?.Cancel();
         if (module is not null) await module.DisposeAsync();
     }
 
@@ -368,7 +396,7 @@
     async Task PartDown(string reference, PointerEventArgs e)
     {
         if (e.Button > 0) return;
-        selected = reference;
+        SelectPart(reference);
         moving = outlines.Single(p => p.Reference == reference);
         moveFrom = new Point(e.ClientX, e.ClientY);
         moveScale = 1 / (await Current()).Zoom;
@@ -408,6 +436,7 @@
 
     string Hint() =>
         pending is { } p ? $"Connecting from {p.Reference} pin {p.Pin + 1}. Tap another pin."
+        : selectedWire is not null ? "Wire selected: Delete remove"
         : selected is { } s ? $"{s} selected: R rotate, H/V flip, arrows move, Delete remove"
         : tool == Tool.Wire ? "Wire: click a pin"
         : tool == Tool.Ground ? "Ground: click a pin"
@@ -418,6 +447,7 @@
         tool = tool == next ? null : next;
         pending = null;
         selected = null;
+        selectedWire = null;
     }
 
     async Task Click(PinRef pin)
@@ -457,6 +487,12 @@
                 await FitView();
                 return;
         }
+        if (e.Key == "Escape") selectedWire = null;
+        if (e.Key is "Delete" or "Backspace" && (selected is not null || selectedWire is not null))
+        {
+            await DeleteSelected();
+            return;
+        }
         if (selected is not { } part) return;
         const int Step = Symbols.Grid;
         SchematicChange? change = e.Key switch
@@ -468,7 +504,6 @@
             "ArrowRight" => SchematicEdits.Move(netlist, layout, part, Step, 0),
             "ArrowUp" => SchematicEdits.Move(netlist, layout, part, 0, -Step),
             "ArrowDown" => SchematicEdits.Move(netlist, layout, part, 0, Step),
-            "Delete" or "Backspace" => SchematicEdits.Delete(netlist, layout, part),
             "d" or "D" when e.MetaKey || e.CtrlKey => SchematicEdits.Duplicate(netlist, layout, part),
             _ => null,
         };
@@ -478,6 +513,103 @@
         await Apply(change);
         // NOTE: Duplicate puts the copy last in the layout.
         if (e.Key is "d" or "D") selected = change.Layout.Parts[^1].Reference;
+    }
+
+    static string WirePoints(Ssp.Core.Layout.WireRoute wire) => string.Join(' ', wire.Points.Select(p => $"{N(p.X)},{N(p.Y)}"));
+
+    void SelectPart(string reference) => (selected, selectedWire) = (reference, null);
+
+    void SelectWire(int index)
+    {
+        if (panMoved) return;
+        (selected, selectedWire, pending, menuOpen) = (null, index, null, false);
+    }
+
+    void ClearUndo()
+    {
+        undoTimer?.Cancel();
+        undo = null;
+    }
+
+    async Task DeleteSelected()
+    {
+        var before = new SchematicChange(netlist, layout);
+        SchematicChange change;
+        string name;
+        if (selectedWire is { } w && parts is not null)
+        {
+            (name, change) = ("wire", SchematicEdits.DeleteWire(netlist, layout, parts, w));
+        }
+        else if (selected is { } part)
+        {
+            (name, change) = (part, SchematicEdits.Delete(netlist, layout, part));
+        }
+        else return;
+
+        selected = null;
+        await Apply(change);
+        undo = (name, before);
+        undoTimer = new CancellationTokenSource();
+        _ = ExpireUndo(undoTimer.Token);
+    }
+
+    async Task ExpireUndo(CancellationToken token)
+    {
+        try { await Task.Delay(TimeSpan.FromSeconds(UndoSeconds), token); }
+        catch (TaskCanceledException) { return; }
+        await InvokeAsync(() =>
+        {
+            undo = null;
+            StateHasChanged();
+        });
+    }
+
+    async Task Undo()
+    {
+        if (undo is not { } last) return;
+        await Apply(last.Before);
+    }
+
+    async Task RotateSelected()
+    {
+        if (selected is { } part) await Apply(SchematicEdits.Rotate(netlist, layout, part));
+    }
+
+    async Task FlipSelected()
+    {
+        if (selected is { } part) await Apply(SchematicEdits.Flip(netlist, layout, part, leftToRight: true));
+    }
+
+    async Task DuplicateSelected()
+    {
+        if (selected is not { } part) return;
+        var change = SchematicEdits.Duplicate(netlist, layout, part);
+        await Apply(change);
+        selected = change.Layout.Parts[^1].Reference;
+    }
+
+    // NOTE: With a view, the bar sits under the selection, or above it at the edge, and stays in the pane. With the
+    // CSS fit there is no pixel position, so the style is empty and the bar sits at the foot of the pane.
+    string? BarStyle()
+    {
+        Point min, max;
+        if (selectedWire is { } w && w < layout.Wires.Count)
+        {
+            var points = layout.Wires[w].Points;
+            (min, max) = (new Point(points.Min(p => p.X), points.Min(p => p.Y)), new Point(points.Max(p => p.X), points.Max(p => p.Y)));
+        }
+        else if (selected is { } part && outlines.FirstOrDefault(o => o.Reference == part) is { } outline)
+        {
+            (min, max) = (outline.Min, outline.Max);
+        }
+        else return null;
+        if (view is not { } v || paneBox[2] <= 0) return "";
+
+        const double BarWidth = 200, BarHeight = 52, Gap = 8;
+        var (a, b) = (v.WorldToScreen(min), v.WorldToScreen(max));
+        var left = Math.Clamp(a.X, Gap, Math.Max(Gap, paneBox[2] - BarWidth - Gap));
+        var top = b.Y + Gap + BarHeight <= paneBox[3] ? b.Y + Gap : Math.Max(Gap, a.Y - BarHeight - Gap);
+        return FormattableString.Invariant($"left: {left:0.#}px; top: {top:0.#}px; bottom: auto");
     }
 
     async Task Apply(SchematicChange change)

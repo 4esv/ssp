@@ -697,3 +697,48 @@ h1[tabindex="-1"]:focus-visible {
         width: 5rem;
     }
 }
+
+/* NOTE: Selection bar and delete status (#190). Every button is 44 px or more. */
+.schematic-pins .wire-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 16;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    cursor: pointer;
+}
+
+.schematic-pins .wire-hit.selected {
+    stroke: currentColor;
+    stroke-opacity: 0.35;
+}
+
+.selection-bar {
+    position: absolute;
+    left: 0.5rem;
+    bottom: 0.5rem;
+    z-index: 2;
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--bg, Canvas);
+    border: 1px solid currentColor;
+    border-radius: 0.25rem;
+}
+
+.selection-bar button {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.delete-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.delete-status button {
+    min-height: 44px;
+    min-width: 44px;
+}
