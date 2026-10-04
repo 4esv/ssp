@@ -39,19 +39,20 @@
             </button>
         }
     </div>
-    <figure class="schematic" aria-label="Schematic" tabindex="0"
-            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null)">
+    <figure class="schematic" aria-label="Schematic" tabindex="0" @ref="pane" data-view="@(view is null ? null : "")" style="@StageStyle()"
+            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null)"
+            @onwheel="Wheel" @onwheel:preventDefault>
         @if (svg is null && !hasErrors)
         {
-            <div class="schematic-blank" @ref="canvas" @onclick="CanvasClick">
+            <div class="schematic-blank" @onclick="CanvasClick">
                 <p class="schematic-empty">The schematic is empty. Add a part: drag one from the palette onto the canvas, or use the toolbar. Then use Wire to join two pins and Ground to mark a pin as 0 V.</p>
             </div>
         }
         @if (svg is not null)
         {
             @((MarkupString)svg)
-            <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox"
-                 @ref="canvas" @onclick="CanvasClick">
+            <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox" @onclick="CanvasClick"
+                 @onpointerdown="PanDown" @onpointermove="PanMove" @onpointerup="PanUp" @onpointercancel="PanUp">
                 @foreach (var part in outlines)
                 {
                     <rect class="@(part.Reference == selected ? "part selected" : "part")" data-ref="@part.Reference"
@@ -74,6 +75,12 @@
                     </circle>
                 }
             </svg>
+            <div class="schematic-zoom" role="group" aria-label="Zoom">
+                <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
+                <output class="zoom-level" aria-label="Zoom level">@(view is { } v ? $"{(int)Math.Round(v.Zoom * 100)}%" : "Fit")</output>
+                <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)" disabled="@(view is { Zoom: >= ViewTransform.MaxZoom })" @onclick="() => ZoomStep(ZoomStepFactor)">+</button>
+                <button type="button" data-zoom="fit" title="Fit the circuit (0)" @onclick="FitView">Fit</button>
+            </div>
         }
     </figure>
     </div>
@@ -121,8 +128,22 @@
     // NOTE: A drag under this many pixels is a click.
     const double DragSlop = 4;
 
-    ElementReference canvas;
+    ElementReference pane;
     IJSObjectReference? module;
+
+    // The view of the canvas, in pixels of the pane. World is in units of the view box.
+    // NOTE: Every pointer position goes through the view, so place, move and wire hit the same grid point at any zoom.
+    // NOTE: Null is the CSS fit, so a page with no pointer never loads the module. The first pointer or key use makes it a view.
+    const double ZoomStepFactor = 1.25;
+    const double FitMargin = 24;
+    ViewTransform? view;
+    (double X, double Y, double W, double H) box;
+
+    // The pointers that are down on the empty canvas, by id, in client pixels. One pans, two pan and pinch.
+    readonly Dictionary<long, Point> touches = [];
+    double[] paneBox = [0, 0, 0, 0];
+    bool panMoved;
+    Point panFrom;
 
     // The kind that a click on the canvas places. A drag from the palette is the kind that the pointer carries.
     string? armed;
@@ -148,11 +169,13 @@
         netlist = Netlist;
         given = Layout;
         Build();
+        view = null;
     }
 
     void Build()
     {
         pending = null;
+        var wasBlank = svg is null;
         svg = null;
         pins = [];
         outlines = [];
@@ -165,7 +188,10 @@
         if (!circuit.Circuit.OfType<SpiceComponent>().Any()) return;
 
         svg = SchematicRenderer.ToSvg(circuit, layout, parts);
+        if (wasBlank) view = null;
         viewBox = ViewBox.Match(svg).Groups[1].Value;
+        var v = viewBox.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(t => double.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+        box = (v[0], v[1], v[2], v[3]);
         var placements = layout.Parts.ToDictionary(p => p.Reference, StringComparer.OrdinalIgnoreCase);
         foreach (var c in circuit.Circuit.OfType<SpiceComponent>().OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
@@ -202,12 +228,93 @@
         _ => kind,
     })?.Svg ?? "";
 
-    // The canvas point of a client position, snapped by the edit, and whether the position is on the canvas.
+    // The pane box in client pixels: left, top, width, height.
+    async Task<double[]> PaneBox() =>
+        paneBox = await (await Module()).InvokeAsync<double[]>("paneBox", pane);
+
+    async Task<ViewTransform> Current()
+    {
+        if (view is not null) return view;
+        var b = await PaneBox();
+        return view = ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], b[3], FitMargin);
+    }
+
+    // The world point of a client position, and whether the position is on the canvas.
     async Task<(Point At, bool Inside)> ToCanvas(double x, double y)
     {
-        var at = await (await Module()).InvokeAsync<double[]>("toSvg", canvas, x, y);
-        return (new Point(at[0], at[1]), at[2] != 0);
+        var b = await PaneBox();
+        var inside = x >= b[0] && x <= b[0] + b[2] && y >= b[1] && y <= b[1] + b[3];
+        var current = svg is null ? ViewTransform.Identity : await Current();
+        return (current.ScreenToWorld(new Point(x - b[0], y - b[1])), inside);
     }
+
+    string StageStyle() => view is not { } v ? "" : FormattableString.Invariant(
+        $"--w: {box.W}px; --h: {box.H}px; --x: {v.X + box.X * v.Zoom}px; --y: {v.Y + box.Y * v.Zoom}px; --z: {v.Zoom}");
+
+    async Task FitView()
+    {
+        if (svg is null) return;
+        view = null;
+        await Current();
+    }
+
+    async Task ZoomStep(double factor)
+    {
+        var b = await PaneBox();
+        view = (await Current()).ZoomAbout(new Point(b[2] / 2, b[3] / 2), factor);
+    }
+
+    // NOTE: A pinch on a trackpad is a wheel with Ctrl held, so it zooms with a finer step than the wheel.
+    async Task Wheel(WheelEventArgs e)
+    {
+        if (svg is null) return;
+        var b = await PaneBox();
+        var lines = e.DeltaMode == 1 ? 16 : 1;
+        var factor = Math.Exp(-e.DeltaY * lines * (e.CtrlKey ? 0.01 : 0.0015));
+        view = (await Current()).ZoomAbout(new Point(e.ClientX - b[0], e.ClientY - b[1]), factor);
+    }
+
+    async Task PanDown(PointerEventArgs e)
+    {
+        if (e.Button > 0 || moving is not null || carrying is not null) return;
+        if (touches.Count == 0)
+        {
+            panMoved = false;
+            panFrom = new Point(e.ClientX, e.ClientY);
+        }
+        touches[e.PointerId] = new Point(e.ClientX, e.ClientY);
+        await PaneBox();
+        await Current();
+    }
+
+    void PanMove(PointerEventArgs e)
+    {
+        // NOTE: Until PanDown has made the view, the moves are lost.
+        if (view is null || !touches.TryGetValue(e.PointerId, out var last) || moving is not null) return;
+        var now = new Point(e.ClientX, e.ClientY);
+        var others = touches.Where(t => t.Key != e.PointerId).Select(t => t.Value).ToList();
+        if (others.Count == 1)
+        {
+            var o = others[0];
+            var before = Math.Max(Distance(last, o), 1);
+            var mid = new Point((now.X + o.X) / 2 - paneBox[0], (now.Y + o.Y) / 2 - paneBox[1]);
+            var midBefore = new Point((last.X + o.X) / 2, (last.Y + o.Y) / 2);
+            view = view!.ZoomAbout(mid, Distance(now, o) / before).Pan((now.X + o.X) / 2 - midBefore.X, (now.Y + o.Y) / 2 - midBefore.Y);
+            panMoved = true;
+        }
+        else if (others.Count == 0)
+        {
+            // NOTE: A drag under the slop is a click, so the canvas does not move for it.
+            if (!panMoved && Math.Abs(now.X - panFrom.X) <= DragSlop && Math.Abs(now.Y - panFrom.Y) <= DragSlop) return;
+            panMoved = true;
+            view = view!.Pan(now.X - last.X, now.Y - last.Y);
+        }
+        touches[e.PointerId] = now;
+    }
+
+    void PanUp(PointerEventArgs e) => touches.Remove(e.PointerId);
+
+    static double Distance(Point a, Point b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 
     void PaletteDown(string kind, PointerEventArgs e)
     {
@@ -247,6 +354,7 @@
 
     async Task CanvasClick(MouseEventArgs e)
     {
+        if (panMoved) return;
         if (armed is not { } kind) return;
         armed = null;
         var (at, _) = await ToCanvas(e.ClientX, e.ClientY);
@@ -267,7 +375,7 @@
         selected = reference;
         moving = outlines.Single(p => p.Reference == reference);
         moveFrom = new Point(e.ClientX, e.ClientY);
-        moveScale = await (await Module()).InvokeAsync<double>("unitsPerPixel", canvas);
+        moveScale = 1 / (await Current()).Zoom;
         moveDelta = new Point(0, 0);
         moveMoved = false;
     }
@@ -319,7 +427,7 @@
 
     async Task Click(PinRef pin)
     {
-        if (tool is null || armed is not null) return;
+        if (tool is null || armed is not null || panMoved) return;
         if (tool == Tool.Ground)
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));
@@ -342,6 +450,18 @@
     async Task Key(KeyboardEventArgs e)
     {
         if (e.Key == "Escape") armed = null;
+        switch (e.Key)
+        {
+            case "+" or "=":
+                await ZoomStep(ZoomStepFactor);
+                return;
+            case "-" or "_":
+                await ZoomStep(1 / ZoomStepFactor);
+                return;
+            case "0":
+                await FitView();
+                return;
+        }
         if (selected is not { } part) return;
         const int Step = Symbols.Grid;
         SchematicChange? change = e.Key switch
