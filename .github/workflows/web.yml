@@ -63,3 +63,14 @@ jobs:
           rsync -az --delete \
             -e "ssh -p $port -i $HOME/.ssh/ssp_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
             publish/wwwroot/ "$target:./"
+
+      - name: Smoke-check the live site
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          SSP_LIVE_URL: ${{ vars.SSP_LIVE_URL }}
+        run: |
+          if [ -z "$SSP_LIVE_URL" ]; then
+            echo "::notice::SSP_LIVE_URL is unset. The live smoke check is skipped."
+            exit 0
+          fi
+          scripts/smoke-live.sh "$SSP_LIVE_URL"
