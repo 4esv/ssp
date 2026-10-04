@@ -22,4 +22,4 @@ for _ in $(seq 1 50); do
 done
 
 SSP_BASE_URL="http://127.0.0.1:$port/" \
-  dotnet test tests/Ssp.Web.Tests -c Release --filter "FullyQualifiedName~Ssp.Web.Tests.Playwright"
+  dotnet test tests/Ssp.Web.Tests -c Release --filter "FullyQualifiedName~Ssp.Web.Tests.Playwright" --logger "console;verbosity=detailed"

@@ -24,13 +24,28 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
         await using var session = await ClipPlayerTests.Session.Start(output);
         await session.Page.Locator(".dock-tab[data-panel=amp]").ClickAsync();
 
+        // NOTE: Before #225 the one-second progress timer could write "Rendering 1.0 of 1.0 s" over the final status while
+        // the player loaded clip-player.js, and the status stayed so. A slow script load makes that gap sure on every machine.
+        await session.Page.RouteAsync("**/js/clip-player.js", async route =>
+        {
+            await Task.Delay(1500);
+            await route.ContinueAsync();
+        });
+
         var watch = Stopwatch.StartNew();
         await session.Page.Locator(".virtual-amp button.amp-try").ClickAsync();
-        await session.Page.WaitForFunctionAsync(
-            $"() => {{ const s = ({Status})(); return s !== '' && !s.startsWith('Rendering') && !s.startsWith('Applying'); }}",
-            null,
-            new() { Timeout = LimitMs, PollingInterval = 100 });
-        watch.Stop();
+        try
+        {
+            await session.Page.WaitForFunctionAsync(
+                $"() => {{ const s = ({Status})(); return s !== '' && !s.startsWith('Rendering') && !s.startsWith('Applying'); }}",
+                null,
+                new() { Timeout = LimitMs, PollingInterval = 100 });
+        }
+        finally
+        {
+            watch.Stop();
+            output.WriteLine($"After {watch.Elapsed.TotalSeconds:F1} s: {await session.Page.EvaluateAsync<string>(Status)}");
+        }
 
         var status = await session.Page.EvaluateAsync<string>(Status);
         var buffer = await session.Page.EvaluateAsync<JsonElement>(ClipPlayerTests.Output);
@@ -80,14 +95,41 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
             new() { Timeout = LimitMs, PollingInterval = 100 });
         var running = await session.Page.EvaluateAsync<string>(Status);
 
+        // NOTE: Before #225 the status read "Cancelled." one render before the Cancel button went. A poll saw the gap only
+        // on a slow runner, because the second render often came first. The DOM changes come in order, so the observer
+        // records whether the button was gone at the last change of the status. That order is the same on every machine.
+        await session.Page.EvaluateAsync(
+            $$"""
+            () => {
+                const status = document.querySelector('.virtual-amp .clip-status');
+                let gone = false;
+                let goneAtStatus = false;
+                const observer = new MutationObserver(records => {
+                    for (const record of records) {
+                        if ([...record.removedNodes].some(node => node.classList?.contains('clip-cancel'))) {
+                            gone = true;
+                        }
+                        if (status.contains(record.target)) {
+                            goneAtStatus = gone;
+                        }
+                    }
+                    if (({{Status}})() === 'Cancelled.') {
+                        globalThis.sspCancelButtons = goneAtStatus ? 0 : 1;
+                        observer.disconnect();
+                    }
+                });
+                observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+            }
+            """);
+
         var watch = Stopwatch.StartNew();
         await session.Page.Locator(".virtual-amp button.clip-cancel").ClickAsync();
         await session.Page.WaitForFunctionAsync(
-            $"() => ({Status})() === 'Cancelled.'",
+            "() => globalThis.sspCancelButtons !== undefined",
             null,
             new() { Timeout = 5_000, PollingInterval = 20 });
         watch.Stop();
         output.WriteLine($"While rendering: {running} After Cancel: {await session.Page.EvaluateAsync<string>(Status)} ({watch.ElapsedMilliseconds} ms)");
-        Assert.Equal(0, await session.Page.Locator(".virtual-amp button.clip-cancel").CountAsync());
+        Assert.Equal(0, await session.Page.EvaluateAsync<int>("() => globalThis.sspCancelButtons"));
     }
 }
