@@ -98,7 +98,7 @@ public class ClipPlayerProgressTests : BunitContext
         clock.Ticks = 63_000;
         player.InvokeAsync(() => host.Report!(1.1));
         var status = player.Find("p.clip-status").TextContent;
-        Assert.Contains("This is slow. Cancel, or lower the clip length.", status);
+        Assert.Contains("This is slow. Load a shorter WAV file, or cancel.", status);
         Assert.Contains("63 s", status);
     }
 }

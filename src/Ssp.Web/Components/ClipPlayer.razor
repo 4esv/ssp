@@ -167,7 +167,7 @@
 
         var elapsed = Clock.GetElapsedTime(started).TotalSeconds;
         status = $"Rendering {done:0.0} of {total:0.0} s at {oversample}x oversample."
-            + (elapsed >= SlowSeconds ? $" This is slow. Cancel, or lower the clip length. Elapsed {elapsed:0} s." : "");
+            + (elapsed >= SlowSeconds ? $" This is slow. Load a shorter WAV file, or cancel. Elapsed {elapsed:0} s." : "");
     }
 
     void Cancel()
