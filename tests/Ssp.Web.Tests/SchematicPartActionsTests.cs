@@ -31,7 +31,7 @@ public class SchematicPartActionsTests : BunitContext
     }
 
     [Fact]
-    public void Selecting_a_part_shows_four_round_buttons_around_it_inside_the_view()
+    public void Selecting_a_part_shows_four_round_buttons_in_one_row_inside_the_view()
     {
         var editor = Editor([]);
         Assert.Empty(editor.FindAll(".selection-bar"));
@@ -42,8 +42,8 @@ public class SchematicPartActionsTests : BunitContext
         var buttons = editor.FindAll(".part-actions button");
         Assert.Equal(["delete", "rotate", "flip", "duplicate"], buttons.Select(b => b.GetAttribute("data-action")));
         var at = buttons.ToDictionary(b => b.GetAttribute("data-action")!, At);
-        Assert.True(at["delete"].Top < at["duplicate"].Top);
-        Assert.True(at["flip"].Left < at["rotate"].Left);
+        Assert.Single(at.Values.Select(v => v.Top).Distinct());
+        Assert.Equal(4, at.Values.Select(v => v.Left).Distinct().Count());
         foreach (var (left, top) in at.Values)
         {
             Assert.InRange(left, Button / 2, PaneWidth - Button / 2);

@@ -24,6 +24,9 @@
             <button type="button" class="tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)">Wire</button>
             <button type="button" class="tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)">Ground</button>
         </div>
+        <div class="tool-group" role="group" aria-label="Circuit">
+            <button type="button" class="tool" data-action="new" title="Start an empty circuit. Undo brings the old one back." @onclick="NewCircuit">New</button>
+        </div>
     </div>
     <p class="schematic-hint" role="status">@Hint()</p>
     @if (undo is { } undoable)
@@ -44,17 +47,17 @@
     </div>
     <figure class="schematic" aria-label="Schematic" tabindex="0" @ref="pane" data-view="@(view is null ? null : "")" style="@StageStyle()"
             @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null || active is not null)"
-            @onwheel="Wheel" @onwheel:preventDefault>
+            @onwheel="Wheel" @onwheel:preventDefault @onclick="CanvasClick">
         @if (svg is null && !hasErrors)
         {
-            <div class="schematic-blank" @onclick="CanvasClick">
-                <p class="schematic-empty">The schematic is empty. Add a part: click one in the palette, or use the toolbar. Then tap a pin and tap a second pin to join them, or use Ground to mark a pin as 0 V.</p>
+            <div class="schematic-blank">
+                <p class="schematic-empty">Tap a part in the palette to start. Then tap a pin to see where to go next.</p>
             </div>
         }
         @if (svg is not null)
         {
             @((MarkupString)svg)
-            <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox" @onclick="CanvasClick"
+            <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox"
                  @onpointerdown="PanDown" @onpointermove="PanMove" @onpointerup="PanUp" @onpointercancel="PanUp">
                 @for (var i = 0; i < layout.Wires.Count; i++)
                 {
@@ -109,7 +112,7 @@
             </svg>
             @if (menuOpen && active is { } origin && chosen is { } way)
             {
-                <div class="pin-menu" role="menu" aria-label="Go @way.ToString().ToLowerInvariant() from @Name(origin)" style="@MenuStyle(origin, way)">
+                <div class="pin-menu" role="menu" @onclick:stopPropagation aria-label="Go @way.ToString().ToLowerInvariant() from @Name(origin)" style="@MenuStyle(origin, way)">
                     @foreach (var kind in SchematicEdits.Kinds.Keys)
                     {
                         <button type="button" role="menuitem" data-kind="@kind" @onclick="() => Choose(kind)">@Label(kind)</button>
@@ -121,14 +124,14 @@
             }
             @if (ActionSpots() is { } spots)
             {
-                <div class="part-actions" role="toolbar" aria-label="Selection">
+                <div class="part-actions" role="toolbar" aria-label="Selection" @onclick:stopPropagation>
                     @foreach (var (action, label, style) in spots)
                     {
                         <button type="button" class="part-action" data-action="@action" aria-label="@label" title="@label" style="@style" @onclick="() => Act(action)">@ActionGlyph(action)</button>
                     }
                 </div>
             }
-            <div class="schematic-zoom" role="group" aria-label="Zoom">
+            <div class="schematic-zoom" role="group" aria-label="Zoom" @onclick:stopPropagation>
                 <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
                 <output class="zoom-level" aria-label="Zoom level">@(view is { } v ? $"{(int)Math.Round(v.Zoom * 100)}%" : "Fit")</output>
                 <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)" disabled="@(view is { Zoom: >= ViewTransform.MaxZoom })" @onclick="() => ZoomStep(ZoomStepFactor)">+</button>
@@ -172,7 +175,7 @@
 
     // NOTE: The state before the last delete, kept for UndoSeconds. Any other edit drops it.
     const int UndoSeconds = 8;
-    const double ActionPixels = 44;
+    const double ActionPixels = 44, ActionGap = 8, LabelPixels = 28;
     (string Name, SchematicChange Before)? undo;
     CancellationTokenSource? undoTimer;
     Tool? tool = Tool.Wire;
@@ -197,6 +200,7 @@
     static readonly Dictionary<string, string> Letters = new()
     {
         ["r"] = "resistor", ["c"] = "capacitor", ["q"] = "npn", ["d"] = "diode", ["p"] = "pot", ["b"] = "battery",
+        ["s"] = "source", ["i"] = "jack-in", ["o"] = "jack-out", ["l"] = "led", ["n"] = "pnp",
         ["g"] = GroundChoice, ["w"] = WireChoice,
     };
 
@@ -413,11 +417,27 @@
         await PlaceAt(kind, at);
     }
 
-    // NOTE: A tap on the empty canvas drops the active pin.
+    // NOTE: A tap on the empty canvas clears the selected part, the selected wire, the active pin and the picker.
     void CanvasClick(MouseEventArgs e)
     {
-        if (panMoved) return;
+        if (panMoved)
+        {
+            panMoved = false;
+            return;
+        }
+        (selected, selectedWire) = (null, null);
         ClearActive();
+    }
+
+    // NOTE: New asks for no confirmation. Undo in the status line restores the old circuit.
+    async Task NewCircuit()
+    {
+        var before = new SchematicChange(netlist, layout);
+        selected = null;
+        await Apply(new SchematicChange("", new LayoutDoc([], [])));
+        undo = ("circuit", before);
+        undoTimer = new CancellationTokenSource();
+        _ = ExpireUndo(undoTimer.Token);
     }
 
     void ClearActive()
@@ -775,9 +795,9 @@
         }
     }
 
-    // NOTE: With a view, the round buttons sit around the selection: Delete above, Rotate right, Flip left, Duplicate
-    // below. Each centre is clamped so the whole 44 px button stays in the pane. A wire gets one Delete at its middle.
-    // With the CSS fit there is no pixel position, so the styles are empty and CSS places the buttons.
+    // NOTE: With a view, the four buttons make one row above the part, beyond its labels and the hit circles of its pins.
+    // Where the row does not fit above, it goes below. Each centre is clamped so the whole 44 px button stays in the pane.
+    // A wire gets one Delete at its middle. With the CSS fit there is no pixel position, so the styles are empty and CSS places the row.
     List<(string Action, string Label, string Style)>? ActionSpots()
     {
         Point min, max;
@@ -807,14 +827,17 @@
 
         Point a = default, b = default;
         if (sized) (a, b) = (view!.WorldToScreen(min), view!.WorldToScreen(max));
-        var (mx, my) = ((a.X + b.X) / 2, (a.Y + b.Y) / 2);
-        const double Reach = ActionPixels / 2 + 14;
-        var spots = new List<(string, string, string)> { ("delete", "Delete", Place(mx, wire ? my : a.Y - Reach)) };
-        if (wire) return spots;
-        spots.Add(("rotate", "Rotate", Place(b.X + Reach, my)));
-        spots.Add(("flip", "Flip", Place(a.X - Reach, my)));
-        spots.Add(("duplicate", "Duplicate", Place(mx, b.Y + Reach)));
-        return spots;
+        var mx = (a.X + b.X) / 2;
+        var names = wire ? new[] { ("delete", "Delete") } : [("delete", "Delete"), ("rotate", "Rotate"), ("flip", "Flip"), ("duplicate", "Duplicate")];
+        if (wire) return [("delete", "Delete", Place(mx, (a.Y + b.Y) / 2))];
+
+        // The row clears the hit circle of a pin, the labels above the outline, and a gap.
+        const double Space = ActionGap, Clear = ActionPixels / 2 + LabelPixels + 4;
+        var reach = HitRadius * (view?.Zoom ?? 1) + Clear;
+        var y = a.Y - reach;
+        if (sized && y < ActionPixels / 2 + 4) y = b.Y + reach;
+        var first = mx - (names.Length * ActionPixels + (names.Length - 1) * Space) / 2 + ActionPixels / 2;
+        return names.Select((n, i) => (n.Item1, n.Item2, Place(first + i * (ActionPixels + Space), y))).ToList();
     }
 
     async Task Apply(SchematicChange change)
