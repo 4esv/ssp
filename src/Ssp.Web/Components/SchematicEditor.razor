@@ -1,5 +1,6 @@
 @using System.Globalization
 @using System.Text.RegularExpressions
+@using Ssp.Core.Diagnostics
 @using Ssp.Core.Netlist
 @using Ssp.Core.Parts
 @using Ssp.Web.Schematic
@@ -29,6 +30,15 @@
         </div>
     </div>
     <p class="schematic-hint" role="status">@Hint()</p>
+    @if (problems.Count > 0)
+    {
+        <ul class="problems" aria-label="Problems">
+            @foreach (var problem in problems)
+            {
+                <li><button type="button" class="@($"problem-item {problem.Severity.ToString().ToLowerInvariant()}")" @onclick="() => SelectPart(problem.Reference)">@problem.Message</button></li>
+            }
+        </ul>
+    }
     @if (ValueBox())
     {
         <div class="value-edit-box">
@@ -80,7 +90,7 @@
                 }
                 @foreach (var part in outlines)
                 {
-                    <rect class="@(part.Reference == selected ? "part selected" : "part")" data-ref="@part.Reference"
+                    <rect class="@PartClass(part.Reference)" data-ref="@part.Reference"
                           x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
                           @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartCancel"
                           @onclick="() => SelectPart(part.Reference)" @onclick:stopPropagation>
@@ -96,7 +106,7 @@
                     var target = connecting && pin.Ref != active?.Pin;
                     <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
                     <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
-                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@(target ? 7 : 5)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
                         <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), node @pin.Node</title>
                     </circle>
                 }
@@ -279,6 +289,8 @@
         if (keep is { } again) Activate(again);
     }
 
+    IReadOnlyList<Problem> problems = [];
+
     void Build()
     {
         status = null;
@@ -293,6 +305,7 @@
         outlines = [];
         var circuit = NetlistLoader.Load(netlist);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
+        problems = hasErrors ? [] : Problems.Find(circuit);
         if (hasErrors) return;
 
         parts = PartMap.Resolve(circuit, SchematicView.Table);
@@ -555,7 +568,16 @@
     static string Name(Spot spot) => spot.Pin is { } pin ? $"{pin.Reference} pin {pin.Pin + 1}" : "open end";
 
     string PinClass(PinView pin) =>
-        pin.Ref == active?.Pin ? "pin active" : connecting ? "pin target" : "pin";
+        (pin.Ref == active?.Pin ? "pin active" : connecting ? "pin target" : "pin")
+        + (problems.Any(p => p.Pin is { } i && p.Reference == pin.Ref.Reference && i == pin.Ref.Pin) ? " problem" : "");
+
+    // NOTE: A problem pin keeps a 10 px ring on screen at any zoom.
+    double PinRadius(PinView pin, bool target) =>
+        PinClass(pin).EndsWith("problem", StringComparison.Ordinal) ? Math.Max(target ? 7 : 5, 10 / Zoom()) : target ? 7 : 5;
+
+    string PartClass(string reference) =>
+        (reference == selected ? "part selected" : "part")
+        + (problems.Any(p => p.Pin is null && p.Reference == reference) ? " problem" : "");
 
     // NOTE: The picker opens under its dot, or over it near the foot of the pane.
     string MenuStyle(Spot origin, Direction direction)
