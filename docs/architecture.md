@@ -137,3 +137,25 @@ The reasons:
 - The browser renders at 0.29x real time. Live streaming is not possible, so the worker gives the finished buffer.
 
 A smaller block will be useful for progress and cancel. That needs a render that continues from a saved state.
+
+## Live monitor
+
+The live monitor plays the microphone through the circuit. The panel shows the label "monitor, not real time" and the measured latency in milliseconds.
+
+The monitor block is 512 samples (`MonitorSession.ChunkSamples`). The page captures one chunk of that size, the worker gives back one output chunk of the same size, and the page plays it.
+The monitor does not use the worker block above. That block is the full buffer, because `Analyses.Render` keeps no solver state.
+`MonitorSession` keeps the state: it runs one long `Transient.Run` and reads the input from a `RingBufferWaveform`. The output has no step at a chunk edge.
+
+Limits:
+
+- The monitor is not real time. `Analyses.Render` runs at 0.29x real time in the browser ([benchmarks](benchmarks.md#browser)). Nobody has measured the monitor, but a slower render makes the chunks wait in a queue.
+  The queue holds 8 chunks. The page drops the oldest chunk when the queue is full, and shows the number of dropped chunks.
+- The latency is the time from the first captured sample of a chunk to the start of its playback. It includes the 512-sample capture, the queue, the render, and the audio output. It grows when the render is slower than real time.
+- A gap in the output is audible when a chunk arrives late.
+- The session runs for at most one hour of audio.
+- The monitor uses the sample rate of the audio device and does not oversample.
+- The microphone input goes to the `ssp:input` node. A netlist without that node cannot start the monitor.
+- Echo cancellation, noise suppression and automatic gain are off. Use headphones, or the output feeds back into the microphone.
+- One monitor runs at a time. A render in the worker waits for the monitor chunk in progress.
+- There are no native audio drivers and no plugin formats.
+

@@ -100,7 +100,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
 
         Session(IPlaywright playwright, IBrowser browser, IPage page) => (this.playwright, this.browser, Page) = (playwright, browser, page);
 
-        public static async Task<Session> Start(ITestOutputHelper output)
+        public static async Task<Session> Start(ITestOutputHelper output, string[]? browserArgs = null)
         {
             var baseUrl = Environment.GetEnvironmentVariable(PlaywrightFactAttribute.BaseUrlVariable)!;
             var withDeps = Environment.GetEnvironmentVariable("SSP_PLAYWRIGHT_WITH_DEPS") == "1";
@@ -108,7 +108,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
             Assert.Equal(0, Microsoft.Playwright.Program.Main(install));
 
             var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-            var browser = await playwright.Chromium.LaunchAsync();
+            var browser = await playwright.Chromium.LaunchAsync(new() { Args = browserArgs });
             var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
             page.Console += (_, message) => output.WriteLine("console: " + message.Text);
             page.PageError += (_, error) => output.WriteLine("page error: " + error);

@@ -45,3 +45,16 @@ export function render(netlist, input, sampleRate, oversample) {
 export function versions() {
     return call('Versions', []);
 }
+
+export function monitorStart(netlist, sampleRate) {
+    return call('MonitorStart', [netlist, sampleRate]);
+}
+
+export function monitorProcess(chunk) {
+    const samples = Float64Array.from(chunk);
+    return call('MonitorProcess', [samples], [samples.buffer]);
+}
+
+export function monitorStop() {
+    return call('MonitorStop', []);
+}
