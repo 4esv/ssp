@@ -275,3 +275,54 @@ The measurement is the `Try wall time` line of `VirtualAmpLiveChainTests.TryOnTh
 | Try wall time, preset chain | 20.0 s | 10.1 s |
 
 The speed-up is 1.98 times. The 81 s of the drawn fuzz in the issue is a different chain, and it is not measured here.
+
+## Drawn fuzz in the worker, second pass
+
+The chain of [Fallback to variable steps](#fallback-to-variable-steps) renders the bundled clip (1.0 s, 44100 samples), oversample 1, in a Web Worker in headless Chromium, with no Playwright and no page UI (#219).
+Before is commit 8883ee4f (#221, #222 and #223 merged). Apple M-series Mac, Release, not AOT. Each value is the median of 3 runs, with the range. The time is from the post of the request to the result.
+
+Two workers are measured:
+
+- Bench worker: a small WebAssembly app, not trimmed, that calls `Analyses.Render` in a worker.
+- App worker: the published `src/Ssp.Web` (trimmed), with `js/simulation-worker.js` and `WorkerExports.Render`, as the Try button calls it.
+
+### Answers
+
+1. The fixed-step attempt does not stop at 0.54 s on the 1 s clip. It stops after 264 steps (6 ms of clip) and 807 Newton iterations. In the bench worker, the default render took 31.2 s (30.9 to 31.3), and a render that starts on variable steps took 30.8 s (30.5 to 31.2). The fixed attempt costs about 0.4 s.
+2. The worker now keeps the netlist texts that needed variable steps. The next render of the same text starts on variable steps. The saving is the fixed attempt, about 0.4 s on this clip. A knob change changes the text, so it pays the attempt again.
+3. #223 did not slow the browser. The old model took 36.9 s (36.9 to 37.2) in the bench worker, and the new model 31.2 s (30.9 to 31.3). The iterations are the same (293992 and 293135).
+4. The trimmed app worker took 36.3 s (35.3 to 36.6). The same app published with `PublishTrimmed=false` took 30.6 s and 31.3 s (2 runs), for 10.6 MB of Brotli files against 8.6 MB. A trim root for `SpiceSharp`, `SpiceSharpBehavioral`, `Ssp.Core` or `System.Linq.Expressions` did not change the time (35.1 to 36.7 s).
+
+### Fewer Newton iterations
+
+The variable steps take 2.2 steps and 6.6 iterations for each sample. The step size is at its upper limit (half a sample) for most steps.
+The values are native, the full clip, variable steps. The difference is against the output of the commit before, in dBFS.
+
+| Change | Steps | Iterations | RMS difference | Largest difference |
+|---|---|---|---|---|
+| None | 97454 | 292276 | | |
+| Upper step limit 1 sample | 76764 | 243979 | -52.3 | -23.0 |
+| Upper step limit 1/1.5 sample | 95331 | 292292 | -55.4 | -22.9 |
+| `TrTol` 20 | 89716 | 268448 | -56.5 | -22.1 |
+| `RelTol` 0.005 | 97273 | 272191 | -61.3 | -25.8 |
+| `RelTol` 0.01 | 97578 | 261715 | -60.6 | -25.8 |
+| `RelTol` 0.02 | 97250 | 249114 | -58.0 | -24.8 |
+| `AbsTol` 1e-10 | 97564 | 292546 | -62.9 | -27.6 |
+
+A small change of any tolerance moves the output by about -62 dBFS RMS, because the fast edges of the fuzz move. `RelTol` 0.01 is the only change with a gain of more than 5 % and a difference below -60 dBFS. The variable steps now use it. The fixed steps do not change.
+
+Output against before, native, 44100 samples: RMS difference -60.6 dBFS, largest difference -25.8 dBFS at 0.918 s. 2346 samples differ by more than -60 dBFS, and 46 by more than -40 dBFS. The output RMS is 0.19565 before and 0.19568 after.
+
+### Result
+
+| Item | Before | After |
+|---|---|---|
+| Newton iterations (browser) | 293135 | 262274 |
+| Bench worker, default render | 31.2 s (30.9 to 31.3) | 28.4 s (28.2 to 28.6) |
+| Bench worker, start on variable steps | 30.8 s (30.5 to 31.2) | 28.0 s (27.9 to 28.1) |
+| App worker, `WorkerExports.Render` | 36.3 s (35.3 to 36.6) | 32.0 s (31.5 to 32.7) |
+
+In the app worker, runs 2 and 3 start on variable steps from the cache.
+The goal of 30 s in the app worker is not met. The trimmed publish adds about 5 s. The cost that is left is the time of each Newton iteration in the browser (about 107 µs, against 4.5 µs natively). In the profile of #221, 61 % of it is Load, most of it the behavioral sources of the op-amp model.
+
+The 154 s of the issue comment came from the Try button. The app worker takes 36 s for the same chain and clip, so most of the 154 s is not in the worker render. It is not measured here.

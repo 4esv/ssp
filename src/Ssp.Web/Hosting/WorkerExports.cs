@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using System.Text;
@@ -86,7 +87,16 @@ public static partial class WorkerExports
         return "true";
     }
 
-    /// <summary>Renders the input through the circuit and writes the output samples as a JSON array of numbers.</summary>
+    // The netlist texts whose last render used variable steps, for this runtime.
+    static readonly ConcurrentDictionary<string, bool> variable = new(StringComparer.Ordinal);
+
+    /// <summary>True if a render of this netlist text in this runtime used variable steps. The next render then starts on them.</summary>
+    public static bool StartsOnVariableSteps(string netlist) => variable.ContainsKey(netlist);
+
+    /// <summary>
+    /// Renders the input through the circuit and writes the output samples as a JSON array of numbers.
+    /// A netlist text that needed variable steps before starts on them, and does not try fixed steps again.
+    /// </summary>
     public static string RenderJson(string netlist, double[] input, int sampleRate, int oversample, Action<int>? progress = null) =>
         Write(w =>
         {
@@ -95,7 +105,14 @@ public static partial class WorkerExports
 
             // NOTE: The knob directives set the pot parts, as in Runner.Run. A knob change then changes the output.
             Pot.Apply(circuit);
-            foreach (var sample in Analyses.Render(circuit, input, sampleRate, oversample, progress))
+            var statistics = new RenderStatistics();
+            var output = Analyses.Render(circuit, input, sampleRate, oversample, progress, statistics, StartsOnVariableSteps(netlist));
+            if (statistics.VariableSteps)
+            {
+                variable[netlist] = true;
+            }
+
+            foreach (var sample in output)
             {
                 if (double.IsFinite(sample))
                 {
