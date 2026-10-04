@@ -18,6 +18,7 @@ public class DockLayoutTests : BunitContext
 
     static IRenderedComponent<Editor> Open(BunitContext context, string? saved)
     {
+        context.Services.AddSingleton(TimeProvider.System);
         context.Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
         context.JSInterop.Setup<string?>("localStorage.getItem", Key).SetResult(saved);
         context.JSInterop.SetupVoid("localStorage.setItem", _ => true);
