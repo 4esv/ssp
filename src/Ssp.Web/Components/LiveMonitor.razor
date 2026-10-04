@@ -7,6 +7,7 @@
 <section class="live-monitor">
     <h2>Live monitor</h2>
     <p class="monitor-note">monitor, not real time</p>
+    <p class="panel-hint">Press Start monitor to hear your input through the circuit. The netlist needs an ssp:input node.</p>
 
     <button type="button" class="monitor-start" @onclick="Start" disabled="@(running || starting)">Start monitor</button>
     <button type="button" class="monitor-stop" @onclick="Stop" disabled="@(!running)">Stop monitor</button>

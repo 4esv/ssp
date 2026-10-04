@@ -32,7 +32,7 @@
                 var part = parts[index];
                 <tr class="part">
                     <td>@part.Name</td>
-                    <td>@Spice(part.Value)</td>
+                    <td>@Eng.Format(part.Value, part.Kind == Resistor ? "Ω" : "F")</td>
                     <td>
                         <select class="target" data-part="@part.Name" aria-label="Write @part.Name to" value="@targets[index]" @onchange="e => Target(index, e)">
                             <option value="">New part</option>
@@ -61,11 +61,11 @@
     static readonly IReadOnlyDictionary<string, Calculator> All = new Dictionary<string, Calculator>(StringComparer.Ordinal)
     {
         ["rc"] = new("RC filter", [("R", "Ω"), ("C", "F")], [10e3, 100e-9],
-            v => ($"Cutoff {G(Calculators.RcFilter(v[0], v[1]))} Hz", [new("R", Resistor, v[0]), new("C", Capacitor, v[1])])),
+            v => ($"Cutoff {Eng.Format(Calculators.RcFilter(v[0], v[1]), "Hz")}", [new("R", Resistor, v[0]), new("C", Capacitor, v[1])])),
         ["divider"] = new("Divider", [("Vin", "V"), ("R1", "Ω"), ("R2", "Ω")], [9, 10e3, 10e3],
-            v => ($"Output {G(Calculators.Divider(v[0], v[1], v[2]))} V", [new("R1", Resistor, v[1]), new("R2", Resistor, v[2])])),
+            v => ($"Output {Eng.Format(Calculators.Divider(v[0], v[1], v[2]), "V")}", [new("R1", Resistor, v[1]), new("R2", Resistor, v[2])])),
         ["gain"] = new("Non-inverting gain", [("Rf", "Ω"), ("Rg", "Ω")], [100e3, 10e3],
-            v => ($"Gain {G(Calculators.Gain(v[0], v[1]))}", [new("Rf", Resistor, v[0]), new("Rg", Resistor, v[1])])),
+            v => ($"Gain {Eng.Format(Calculators.Gain(v[0], v[1]))}", [new("Rf", Resistor, v[0]), new("Rg", Resistor, v[1])])),
         ["led"] = new("LED resistor", [("Supply", "V"), ("Vf", "V"), ("Current", "A")], [9, 2, 10e-3],
             v => Led(Calculators.LedResistor(v[0], v[1], v[2]))),
     };
@@ -172,7 +172,7 @@
         await Changed.InvokeAsync(change);
     }
 
-    static (string, PartValue[]) Led(double r) => ($"Resistor {G(r)} Ω", [new("R", Resistor, r)]);
+    static (string, PartValue[]) Led(double r) => ($"Resistor {Eng.Format(r, "Ω")}", [new("R", Resistor, r)]);
 
     /// <summary>A SPICE value with an engineering suffix, for example 4.7k or 100n.</summary>
     static string Spice(double value)
@@ -182,7 +182,5 @@
         return (value / scale).ToString("0.###", CultureInfo.InvariantCulture) + suffix;
     }
 
-    static string G(double v) => v.ToString("G4", CultureInfo.InvariantCulture);
-
-    static string Number(double v) => v.ToString("R", CultureInfo.InvariantCulture);
+    static string Number(double v) => v.ToString("0.####################", CultureInfo.InvariantCulture);
 }

@@ -1,7 +1,10 @@
-@using System.Globalization
 @using Ssp.Core.Analysis
 
-@if (OperatingPoint is not null)
+@if (OperatingPoint is null)
+{
+    <p class="panel-hint">Run to see DC voltages. Each net shows its voltage here.</p>
+}
+else
 {
     <section class="dc-overlay">
         <label class="dc-switch">
@@ -43,5 +46,5 @@
 
     void Toggle(ChangeEventArgs e) => show = e.Value is true;
 
-    static string Volts(double value) => value.ToString("G4", CultureInfo.InvariantCulture) + " V";
+    static string Volts(double value) => Eng.Format(value, "V");
 }
