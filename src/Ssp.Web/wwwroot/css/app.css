@@ -848,7 +848,6 @@ h1[tabindex="-1"]:focus-visible {
     stroke: var(--error, #b3261e);
     stroke-width: 3px;
     vector-effect: non-scaling-stroke;
-    r: 12px;
     fill: var(--error, #b3261e);
     fill-opacity: 0.5;
 }

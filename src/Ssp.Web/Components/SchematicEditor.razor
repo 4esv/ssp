@@ -106,7 +106,7 @@
                     var target = connecting && pin.Ref != active?.Pin;
                     <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
                     <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
-                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@(target ? 7 : 5)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
                         <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), node @pin.Node</title>
                     </circle>
                 }
@@ -570,6 +570,10 @@
     string PinClass(PinView pin) =>
         (pin.Ref == active?.Pin ? "pin active" : connecting ? "pin target" : "pin")
         + (problems.Any(p => p.Pin is { } i && p.Reference == pin.Ref.Reference && i == pin.Ref.Pin) ? " problem" : "");
+
+    // NOTE: A problem pin keeps a 10 px ring on screen at any zoom.
+    double PinRadius(PinView pin, bool target) =>
+        PinClass(pin).EndsWith("problem", StringComparison.Ordinal) ? Math.Max(target ? 7 : 5, 10 / Zoom()) : target ? 7 : 5;
 
     string PartClass(string reference) =>
         (reference == selected ? "part selected" : "part")
