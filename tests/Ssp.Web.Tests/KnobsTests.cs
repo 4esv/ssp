@@ -1,4 +1,5 @@
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Ssp.Core;
 using Ssp.Web.Components;
@@ -78,21 +79,40 @@ public class KnobsTests : BunitContext
     }
 
     [Fact]
-    public void ManyFastChangesGiveOneRun()
+    public void ManyFastChangesGiveOneChange()
     {
-        var (page, host) = Run(Circuit("fixtures", "pot-lowpass.cir"));
-        Assert.Equal(1, host.Runs);
+        // NOTE: The debounce is far longer than any burst, so a slow runner cannot split the burst in two.
+        var debounce = TimeSpan.FromSeconds(3);
+        var changes = new List<string>();
+        var knobs = Render<Knobs>(p => p
+            .Add(c => c.Netlist, Circuit("fixtures", "pot-lowpass.cir"))
+            .Add(c => c.Debounce, debounce)
+            .Add(c => c.NetlistChanged, (string n) => { lock (changes) changes.Add(n); }));
 
         foreach (var pos in new[] { "0.1", "0.2", "0.3", "0.4", "0.6", "0.7", "0.8", "0.9", "1" })
         {
-            page.Find(".knobs input[type=range]").Input(pos);
+            knobs.Find(".knobs input[type=range]").Input(pos);
         }
-        Assert.Equal(1, host.Runs);
+        lock (changes) Assert.Empty(changes);
 
-        page.WaitForAssertion(() => Assert.Equal(2, host.Runs), TimeSpan.FromSeconds(5));
-        // NOTE: Wait past more debounce windows to show that no late run follows.
-        Thread.Sleep(Knobs.DefaultDebounce * 3);
-        Assert.Equal(2, host.Runs);
-        Assert.Contains("* ssp:knob RV1 log 1", page.Find("textarea").GetAttribute("value"));
+        // NOTE: The callback does not render the component, so WaitForAssertion would not check again. Poll instead.
+        Assert.True(SpinWait.SpinUntil(() => { lock (changes) return changes.Count == 1; }, debounce * 4));
+        // NOTE: Wait past another debounce window to show that no late change follows.
+        Thread.Sleep(debounce);
+        lock (changes) Assert.Single(changes);
+        Assert.Contains("* ssp:knob RV1 log 1", changes[0]);
+    }
+
+    // NOTE: Other tests block pool threads. The pool adds a thread about every half second then, so the debounce timer fires late.
+    [Fact]
+    public void ChangeRunsWhilePoolThreadsAreBlocked()
+    {
+        var (page, _) = Run(Circuit("fixtures", "pot-lowpass.cir"));
+        var before = OutMagnitude(page);
+        var gate = new ManualResetEventSlim();
+        for (var i = 0; i < Environment.ProcessorCount * 4; i++) { Task.Run(() => gate.Wait()); }
+        Task.Run(async () => { await Task.Delay(8000); gate.Set(); });
+        page.Find(".knobs input[type=range]").Input("0.9");
+        page.WaitForAssertion(() => Assert.NotEqual(before, OutMagnitude(page)), TimeSpan.FromSeconds(5));
     }
 }
