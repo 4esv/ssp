@@ -232,3 +232,14 @@ Output against before (the 88200 samples of the full chain, native):
 The largest differences are in the fast edges of the gain stage. A change of `TrTol` from 7 to 20 with the old method also moves the largest difference to -40.7 dBFS.
 
 The goal of 30 s in the browser is not met. At 140 µs for each iteration, 30 s is 214000 iterations, 2.4 for each sample. The fixed method alone takes 2.9 for each sample on this chain.
+
+## Default clip of 1 s
+
+The bundled clip is cut from 2.0 s to 1.0 s (#222). The browser render time is proportional to the clip length.
+The measurement is the `Try wall time` line of `VirtualAmpLiveChainTests.TryOnThePresetChainFinishesWithinTheLimit`: Playwright, headless Chromium, the preset chain of the Virtual amp, the bundled clip, the published site, one run for each clip, on the same machine. The time is from the click on Try to a final status.
+
+| Item | Before (2.0 s clip) | After (1.0 s clip) |
+|---|---|---|
+| Try wall time, preset chain | 20.0 s | 10.1 s |
+
+The speed-up is 1.98 times. The 81 s of the drawn fuzz in the issue is a different chain, and it is not measured here.
