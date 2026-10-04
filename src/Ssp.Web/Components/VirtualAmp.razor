@@ -1,0 +1,98 @@
+@using System.Reflection
+@using Ssp.Core.Chains
+
+<section class="virtual-amp">
+    <h2>Virtual amp</h2>
+    @foreach (var section in Sections)
+    {
+        <label class="amp-stage">
+            <span>@section.Label</span>
+            <select data-stage="@section.Name" aria-label="@section.Label" value="@picks[section.Name]" @onchange="e => Pick(section.Name, e)">
+                @foreach (var block in Blocks[section.Name])
+                {
+                    <option value="@block">@block</option>
+                }
+            </select>
+        </label>
+    }
+
+    <Knobs Netlist="@netlist" NetlistChanged="Tune" />
+
+    <button type="button" class="amp-try" disabled="@(error is not null)" @onclick="Try">Try</button>
+    <p class="amp-error" role="alert">@error</p>
+    <textarea class="amp-netlist" aria-label="Chain netlist" readonly rows="6">@netlist</textarea>
+
+    <ClipPlayer @ref="player" Netlist="@netlist" />
+</section>
+
+@code {
+    sealed record Section(string Name, string Label);
+
+    // NOTE: A block file name starts with the name of its section. The chain runs in this order.
+    static readonly Section[] Sections = [new("gain", "Gain stage"), new("tone", "Tone stack"), new("power", "Power section")];
+
+    /// <summary>The blocks of the preset chain. It loads on first open.</summary>
+    public static readonly IReadOnlyDictionary<string, string> Preset = new Dictionary<string, string>
+    {
+        ["gain"] = "gain-variable-tl072.cir",
+        ["tone"] = "tone-baxandall-passive.cir",
+        ["power"] = "power-9v.cir",
+    };
+
+    static readonly Assembly Resources = typeof(VirtualAmp).Assembly;
+
+    static readonly IReadOnlyDictionary<string, string[]> Blocks = Sections.ToDictionary(
+        s => s.Name,
+        s => Resources.GetManifestResourceNames()
+            .Where(n => n.StartsWith("blocks/" + s.Name + "-", StringComparison.Ordinal) && n.EndsWith(".cir", StringComparison.Ordinal))
+            .Select(n => n["blocks/".Length..])
+            .Order(StringComparer.Ordinal)
+            .ToArray());
+
+    readonly Dictionary<string, string> picks = Preset.ToDictionary(p => p.Key, p => p.Value);
+    ClipPlayer? player;
+    string netlist = "";
+    string? error;
+
+    protected override void OnInitialized() => Build();
+
+    void Pick(string section, ChangeEventArgs e)
+    {
+        if (e.Value?.ToString() is { } block && Blocks[section].Contains(block))
+        {
+            picks[section] = block;
+            Build();
+        }
+    }
+
+    // NOTE: A new pick starts the chain again, so each knob goes back to its default position.
+    void Build()
+    {
+        try
+        {
+            netlist = Chain.Compose([.. Sections.Select(s => new ChainStage(s.Name, Read(picks[s.Name])))]);
+            error = null;
+        }
+        catch (ArgumentException e)
+        {
+            error = e.Message;
+        }
+    }
+
+    void Tune(string tuned) => netlist = tuned;
+
+    async Task Try()
+    {
+        if (player is not null && error is null)
+        {
+            await player.Try(netlist);
+        }
+    }
+
+    static string Read(string block)
+    {
+        using var stream = Resources.GetManifestResourceStream("blocks/" + block) ?? throw new InvalidOperationException($"Missing resource blocks/{block}.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+}
