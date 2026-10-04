@@ -32,9 +32,41 @@ public class LiveMonitorTests(ITestOutputHelper output)
 
             var panel = session.Page.Locator(".dock-panel[data-panel=monitor] .live-monitor");
             await Assertions.Expect(panel.Locator(".monitor-note")).ToHaveTextAsync("monitor, not real time");
+            // NOTE: The audio context is inside live-monitor.js. The test keeps a reference, so a failure can show its state.
+            await session.Page.EvaluateAsync(
+                "() => { const A = globalThis.AudioContext; globalThis.AudioContext = class extends A { constructor(...a) { super(...a); globalThis.sspContext = this; } }; }");
             await panel.Locator("button.monitor-start").ClickAsync();
-            await session.Page.WaitForFunctionAsync(
-                "() => globalThis.sspMonitorOutput && globalThis.sspMonitorOutput.nonzero > 0", null, new() { Timeout = 180_000 });
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                // NOTE: live-monitor.js stops for good when a Process call fails, and it shows nothing. On CI a solver error on
+                // the first chunks made the test wait 180 s for an output that did not come (#225). The worker runs when the
+                // status says "Running at", and a chunk then takes milliseconds. So an output that does not grow for 5 s
+                // means a stopped monitor, and the test stops waiting.
+                var end = await session.Page.WaitForFunctionAsync(
+                    """
+                    () => {
+                        const o = globalThis.sspMonitorOutput;
+                        if (o && o.nonzero > 0) return 'output';
+                        const running = [...document.querySelectorAll('.live-monitor p')].some(p => p.textContent.startsWith('Running at'));
+                        if (!o || !running) return false;
+                        const now = performance.now();
+                        if (globalThis.sspLength !== o.length) {
+                            globalThis.sspLength = o.length;
+                            globalThis.sspChanged = now;
+                        }
+                        return now - globalThis.sspChanged > 5000 ? 'stopped' : false;
+                    }
+                    """, null, new() { Timeout = 180_000, PollingInterval = 100 });
+                Assert.True(await end.JsonValueAsync<string>() == "output",
+                    "The monitor stopped before it gave a non-zero output. A Process call failed, and live-monitor.js stops then.");
+            }
+            finally
+            {
+                output.WriteLine($"After {watch.Elapsed.TotalSeconds:F1} s: " + await session.Page.EvaluateAsync<string>(
+                    "() => [...document.querySelectorAll('.live-monitor p')].map(p => p.textContent.trim()).join(' | ') + ' | output ' + JSON.stringify(globalThis.sspMonitorOutput)"
+                    + " + ' | context ' + globalThis.sspContext?.state + ' at ' + globalThis.sspContext?.currentTime + ' s, ' + globalThis.sspContext?.sampleRate + ' Hz'"));
+            }
 
             var state = await session.Page.EvaluateAsync<JsonElement>(
                 "() => ({ length: globalThis.sspMonitorOutput.length, nonzero: globalThis.sspMonitorOutput.nonzero })");
