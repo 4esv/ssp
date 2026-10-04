@@ -3,6 +3,8 @@
 
 <section class="virtual-amp">
     <h2>Virtual amp</h2>
+    <p class="panel-hint">Pick a block for each stage, set the knobs, then press Try to hear the chain.</p>
+    <div class="amp-stack">
     @foreach (var section in Sections)
     {
         <label class="amp-stage">
@@ -15,11 +17,12 @@
             </select>
         </label>
     }
+    </div>
 
     <Knobs Netlist="@netlist" NetlistChanged="Tune" />
 
     <button type="button" class="amp-try" disabled="@(error is not null)" @onclick="Try">Try</button>
-    <p class="amp-error" role="alert">@error</p>
+    <p class="amp-error" role="alert">@(error is null ? null : "The chain cannot be built. " + error)</p>
     <textarea class="amp-netlist" aria-label="Chain netlist" readonly rows="6">@netlist</textarea>
 
     <ClipPlayer @ref="player" Netlist="@netlist" />
