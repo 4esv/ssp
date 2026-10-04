@@ -7,6 +7,7 @@ namespace Ssp.Web.Tests.Playwright;
 /// <summary>Clicks Try on the preset chain with the bundled clip, through the real worker host of the published site.</summary>
 /// <remarks>
 /// NOTE: Before #148, the output buffer played but the status stayed "Rendering…". The test waits for the status, not the buffer.
+/// Since #208 the status reads "Rendering 0.0 of 2.0 s…" while it renders, so the wait is for a status that does not start with "Rendering".
 /// </remarks>
 [Collection(PlaywrightCollection.Name)]
 public class VirtualAmpLiveChainTests(ITestOutputHelper output)
@@ -26,7 +27,7 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
         var watch = Stopwatch.StartNew();
         await session.Page.Locator(".virtual-amp button.amp-try").ClickAsync();
         await session.Page.WaitForFunctionAsync(
-            $"() => {{ const s = ({Status})(); return s !== '' && s !== 'Rendering…'; }}",
+            $"() => {{ const s = ({Status})(); return s !== '' && !s.startsWith('Rendering') && !s.startsWith('Applying'); }}",
             null,
             new() { Timeout = LimitMs, PollingInterval = 100 });
         watch.Stop();
@@ -37,5 +38,29 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
         Assert.DoesNotContain("failed", status);
         Assert.Equal(JsonValueKind.Object, buffer.ValueKind);
         Assert.True(buffer.GetProperty("length").GetInt32() > 0);
+    }
+
+    [PlaywrightFact]
+    public async Task CancelOnThePresetChainStopsTheRender()
+    {
+        await using var session = await ClipPlayerTests.Session.Start(output);
+        await session.Page.Locator(".dock-tab[data-panel=amp]").ClickAsync();
+
+        await session.Page.Locator(".virtual-amp button.amp-try").ClickAsync();
+        await session.Page.WaitForFunctionAsync(
+            $"() => /^Rendering [0-9.]+ of/.test(({Status})())",
+            null,
+            new() { Timeout = LimitMs, PollingInterval = 100 });
+        var running = await session.Page.EvaluateAsync<string>(Status);
+
+        var watch = Stopwatch.StartNew();
+        await session.Page.Locator(".virtual-amp button.clip-cancel").ClickAsync();
+        await session.Page.WaitForFunctionAsync(
+            $"() => ({Status})() === 'Cancelled.'",
+            null,
+            new() { Timeout = 5_000, PollingInterval = 20 });
+        watch.Stop();
+        output.WriteLine($"While rendering: {running} After Cancel: {await session.Page.EvaluateAsync<string>(Status)} ({watch.ElapsedMilliseconds} ms)");
+        Assert.Equal(0, await session.Page.Locator(".virtual-amp button.clip-cancel").CountAsync());
     }
 }
