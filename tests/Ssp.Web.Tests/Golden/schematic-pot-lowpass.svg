@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -34 250 253" fill="none" stroke="currentColor" stroke-width="2">
+<g data-ref="C1" transform="translate(140 30)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g transform="translate(200 30)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="RV1" transform="translate(0 30)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
+<g transform="translate(60 30)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="V1" transform="translate(0 170)"><path d="M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41"/><circle cx="30" cy="0" r="14"/></g>
+<g transform="translate(60 170)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<polyline data-net="0" points="60,170 200,170 200,30"/>
+<polyline data-net="0" points="200,30 200,170"/>
+<polyline data-net="in" points="0,30 0,170"/>
+<polyline data-net="out" points="60,30 140,30"/>
+<polyline data-net="out" points="140,30 140,170"/>
+<g fill="currentColor" stroke="none" font-family="sans-serif" font-size="10" text-anchor="middle">
+<text x="170" y="14">C1</text>
+<text x="170" y="56">100n</text>
+<text x="30" y="-4">RV1</text>
+<text x="30" y="52">10k</text>
+<text x="30" y="151">V1</text>
+<text x="30" y="199">AC 1V</text>
+</g>
+</svg>

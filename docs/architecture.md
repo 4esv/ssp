@@ -159,3 +159,36 @@ Limits:
 - One monitor runs at a time. A render in the worker waits for the monitor chunk in progress.
 - There are no native audio drivers and no plugin formats.
 
+
+## Schematic symbols
+
+`SchematicRenderer` turns a circuit into schematic elements and draws each element with a symbol from `Symbols`.
+
+| Kind | Symbol | Pins, in node order |
+|---|---|---|
+| `resistor` | US zigzag | 1, 2 |
+| `pot` | Zigzag with a wiper arrow | top, wiper, bottom |
+| `capacitor` | Two parallel plates | 1, 2 |
+| `electrolytic` | Straight plate with `+`, curved plate | +, - |
+| `inductor` | Coil | 1, 2 |
+| `diode` | Triangle and bar | anode, cathode |
+| `led` | Diode with two light arrows | anode, cathode |
+| `npn`, `pnp` | Base, collector, emitter. Emitter arrow out for NPN, in for PNP. The substrate pin is hidden. | C, B, E, S |
+| `njf`, `pjf` | Channel bar. Gate arrow in for N-channel, out for P-channel. | D, G, S |
+| `opamp` | Triangle, `-` input above `+` input, output at the apex | in-, in+, out |
+| `opamp5` | Op-amp with supply pins | in+, in-, out, V+, V- |
+| `vsource`, `isource` | Circle with `+` and `-`, circle with a current arrow | +, - |
+| `ground` | Three bars | 1 |
+| `rail` | T bar with the supply voltage | 1 |
+| `transformer`, `vactrol` | Coils with a core, LED over an LDR | as in `models/` |
+
+Rules:
+
+- The kind comes from the part row first, then from the component type. A capacitor of 1u or more is `electrolytic`, because a netlist has no polarity flag.
+- A subcircuit instance is one element. The flattened parts `X1.*` are not drawn. An instance of a known op-amp model is `opamp5`.
+- A pot pair `P_1` and `P_2` is one `pot` named `P`. Its value is the total resistance.
+- A DC voltage source from ground to a node or reference that starts with `vcc`, `vee`, `vdd`, `vss`, `vbat`, `v+` or `v-` is a `rail`.
+- A pin on ground gets a ground symbol that always points down.
+- The reference is above the symbol and the value is below it, in plain units (`100k`, `10n`, `1u`). Labels are outside the rotated group, so they stay upright.
+- Rotation and flip apply to the whole symbol. Pins are on the 10-unit grid in every orientation. A symbol with two pins has them at (0, 0) and (60, 0).
+- `SymbolArrow` is the direction of the diode, BJT and JFET arrows. Tests check it in all eight orientations.
