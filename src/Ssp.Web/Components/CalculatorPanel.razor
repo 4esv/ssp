@@ -182,5 +182,5 @@
         return (value / scale).ToString("0.###", CultureInfo.InvariantCulture) + suffix;
     }
 
-    static string Number(double v) => v.ToString("R", CultureInfo.InvariantCulture);
+    static string Number(double v) => v.ToString("0.####################", CultureInfo.InvariantCulture);
 }
