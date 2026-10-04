@@ -1,4 +1,5 @@
 @page "/"
+@using Ssp.Web.Components
 @inject ISimulationHost Host
 
 <PageTitle>ssp</PageTitle>
@@ -10,6 +11,7 @@
         <a href="editor">Editor</a>
         <a href="gallery">Gallery</a>
     </nav>
+    <Gallery Embedded="true" />
 </main>
 
 <footer class="home-versions">
