@@ -43,7 +43,7 @@
         }
     </div>
     <figure class="schematic" aria-label="Schematic" tabindex="0" @ref="pane" data-view="@(view is null ? null : "")" style="@StageStyle()"
-            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null)"
+            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null || active is not null)"
             @onwheel="Wheel" @onwheel:preventDefault>
         @if (svg is null && !hasErrors)
         {
@@ -77,27 +77,46 @@
                 }
                 @foreach (var pin in pins)
                 {
+                    var target = connecting && pin.Ref != active?.Pin;
                     <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
-                    <circle class="@(pin.Ref == pending ? "pin pending" : "pin")" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
-                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="5" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
+                    <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@(target ? 7 : 5)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
                         <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), node @pin.Node</title>
                     </circle>
                 }
-                @if (pending is { } from && pins.FirstOrDefault(p => p.Ref == from) is { } source)
+                @foreach (var open in opens)
                 {
-                    <g class="pin-add" role="button" aria-label="Add a part to @from.Reference pin @(from.Pin + 1)" @onclick="ToggleMenu" @onclick:stopPropagation>
-                        <circle class="pin-add-hit" cx="@N(source.Position.X + HitRadius * 2)" cy="@N(source.Position.Y - HitRadius * 2)" r="@N(HitRadius)" />
-                        <text class="pin-add-sign" x="@N(source.Position.X + HitRadius * 2)" y="@N(source.Position.Y - HitRadius * 2)" text-anchor="middle" dominant-baseline="central">+</text>
-                    </g>
+                    var spot = new Spot(open);
+                    <circle class="pin-hit" cx="@N(open.X)" cy="@N(open.Y)" r="@N(HitRadius)" @onclick="() => Activate(spot)" @onclick:stopPropagation />
+                    <circle class="@(spot == active ? "pin open active" : "pin open")" data-open="@($"{N(open.X)},{N(open.Y)}")"
+                            cx="@N(open.X)" cy="@N(open.Y)" r="5" @onclick="() => Activate(spot)" @onclick:stopPropagation>
+                        <title>Open end</title>
+                    </circle>
+                }
+                @if (active is { } from && !connecting)
+                {
+                    @foreach (var d in free)
+                    {
+                        var (dot, dir) = (SchematicEdits.Toward(from.At, d), d);
+                        <g class="@(chosen == d ? "pin-add chosen" : "pin-add")" data-dir="@dir.ToString().ToLowerInvariant()" role="button"
+                           aria-label="Go @dir.ToString().ToLowerInvariant() from @Name(from)" @onclick="() => TapDot(dir)" @onclick:stopPropagation>
+                            <circle class="pin-add-hit" cx="@N(dot.X)" cy="@N(dot.Y)" r="@N(DotRadius())" />
+                            <circle class="pin-add-dot" cx="@N(dot.X)" cy="@N(dot.Y)" r="@N(Math.Min(DotRadius() * 0.55, VisibleDot))" />
+                            <text class="pin-add-sign" x="@N(dot.X)" y="@N(dot.Y)" font-size="@N(Math.Min(DotRadius() * 0.55, VisibleDot) * 1.7)" text-anchor="middle" dominant-baseline="central">+</text>
+                        </g>
+                    }
                 }
             </svg>
-            @if (menuOpen && pending is { } origin)
+            @if (menuOpen && active is { } origin && chosen is { } way)
             {
-                <div class="pin-menu" role="menu" aria-label="Add a part to @origin.Reference pin @(origin.Pin + 1)">
+                <div class="pin-menu" role="menu" aria-label="Go @way.ToString().ToLowerInvariant() from @Name(origin)" style="@MenuStyle(origin, way)">
                     @foreach (var kind in SchematicEdits.Kinds.Keys)
                     {
-                        <button type="button" role="menuitem" data-kind="@kind" @onclick="() => AddFromPin(kind)">@Label(kind)</button>
+                        <button type="button" role="menuitem" data-kind="@kind" @onclick="() => Choose(kind)">@Label(kind)</button>
                     }
+                    <button type="button" role="menuitem" data-action="wire" @onclick="() => Choose(WireChoice)">Wire</button>
+                    <button type="button" role="menuitem" data-action="ground" @onclick="() => Choose(GroundChoice)">Ground</button>
+                    <button type="button" role="menuitem" data-action="connect" @onclick="() => Choose(ConnectChoice)">Connect to a pin</button>
                 </div>
             }
             @if (BarStyle() is { } barStyle)
@@ -159,7 +178,26 @@
 
     // NOTE: The hit circle is 24 units across or more, the least that a finger can hit.
     const double HitRadius = 12;
-    PinRef? pending;
+
+    // The active pin, or the open end of a wire. Its + dots show where a move can go. The chosen direction has the picker open.
+    Spot? active;
+    List<Direction> free = [];
+    Direction? chosen;
+    List<Point> opens = [];
+
+    // Whether the next tap on a pin joins it to the active pin.
+    bool connecting;
+
+    // NOTE: The least that a finger can hit is 44 px, so the hit circle of a dot has a radius of 22 px at any zoom. At a low zoom the circles of two dots overlap.
+    const double DotPixels = 22;
+    const double VisibleDot = 12;
+    const string WireChoice = "wire", GroundChoice = "ground", ConnectChoice = "connect";
+
+    static readonly Dictionary<string, string> Letters = new()
+    {
+        ["r"] = "resistor", ["c"] = "capacitor", ["q"] = "npn", ["d"] = "diode", ["p"] = "pot", ["b"] = "battery",
+        ["g"] = GroundChoice, ["w"] = WireChoice,
+    };
 
     // NOTE: A drag under this many pixels is a click.
     const double DragSlop = 4;
@@ -181,7 +219,7 @@
     bool panMoved;
     Point panFrom;
 
-    // Whether the menu of kinds for the selected pin is open.
+    // Whether the picker for the chosen direction is open.
     bool menuOpen;
 
     // A part that the pointer moves: its outline at the start, the pointer at the start, the scale at the start, and the snapped offset.
@@ -200,17 +238,21 @@
         seenLayout = Layout;
         // NOTE: The parent passes each edit back. That echo keeps the undo, any other netlist drops it.
         if (Netlist != netlist) ClearUndo();
+        // NOTE: The echo of an edit keeps the active pin, so the chain goes on when the parent passes the change back.
+        var keep = Netlist == netlist ? active : null;
         netlist = Netlist;
         given = Layout;
         Build();
         view = null;
+        if (keep is { } again) Activate(again);
     }
 
     void Build()
     {
         selectedWire = null;
-        pending = null;
-        menuOpen = false;
+        active = null;
+        (free, chosen, opens) = ([], null, []);
+        (menuOpen, connecting) = (false, false);
         var wasBlank = svg is null;
         svg = null;
         pins = [];
@@ -245,6 +287,7 @@
             outlines.Add(new PartView(pot.Reference, min, max));
             pins.AddRange(SchematicRenderer.PotPins(placement).Select((p, i) => new PinView(new PinRef(pot.Reference, i), pot.Nodes[i], p)));
         }
+        opens = SchematicEdits.OpenEnds(layout, pins.Select(p => p.Position)).ToList();
         if (!outlines.Any(p => p.Reference == selected)) selected = null;
     }
 
@@ -369,21 +412,98 @@
         await PlaceAt(kind, at);
     }
 
-    // NOTE: A tap on the empty canvas cancels the connection.
+    // NOTE: A tap on the empty canvas drops the active pin.
     void CanvasClick(MouseEventArgs e)
     {
         if (panMoved) return;
-        (pending, menuOpen) = (null, false);
+        ClearActive();
     }
 
-    void ToggleMenu() => menuOpen = !menuOpen;
-
-    async Task AddFromPin(string kind)
+    void ClearActive()
     {
-        if (pending is not { } pin || parts is null) return;
-        var change = SchematicEdits.PlaceFrom(netlist, layout, parts, kind, pin);
+        active = null;
+        (free, chosen) = ([], null);
+        (menuOpen, connecting) = (false, false);
+    }
+
+    void Activate(Spot spot)
+    {
+        if (panMoved || parts is null) return;
+        (selected, selectedWire) = (null, null);
+        ClearActive();
+        active = spot;
+        free = SchematicEdits.Directions(netlist, layout, parts, spot).ToList();
+    }
+
+    void OpenMenu(Direction direction)
+    {
+        if (panMoved) return;
+        (chosen, menuOpen) = (direction, true);
+    }
+
+    async Task TapDot(Direction direction)
+    {
+        OpenMenu(direction);
+        await Focus();
+    }
+
+    // NOTE: A tap on an SVG pin or a menu button leaves the focus off the canvas, so the keys would do nothing.
+    async Task Focus()
+    {
+        try { await pane.FocusAsync(); }
+        catch (InvalidOperationException) { }
+    }
+
+    // The dot radius in schematic units: 22 px at the zoom of the view.
+    // NOTE: With the CSS fit there is no view, so the zoom is the fit of the last pane box.
+    double DotRadius() => DotPixels / Zoom();
+
+    double Zoom() =>
+        view?.Zoom ?? (paneBox[2] > 0 && box.W > 0 ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, paneBox[2], paneBox[3], FitMargin).Zoom : 1);
+
+    static string Name(Spot spot) => spot.Pin is { } pin ? $"{pin.Reference} pin {pin.Pin + 1}" : "open end";
+
+    string PinClass(PinView pin) =>
+        pin.Ref == active?.Pin ? "pin active" : connecting ? "pin target" : "pin";
+
+    // NOTE: The picker opens under its dot, or over it near the foot of the pane. With the CSS fit there is no pixel position, so the style is empty.
+    string MenuStyle(Spot origin, Direction direction)
+    {
+        if (view is not { } v || paneBox[2] <= 0) return "";
+        const double Width = 260, Height = 250, Gap = 8;
+        var dot = v.WorldToScreen(SchematicEdits.Toward(origin.At, direction));
+        var left = Math.Clamp(dot.X - Width / 2, Gap, Math.Max(Gap, paneBox[2] - Width - Gap));
+        var top = dot.Y + DotPixels + Gap + Height <= paneBox[3] ? dot.Y + DotPixels + Gap : Math.Max(Gap, dot.Y - DotPixels - Gap - Height);
+        return FormattableString.Invariant($"left: {left:0.#}px; top: {top:0.#}px; right: auto; max-width: {Width}px");
+    }
+
+    // A kind, Wire or Ground from the picker or a key goes in the chosen direction from the active pin. Connect lights the other pins.
+    async Task Choose(string choice)
+    {
+        await Focus();
+        if (active is not { } from || parts is null) return;
+        if (choice == GroundChoice)
+        {
+            await Apply(SchematicEdits.Ground(netlist, layout, parts, from));
+            Activate(from);
+            return;
+        }
+        if (choice == ConnectChoice)
+        {
+            (connecting, menuOpen) = (true, false);
+            return;
+        }
+        if (chosen is not { } direction) return;
+        if (choice == WireChoice)
+        {
+            var (wired, open) = SchematicEdits.ExtendWire(netlist, layout, parts, from, direction);
+            await Apply(wired);
+            Activate(open);
+            return;
+        }
+        var (change, far) = SchematicEdits.PlaceNext(netlist, layout, parts, choice, from, direction);
         await Apply(change);
-        selected = change.Layout.Parts[^1].Reference;
+        Activate(far);
     }
 
     async Task PlaceAt(string kind, Point at)
@@ -436,17 +556,19 @@
     }
 
     string Hint() =>
-        pending is { } p ? $"Connecting from {p.Reference} pin {p.Pin + 1}. Tap another pin."
+        connecting ? "Tap the pin to join. Esc cancels."
+        : menuOpen ? "Pick a part, Wire, Ground or Connect."
+        : active is { } a ? $"{Name(a)}: tap a +, or press an arrow, then r c q d p b w. G is ground."
         : selectedWire is not null ? "Wire selected: Delete remove"
         : selected is { } s ? $"{s} selected: R rotate, H/V flip, arrows move, Delete remove"
-        : tool == Tool.Wire ? "Wire: click a pin"
         : tool == Tool.Ground ? "Ground: click a pin"
+        : tool == Tool.Wire ? "Tap a pin to see where to go."
         : "Choose a tool, or place a part.";
 
     void Select(Tool next)
     {
         tool = tool == next ? null : next;
-        pending = null;
+        ClearActive();
         selected = null;
         selectedWire = null;
     }
@@ -454,28 +576,29 @@
     async Task Click(PinRef pin)
     {
         if (panMoved) return;
+        await Focus();
         if (tool == Tool.Ground)
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));
         }
-        else if (pending is null)
+        else if (connecting && active is { } from)
         {
-            pending = pin;
+            if (from.Pin != pin) await Apply(SchematicEdits.Wire(netlist, layout, parts!, from, pin));
         }
-        else if (pending == pin)
+        else if (active?.Pin == pin)
         {
-            (pending, menuOpen) = (null, false);
+            ClearActive();
         }
         else
         {
-            await Apply(SchematicEdits.Wire(netlist, layout, parts!, pending, pin));
+            Activate(new Spot(pins.First(p => p.Ref == pin).Position, pin));
         }
     }
 
     // NOTE: Escape clears the selection, so that Tab can move the focus out of the schematic again.
     async Task Key(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape") (pending, menuOpen) = (null, false);
+        if (e.Key == "Escape") ClearActive();
         switch (e.Key)
         {
             case "+" or "=":
@@ -488,6 +611,7 @@
                 await FitView();
                 return;
         }
+        if (active is not null && await ActiveKey(e)) return;
         if (e.Key == "Escape") selectedWire = null;
         if (e.Key is "Delete" or "Backspace" && (selected is not null || selectedWire is not null))
         {
@@ -516,14 +640,55 @@
         if (e.Key is "d" or "D") selected = change.Layout.Parts[^1].Reference;
     }
 
+    // NOTE: With an active pin an arrow picks a direction, a letter picks what goes there, and Tab moves the pin. Ground needs no direction.
+    async Task<bool> ActiveKey(KeyboardEventArgs e)
+    {
+        Direction? arrow = e.Key switch
+        {
+            "ArrowUp" => Direction.Up,
+            "ArrowDown" => Direction.Down,
+            "ArrowLeft" => Direction.Left,
+            "ArrowRight" => Direction.Right,
+            _ => null,
+        };
+        if (arrow is { } d)
+        {
+            if (free.Contains(d) && !connecting) OpenMenu(d);
+            return true;
+        }
+        if (e.Key == "Tab")
+        {
+            Cycle(e.ShiftKey ? -1 : 1);
+            return true;
+        }
+        if (e.CtrlKey || e.MetaKey || e.AltKey || !Letters.TryGetValue(e.Key.ToLowerInvariant(), out var choice)) return false;
+        if (connecting || (choice != GroundChoice && chosen is null)) return true;
+        await Choose(choice);
+        return true;
+    }
+
+    // Moves the active pin to the next pin or open end, in the order of the netlist.
+    void Cycle(int by)
+    {
+        var all = pins.Select(p => new Spot(p.Position, p.Ref)).Concat(opens.Select(o => new Spot(o))).ToList();
+        if (all.Count == 0 || active is not { } now) return;
+        var at = all.IndexOf(now);
+        Activate(all[((at < 0 ? 0 : at + by) % all.Count + all.Count) % all.Count]);
+    }
+
     static string WirePoints(Ssp.Core.Layout.WireRoute wire) => string.Join(' ', wire.Points.Select(p => $"{N(p.X)},{N(p.Y)}"));
 
-    void SelectPart(string reference) => (selected, selectedWire) = (reference, null);
+    void SelectPart(string reference)
+    {
+        ClearActive();
+        (selected, selectedWire) = (reference, null);
+    }
 
     void SelectWire(int index)
     {
         if (panMoved) return;
-        (selected, selectedWire, pending, menuOpen) = (null, index, null, false);
+        ClearActive();
+        (selected, selectedWire) = (null, index);
     }
 
     void ClearUndo()

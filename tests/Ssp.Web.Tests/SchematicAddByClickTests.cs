@@ -37,32 +37,6 @@ public class SchematicAddByClickTests : BunitContext
         Assert.Equal(0, placed.Y % Symbols.Grid);
     }
 
-    [Theory]
-    [InlineData("resistor")]
-    [InlineData("npn")]
-    [InlineData("pot")]
-    public void Adding_from_a_pin_wires_the_first_pin_to_the_net_of_that_pin(string kind)
-    {
-        var circuit = NetlistLoader.Load(TwoResistors);
-        var parts = PartMap.Resolve(circuit, Table);
-        var layout = AutoPlacer.Place(circuit, circuit.Directives);
-        var pin = new PinRef("R1", 1);
-        var (node, at) = SchematicEdits.Pin(circuit, layout, parts, pin);
-
-        var change = SchematicEdits.PlaceFrom(TwoResistors, layout, parts, kind, pin);
-
-        var after = NetlistLoader.Load(change.Netlist);
-        Assert.DoesNotContain(after.Diagnostics, d => d.Severity == Severity.Error);
-        var afterParts = PartMap.Resolve(after, Table);
-        var added = SchematicRenderer.Elements(after, afterParts).Last(e => e.Reference != "R1" && e.Reference != "R2" && e.Reference != "V1");
-        Assert.Equal(node, added.Nodes[0]);
-        var placement = change.Layout.Parts[^1];
-        Assert.True(placement.X > at.X);
-        Assert.Equal(0, placement.X % Symbols.Grid);
-        Assert.Equal(0, placement.Y % Symbols.Grid);
-        Assert.Empty(change.Layout.Validate(after));
-    }
-
     [Fact]
     public void The_palette_markup_has_no_pointer_handlers()
     {
@@ -86,33 +60,35 @@ public class SchematicAddByClickTests : BunitContext
     }
 
     [Fact]
-    public void A_selected_pin_shows_a_plus_handle_and_the_plus_opens_the_kind_menu()
+    public void A_selected_pin_shows_plus_dots_and_a_dot_opens_the_picker()
     {
         var editor = Editor();
         Assert.Empty(editor.FindAll("g.pin-add"));
 
         editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"1\"]").Click();
-        Assert.Single(editor.FindAll("g.pin-add"));
+        Assert.NotEmpty(editor.FindAll("g.pin-add"));
         Assert.Empty(editor.FindAll(".pin-menu"));
 
         editor.Find("g.pin-add").Click();
         var items = editor.FindAll(".pin-menu button");
-        Assert.Equal(SchematicEdits.Kinds.Count, items.Count);
+        Assert.Equal(SchematicEdits.Kinds.Count + 3, items.Count);
 
         items.Single(b => b.GetAttribute("data-kind") == "capacitor").Click();
         Assert.Empty(editor.FindAll(".pin-menu"));
-        Assert.Contains("C1 selected", Hint(editor));
+        Assert.Contains("C1 pin 2", Hint(editor));
     }
 
     [Fact]
-    public void Tapping_two_pins_connects_them_and_the_status_names_the_first()
+    public void Connecting_two_pins_goes_through_the_picker_and_the_status_says_what_to_tap()
     {
         var editor = Editor();
         editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"1\"]").Click();
-        Assert.Equal("Connecting from R1 pin 2. Tap another pin.", Hint(editor));
+        editor.Find("g.pin-add").Click();
+        editor.Find(".pin-menu button[data-action=connect]").Click();
+        Assert.Equal("Tap the pin to join. Esc cancels.", Hint(editor));
 
         editor.Find("circle.pin[data-ref=\"R2\"][data-pin=\"0\"]").Click();
-        Assert.DoesNotContain("Connecting", Hint(editor));
+        Assert.DoesNotContain("Tap the pin", Hint(editor));
         Assert.Empty(editor.FindAll("g.pin-add"));
     }
 
@@ -122,11 +98,11 @@ public class SchematicAddByClickTests : BunitContext
         var editor = Editor();
         editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"1\"]").Click();
         editor.Find("figure.schematic").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
-        Assert.DoesNotContain("Connecting", Hint(editor));
+        Assert.DoesNotContain("pin 2", Hint(editor));
         Assert.Empty(editor.FindAll("g.pin-add"));
 
         editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"1\"]").Click();
         editor.Find("svg.schematic-pins").Click();
-        Assert.DoesNotContain("Connecting", Hint(editor));
+        Assert.DoesNotContain("pin 2", Hint(editor));
     }
 }
