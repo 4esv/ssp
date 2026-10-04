@@ -138,6 +138,19 @@
                     }
                 </div>
             }
+            @if (ValueBox() is { } box)
+            {
+                <div class="value-edit-box" style="@box" @onclick:stopPropagation>
+                    <input class="value-edit" type="text" inputmode="text" autocomplete="off" spellcheck="false" aria-label="Value of @selected"
+                           aria-invalid="@(valueError is null ? null : "true")" value="@valueText"
+                           @oninput="TypeValue"
+                           @onkeydown="ValueKey" @onkeydown:stopPropagation />
+                    @if (valueError is not null)
+                    {
+                        <p class="value-error" role="alert">@valueError</p>
+                    }
+                </div>
+            }
             <div class="schematic-zoom" role="group" aria-label="Zoom" @onclick:stopPropagation>
                 <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
                 <output class="zoom-level" aria-label="Zoom level">@($"{(int)Math.Round(Zoom() * 100)}%")</output>
@@ -868,6 +881,67 @@
         "flip" => "\u21C6",
         _ => "\u29C9",
     };
+
+    string valueText = "";
+    string? valueError;
+    string? valueFor;
+
+    // NOTE: Only a resistor, capacitor or inductor with a plain number has a value to type. A diode has a model name there.
+    bool Editable(string reference) =>
+        reference.Length > 0 && char.ToUpperInvariant(reference[0]) is 'R' or 'C' or 'L'
+        && SchematicEdits.ValueOf(netlist, reference) is { } text && SchematicEdits.TryParseValue(text, out _, out _);
+
+    // The style of the value box under the selected part, or null when the selection has no value to edit.
+    string? ValueBox()
+    {
+        if (hasErrors || selected is not { } part || !Editable(part)) return null;
+        if (valueFor != part)
+        {
+            (valueFor, valueError) = (part, null);
+            valueText = SchematicEdits.ValueOf(netlist, part)!;
+        }
+        if (view is null || paneBox[2] <= 0 || outlines.FirstOrDefault(o => o.Reference == part) is not { } outline) return "";
+        var (a, b) = (view.WorldToScreen(outline.Min), view.WorldToScreen(outline.Max));
+        var x = Math.Clamp((a.X + b.X) / 2, 60, Math.Max(60, paneBox[2] - 60));
+        var y = Math.Clamp(b.Y + HitRadius * view.Zoom + 8, 4, Math.Max(4, paneBox[3] - 70));
+        return FormattableString.Invariant($"left: {x:0.#}px; top: {y:0.#}px");
+    }
+
+    void TypeValue(ChangeEventArgs e) => (valueText, valueError) = (e.Value?.ToString() ?? "", null);
+
+    async Task ValueKey(KeyboardEventArgs e)
+    {
+        if (selected is not { } part) return;
+        switch (e.Key)
+        {
+            case "Enter":
+                await CommitValue(part, null);
+                break;
+            case "ArrowUp" or "ArrowDown":
+                await CommitValue(part, e.Key == "ArrowUp" ? 1 : -1);
+                break;
+            case "Escape":
+                valueFor = null;
+                await Focus();
+                break;
+        }
+    }
+
+    // NOTE: A step starts from what is in the box, or from the netlist when the box holds bad text.
+    async Task CommitValue(string part, int? step)
+    {
+        var ok = SchematicEdits.TryParseValue(valueText, out var value, out var error);
+        if (!ok && step is not null && SchematicEdits.TryParseValue(SchematicEdits.ValueOf(netlist, part), out value, out _)) (ok, error) = (true, "");
+        if (!ok)
+        {
+            valueError = error;
+            return;
+        }
+        if (step is { } s) value = SchematicEdits.StepE12(value, s);
+        var text = SchematicEdits.FormatValue(value);
+        (valueText, valueError) = (text, null);
+        if (text != SchematicEdits.ValueOf(netlist, part)) await Apply(SchematicEdits.SetValue(netlist, layout, part, text));
+    }
 
     async Task Act(string action)
     {
