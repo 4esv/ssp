@@ -60,4 +60,4 @@ Status values: planned, in progress, done.
 | core | LTspice `.asc` to layout | done |
 | web | Dockable panels | done |
 | core | Amp chain | done |
-| web | Virtual amp panel | planned |
+| web | Virtual amp panel | done |

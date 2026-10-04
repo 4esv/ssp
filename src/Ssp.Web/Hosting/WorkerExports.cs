@@ -5,6 +5,7 @@ using System.Text.Json;
 using Ssp.Core;
 using Ssp.Core.Analysis;
 using Ssp.Core.Netlist;
+using Ssp.Core.Parts;
 
 namespace Ssp.Web.Hosting;
 
@@ -32,7 +33,11 @@ public static partial class WorkerExports
         Write(w =>
         {
             w.WriteStartArray();
-            foreach (var sample in Analyses.Render(NetlistLoader.Load(netlist), input, sampleRate, oversample))
+            var circuit = NetlistLoader.Load(netlist);
+
+            // NOTE: The knob directives set the pot parts, as in Runner.Run. A knob change then changes the output.
+            Pot.Apply(circuit);
+            foreach (var sample in Analyses.Render(circuit, input, sampleRate, oversample))
             {
                 if (double.IsFinite(sample))
                 {
