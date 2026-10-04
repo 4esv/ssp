@@ -3,9 +3,18 @@
 
 <PageTitle>ssp</PageTitle>
 
-<h1>ssp</h1>
+<main class="home">
+    <h1>ssp</h1>
+    <p>The user draws a pedal circuit and presses Run.</p>
+    <nav class="home-links">
+        <a href="editor">Editor</a>
+        <a href="gallery">Gallery</a>
+    </nav>
+</main>
 
-<pre>@string.Join("\n", versions)</pre>
+<footer class="home-versions">
+    <pre>@string.Join("\n", versions)</pre>
+</footer>
 
 @code {
     IReadOnlyList<string> versions = [];
