@@ -538,3 +538,102 @@ h1[tabindex="-1"]:focus-visible {
     padding: 0 0.4rem;
     font-size: 0.875rem;
 }
+
+/* The palette is a column at the left of the canvas. Above 48rem it is one column of entries, below it a row that scrolls. */
+.schematic-body {
+    display: flex;
+    gap: var(--space-3, 0.75rem);
+    align-items: stretch;
+}
+
+.schematic-body .schematic {
+    flex: 1;
+    min-width: 0;
+    min-height: 12rem;
+}
+
+.palette {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: none;
+    width: 6.5rem;
+    max-height: 32rem;
+    overflow-y: auto;
+}
+
+.palette-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.25rem;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    font-size: 0.75rem;
+}
+
+.palette-item[aria-pressed="true"] {
+    font-weight: 600;
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.palette-symbol svg {
+    display: block;
+    width: 3.5rem;
+    height: 2rem;
+}
+
+.palette-ghost {
+    position: fixed;
+    z-index: 10;
+    width: 4rem;
+    height: 2.5rem;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.palette-ghost svg {
+    width: 100%;
+    height: 100%;
+}
+
+.schematic-pins .part {
+    touch-action: none;
+}
+
+.schematic-pins .part.ghost {
+    stroke: currentColor;
+    stroke-width: 1;
+    stroke-dasharray: 4 2;
+    fill: currentColor;
+    fill-opacity: 0.1;
+    pointer-events: none;
+}
+
+.schematic-blank {
+    min-height: 12rem;
+}
+
+@media (max-width: 48rem) {
+    .schematic-body {
+        flex-direction: column;
+    }
+
+    .palette {
+        flex-direction: row;
+        width: auto;
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .palette-item {
+        flex: none;
+        width: 5rem;
+    }
+}
