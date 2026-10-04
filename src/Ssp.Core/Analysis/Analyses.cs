@@ -1,6 +1,8 @@
 using System.Numerics;
 using SpiceSharp;
 using SpiceSharp.Components;
+using SpiceSharp.Entities;
+using SpiceSharp.ParameterSets;
 using SpiceSharp.Simulations;
 using SpiceSharp.Simulations.IntegrationMethods;
 using Ssp.Core.Netlist;
@@ -231,14 +233,14 @@ public static class Analyses
     /// The input drives the <c>ssp:input</c> node through a piecewise-linear source.
     /// The output is the voltage at the <c>ssp:output</c> node, or <c>out</c>.
     /// The solver uses fixed trapezoidal steps of 1 / (fs * oversample). If a fixed step does not converge, the render starts
-    /// again with variable trapezoidal steps of at most that size, and the output is interpolated at the sample times.
+    /// again with variable trapezoidal steps of at most half that size. The variable steps land on each sample time.
     /// The circuit is the same afterwards.
     /// <paramref name="progress"/> gets the number of output samples done, about ten times for each second of audio.
-    /// A render with variable steps starts again from 0.
+    /// A render with variable steps starts again from 0. <paramref name="statistics"/>, if given, gets the solver work.
     /// </summary>
     /// <exception cref="InvalidOperationException">The variable steps also do not converge. The message gives the time
     /// and the node that changes most in the last iteration.</exception>
-    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample, Action<int>? progress = null)
+    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample, Action<int>? progress = null, RenderStatistics? statistics = null)
     {
         if (fs <= 0 || oversample < 1)
         {
@@ -299,13 +301,24 @@ public static class Analyses
 
             try
             {
-                return Sample(circuit, new FixedTrapezoidal { Step = step, StopTime = stop }, outNode, input.Length, fs, progress);
+                return Sample(circuit, new FixedTrapezoidal { Step = step, StopTime = stop }, outNode, input.Length, fs, progress, statistics);
             }
             catch (TimestepTooSmallException)
             {
                 // NOTE: A loud transient into a saturating op-amp model needs steps near 1e-10 s for one sample (#210).
                 // The fixed method cannot make the step smaller, so the variable method renders the full input again.
-                return Sample(circuit, new Trapezoidal { StopTime = stop, MaxStep = step, InitialStep = step }, outNode, input.Length, fs, progress);
+                // PERF: The Pwl sets a breakpoint at each sample, and the engine cuts the step after a breakpoint to a tenth.
+                // That is 4.6 steps for each sample (#219). The ramp has no breakpoints, and the method lands on each sample.
+                statistics?.VariableSteps = true;
+                var values = new double[points.Length / 2];
+                for (var i = 0; i < values.Length; i++)
+                {
+                    values[i] = points[(2 * i) + 1];
+                }
+
+                source.Parameters.Waveform = new SampledRamp(values, fs);
+                var method = new SampleTrapezoidal(1.0 / fs) { StopTime = stop, MaxStep = step / 2, InitialStep = step / 2 };
+                return Sample(circuit, method, outNode, input.Length, fs, progress, statistics);
             }
         }
         finally
@@ -320,7 +333,7 @@ public static class Analyses
 
     // Streams the accepted time points and keeps the output at each sample time i / fs, interpolated between the two
     // time points around it. A time point within 1e-6 of a sample period from a sample time is that sample.
-    private static double[] Sample(LoadedCircuit circuit, TimeParameters method, string outNode, int count, int fs, Action<int>? progress)
+    private static double[] Sample(LoadedCircuit circuit, TimeParameters method, string outNode, int count, int fs, Action<int>? progress, RenderStatistics? statistics)
     {
         var tran = new Transient("render", method);
         var voltage = new RealVoltageExport(tran, outNode);
@@ -335,6 +348,10 @@ public static class Analyses
             foreach (var _ in tran.Run(circuit.Circuit, Transient.ExportTransient))
             {
                 state ??= tran.GetState<IBiasingSimulationState>();
+                if (statistics is not null)
+                {
+                    statistics.Steps++;
+                }
                 var time = tran.Time;
                 var value = voltage.Value;
                 while (written < count)
@@ -370,6 +387,10 @@ public static class Analyses
                 $"The render stops at t = {e.Time:0.000000} s: the solver does not converge with a step of {e.Timestep:G3} s. "
                 + $"The node that changes most in the last iteration is {LargestChange(state)}.", e);
         }
+        finally
+        {
+            statistics?.Iterations += tran.Statistics.TransientIterations;
+        }
 
         if (written != count)
         {
@@ -399,5 +420,56 @@ public static class Analyses
         }
 
         return name;
+    }
+
+    // The input as a line through the samples, like a Pwl with a point at each sample, but with no breakpoints.
+    private sealed class SampledRamp(double[] values, int fs) : ParameterSet<IWaveformDescription>, IWaveformDescription
+    {
+        public IWaveform Create(IBindingContext context)
+        {
+            IIntegrationMethod? method = null;
+            context?.TryGetState(out method);
+            return new Instance(values, fs, method);
+        }
+
+        private sealed class Instance(double[] values, int fs, IIntegrationMethod? method) : IWaveform
+        {
+            public double Value { get; private set; } = values[0];
+
+            public void Probe()
+            {
+                var x = (method?.Time ?? 0.0) * fs;
+                var i = (int)Math.Floor(x);
+                Value = i < 0 ? values[0]
+                    : i >= values.Length - 1 ? values[^1]
+                    : values[i] + ((values[i + 1] - values[i]) * (x - i));
+            }
+
+            public void Accept()
+            {
+            }
+        }
+    }
+
+    // Variable trapezoidal steps that do not step over a sample time, so each sample is a solver time point.
+    // Unlike a breakpoint, a sample time does not cut the next step or the integration order.
+    private sealed class SampleTrapezoidal(double period) : Trapezoidal
+    {
+        public override IIntegrationMethod Create(IBiasingSimulationState state) => new SampleInstance(this, state, period);
+
+        private sealed class SampleInstance(Trapezoidal parameters, IBiasingSimulationState state, double period) : Instance(parameters, state)
+        {
+            public override void Prepare()
+            {
+                base.Prepare();
+                var k = Math.Round(BaseTime / period);
+                var next = Math.Abs(BaseTime - (k * period)) <= 1e-9 * period ? (k + 1) * period : Math.Ceiling(BaseTime / period) * period;
+                if (BaseTime + Delta > next)
+                {
+                    Delta = next - BaseTime;
+                    States.Value.Delta = Delta;
+                }
+            }
+        }
     }
 }
