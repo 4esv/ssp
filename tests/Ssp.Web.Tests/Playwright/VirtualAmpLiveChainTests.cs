@@ -7,7 +7,7 @@ namespace Ssp.Web.Tests.Playwright;
 /// <summary>Clicks Try on the preset chain with the bundled clip, through the real worker host of the published site.</summary>
 /// <remarks>
 /// NOTE: Before #148, the output buffer played but the status stayed "Rendering…". The test waits for the status, not the buffer.
-/// Since #208 the status reads "Rendering 0.0 of 2.0 s…" while it renders, so the wait is for a status that does not start with "Rendering".
+/// Since #208 the status reads "Rendering 0.0 of 1.0 s…" while it renders, so the wait is for a status that does not start with "Rendering".
 /// </remarks>
 [Collection(PlaywrightCollection.Name)]
 public class VirtualAmpLiveChainTests(ITestOutputHelper output)

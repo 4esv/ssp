@@ -1,6 +1,7 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Ssp.Core;
+using Ssp.Core.Audio;
 using Ssp.Web.Components;
 using Ssp.Web.Hosting;
 
@@ -91,5 +92,34 @@ public class ClipPlayerRenderTests : BunitContext
 
         Assert.Matches(@"Output peak -?\d+(\.\d)? dBFS, RMS -?\d+ dBFS\.", status);
         Assert.Equal([1], host.Oversamples);
+    }
+
+    static WavData BundledClip() =>
+        Wav.Read(File.OpenRead(Path.Combine(RepoPaths.Root, "src", "Ssp.Web", "Audio", "clip.wav")));
+
+    [Fact]
+    public void BundledClipIsOneSecondLong()
+    {
+        var clip = BundledClip();
+
+        Assert.Single(clip.Channels);
+        Assert.Equal(clip.SampleRate, clip.Channels[0].Length);
+    }
+
+    [Fact]
+    public void BundledClipLastTenMillisecondsFadeToZero()
+    {
+        var clip = BundledClip();
+        var samples = clip.Channels[0];
+        var fade = clip.SampleRate / 100;
+        var tail = samples[^fade..];
+
+        Assert.Equal(0, samples[^1], 1e-4);
+        // The fade is a ramp: no sample is louder than the ramp of the body level, and the envelope falls.
+        var peakBefore = samples[^(4 * fade)..^(3 * fade)].Max(Math.Abs);
+        for (var i = 0; i < fade; i++)
+        {
+            Assert.True(Math.Abs(tail[i]) <= peakBefore * (fade - i) / fade + 1e-4, $"sample {i} of the tail is above the ramp");
+        }
     }
 }

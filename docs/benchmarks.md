@@ -264,3 +264,14 @@ Output against before:
 | Fuzz | -77.4 dBFS | -42.4 dBFS | 5.249 | 5.248 |
 
 The clean output is the same to the precision of the numbers. The fuzz output differs where the clamps conduct, because the rounded corners of the two clamp forms are not the same.
+
+## Default clip of 1 s
+
+The bundled clip is cut from 2.0 s to 1.0 s (#222). The browser render time is proportional to the clip length.
+The measurement is the `Try wall time` line of `VirtualAmpLiveChainTests.TryOnThePresetChainFinishesWithinTheLimit`: Playwright, headless Chromium, the preset chain of the Virtual amp, the bundled clip, the published site, one run for each clip, on the same machine. The time is from the click on Try to a final status.
+
+| Item | Before (2.0 s clip) | After (1.0 s clip) |
+|---|---|---|
+| Try wall time, preset chain | 20.0 s | 10.1 s |
+
+The speed-up is 1.98 times. The 81 s of the drawn fuzz in the issue is a different chain, and it is not measured here.
