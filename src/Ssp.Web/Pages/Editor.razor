@@ -111,6 +111,10 @@
     <DockPanel Id="clip" Title="Clip">
         <ClipPlayer @ref="clipPlayer" Netlist="@netlist" />
     </DockPanel>
+
+    <DockPanel Id="amp" Title="Virtual amp">
+        <VirtualAmp />
+    </DockPanel>
 </DockLayout>
 
 @code {
@@ -128,7 +132,7 @@
     // NOTE: The netlist and the schematic are side by side. The panels under them are tabs.
     static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
     [
-        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare", "clip"])], [0.55, 0.45]),
+        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare", "clip", "amp"])], [0.55, 0.45]),
         new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc"])], [0.55, 0.45]),
     ]));
 
