@@ -61,10 +61,10 @@ public class SchematicViewTests
     public void Fit_frames_the_bounding_box_with_a_margin()
     {
         const double margin = 24;
-        var view = ViewTransform.Fit(100, 50, 800, 400, 1000, 500, margin);
+        var view = ViewTransform.Fit(100, 50, 1600, 800, 1000, 500, margin);
 
         var min = view.WorldToScreen(new Point(100, 50));
-        var max = view.WorldToScreen(new Point(900, 450));
+        var max = view.WorldToScreen(new Point(1700, 850));
         Assert.True(min.X >= margin - 1e-9 && min.Y >= margin - 1e-9);
         Assert.True(max.X <= 1000 - margin + 1e-9 && max.Y <= 500 - margin + 1e-9);
         // NOTE: The box is centred and as large as the margin allows on the tight axis.
@@ -76,7 +76,7 @@ public class SchematicViewTests
     [Fact]
     public void Fit_stays_inside_the_zoom_limits()
     {
-        Assert.Equal(4, ViewTransform.Fit(0, 0, 10, 10, 1000, 1000, 0).Zoom);
+        Assert.Equal(1, ViewTransform.Fit(0, 0, 10, 10, 1000, 1000, 0).Zoom);
         Assert.Equal(0.25, ViewTransform.Fit(0, 0, 100000, 100000, 1000, 1000, 0).Zoom);
     }
 }
