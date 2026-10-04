@@ -370,9 +370,15 @@ h1[tabindex="-1"]:focus-visible {
 }
 
 .schematic-pins .pin {
-    fill: transparent;
+    fill: currentColor;
+    fill-opacity: 0.25;
     stroke: currentColor;
-    stroke-width: 1;
+    stroke-width: 1.5;
+    cursor: pointer;
+}
+
+.schematic-pins .pin-hit {
+    fill: transparent;
     cursor: pointer;
 }
 
@@ -391,6 +397,33 @@ h1[tabindex="-1"]:focus-visible {
     stroke: currentColor;
     stroke-width: 1;
     stroke-dasharray: 4 2;
+}
+
+.schematic-tools .tool-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding-right: 1rem;
+}
+
+.schematic-tools .tool-group + .tool-group {
+    padding-left: 1rem;
+    border-left: 1px solid currentColor;
+}
+
+.schematic-tools .tool-label {
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+.schematic-hint {
+    margin: 0.5rem 0;
+    font-size: 0.9em;
+}
+
+.schematic-empty {
+    margin: 1rem 0;
 }
 
 .schematic-tools {
