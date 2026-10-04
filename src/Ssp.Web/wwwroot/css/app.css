@@ -549,20 +549,18 @@ h1[tabindex="-1"]:focus-visible {
     overflow: hidden;
 }
 
-/* NOTE: With no view the schematic and the pin layer are the pane less a 24px margin, the CSS fit. With a view they are one pixel to one view box unit at 100%, and the transform places them. */
+/* NOTE: The schematic and the pin layer are one pixel to one view box unit at 100%, and the transform places them. They stay hidden until the pane is measured and the view is set, so no frame shows a view that is then replaced. */
 .schematic-editor .schematic > svg {
     position: absolute;
-    inset: 24px;
-    width: calc(100% - 48px);
-    height: calc(100% - 48px);
+    top: 0;
+    left: 0;
     max-width: none;
     transform-origin: 0 0;
+    visibility: hidden;
 }
 
 .schematic-editor .schematic[data-view] > svg {
-    inset: auto;
-    top: 0;
-    left: 0;
+    visibility: visible;
     width: var(--w);
     height: var(--h);
     transform: translate(var(--x), var(--y)) scale(var(--z));
@@ -789,7 +787,7 @@ h1[tabindex="-1"]:focus-visible {
     line-height: 1;
 }
 
-/* NOTE: With the CSS fit there is no pixel position, so the buttons sit in one row near the top of the pane. */
+/* NOTE: Before the pane is measured there is no pixel position, so the buttons sit in one row near the top of the pane. */
 .part-action[data-action="delete"] { left: calc(50% - 4.5rem); top: 12%; }
 .part-action[data-action="rotate"] { left: calc(50% - 1.5rem); top: 12%; }
 .part-action[data-action="flip"] { left: calc(50% + 1.5rem); top: 12%; }
