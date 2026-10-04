@@ -1,0 +1,139 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Reflection
+@using Ssp.Core
+@using Ssp.Core.Audio
+@using Microsoft.JSInterop
+@inject ISimulationHost Host
+@inject IJSRuntime Js
+
+<section class="clip-player">
+    <h2>Clip</h2>
+
+    <label>
+        WAV file
+        <InputFile OnChange="Upload" accept=".wav,audio/wav" />
+    </label>
+    <p class="clip-source">@sourceName</p>
+
+    <button type="button" class="clip-play" @onclick="() => Try(Netlist)" disabled="@busy">Play clip</button>
+    <button type="button" class="clip-download" @onclick="Download" disabled="@(output is null)">Download WAV</button>
+
+    <p class="clip-status" role="status">@status</p>
+</section>
+
+@code {
+    const string BundledName = "Bundled clip";
+    const int MaxUploadBytes = 20 * 1024 * 1024;
+    const int Oversample = 1;
+
+    static readonly Assembly Resources = typeof(ClipPlayer).Assembly;
+
+    /// <summary>The netlist that the Play clip button renders the clip through.</summary>
+    [Parameter] public string Netlist { get; set; } = "";
+
+    string sourceName = BundledName;
+    double[]? uploaded;
+    int uploadedRate;
+    double[]? output;
+    int outputRate;
+    string status = "";
+    bool busy;
+    IJSObjectReference? module;
+
+    /// <summary>
+    /// Renders the clip through the netlist in the worker, applies the cabinet IR, and plays the result.
+    /// The clip is the upload, or the bundled clip. A failure shows in the status text and does not throw.
+    /// </summary>
+    public async Task Try(string netlist)
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        busy = true;
+        status = "Rendering…";
+        StateHasChanged();
+        try
+        {
+            var (samples, rate) = uploaded is null ? Load("audio/clip.wav") : (uploaded, uploadedRate);
+            var rendered = await Host.Render(netlist, samples, rate, Oversample);
+
+            // NOTE: A sample that is not finite plays as silence.
+            double[] wet = [.. rendered.Select(sample => double.IsFinite(sample) ? sample : 0)];
+            var (ir, irRate) = Load("audio/cab-1x12.wav");
+            if (irRate == rate)
+            {
+                wet = Convolution.Convolve(wet, ir);
+                status = "Playing with the cabinet IR.";
+            }
+            else
+            {
+                status = $"Playing without the cabinet IR. The clip is {rate} Hz and the IR is {irRate} Hz.";
+            }
+
+            output = wet;
+            outputRate = rate;
+            await (await Module()).InvokeVoidAsync("play", ToFloat32Bytes(wet), rate);
+        }
+        catch (Exception e)
+        {
+            status = "Render failed: " + e.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    async Task Upload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await using var file = e.File.OpenReadStream(MaxUploadBytes);
+            using var memory = new MemoryStream();
+            await file.CopyToAsync(memory);
+            memory.Position = 0;
+            (uploaded, uploadedRate) = Mono(Wav.Read(memory));
+            sourceName = e.File.Name;
+            status = "";
+        }
+        catch (Exception ex) when (ex is InvalidDataException or NotSupportedException or IOException or EndOfStreamException)
+        {
+            status = "Upload failed: " + ex.Message;
+        }
+    }
+
+    async Task Download()
+    {
+        using var stream = new MemoryStream();
+        Wav.Write(stream, new WavData(outputRate, [output!]), 16);
+        await (await Module()).InvokeVoidAsync("download", "ssp-output.wav", stream.ToArray());
+    }
+
+    async Task<IJSObjectReference> Module() => module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/clip-player.js");
+
+    static byte[] ToFloat32Bytes(double[] samples)
+    {
+        var bytes = new byte[samples.Length * sizeof(float)];
+        for (var i = 0; i < samples.Length; i++)
+        {
+            BitConverter.TryWriteBytes(bytes.AsSpan(i * sizeof(float)), (float)samples[i]);
+        }
+
+        return bytes;
+    }
+
+    static (double[] Samples, int Rate) Load(string name)
+    {
+        using var stream = Resources.GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Missing resource {name}.");
+        return Mono(Wav.Read(stream));
+    }
+
+    // NOTE: The worker renders one channel. A stereo clip is the mean of its two channels.
+    static (double[] Samples, int Rate) Mono(WavData wav) =>
+        (wav.Channels.Length == 1
+            ? wav.Channels[0]
+            : [.. wav.Channels[0].Zip(wav.Channels[1], (left, right) => (left + right) / 2)],
+         wav.SampleRate);
+}

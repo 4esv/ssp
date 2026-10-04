@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Playwright;
 using Ssp.Core.Audio;
 using Xunit.Abstractions;
@@ -20,17 +21,17 @@ public class ClipPlayerTests(ITestOutputHelper output)
     [PlaywrightFact]
     public async Task RunPlaysTheBundledClipAfterTheAnalyses()
     {
-        var clip = Wav.Read(File.OpenRead(Path.Combine(RepoPaths.Root, "src", "Ssp.Web", "wwwroot", "audio", "clip.wav")));
+        var clip = Wav.Read(File.OpenRead(Path.Combine(RepoPaths.Root, "src", "Ssp.Web", "Audio", "clip.wav")));
         await using var session = await Session.Start(output);
 
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
         await session.Page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).ClickAsync();
+        await Assertions.Expect(session.Page.Locator("table.voltages")).ToBeVisibleAsync(new() { Timeout = 120_000 });
         await session.Page.WaitForFunctionAsync("() => globalThis.sspClipBuffer", null, new() { Timeout = 180_000 });
 
-        await Assertions.Expect(session.Page.Locator("table.voltages")).ToBeVisibleAsync();
-        var buffer = await session.Page.EvaluateAsync<Buffer>(Output);
-        Assert.Equal(clip.Channels[0].Length + CabFrames - 1, buffer.Length);
-        Assert.Equal(clip.SampleRate, buffer.Rate);
+        var buffer = await session.Page.EvaluateAsync<JsonElement>(Output);
+        Assert.Equal(clip.Channels[0].Length + CabFrames - 1, buffer.GetProperty("length").GetInt32());
+        Assert.Equal(clip.SampleRate, buffer.GetProperty("rate").GetInt32());
     }
 
     [PlaywrightFact]
@@ -49,9 +50,9 @@ public class ClipPlayerTests(ITestOutputHelper output)
         await session.Page.Locator(".clip-player button.clip-play").ClickAsync();
         await session.Page.WaitForFunctionAsync("() => globalThis.sspClipBuffer", null, new() { Timeout = 180_000 });
 
-        var buffer = await session.Page.EvaluateAsync<Buffer>(Output);
-        Assert.Equal(UploadFrames + CabFrames - 1, buffer.Length);
-        Assert.Equal(UploadRate, buffer.Rate);
+        var buffer = await session.Page.EvaluateAsync<JsonElement>(Output);
+        Assert.Equal(UploadFrames + CabFrames - 1, buffer.GetProperty("length").GetInt32());
+        Assert.Equal(UploadRate, buffer.GetProperty("rate").GetInt32());
     }
 
     [PlaywrightFact]
@@ -91,8 +92,6 @@ public class ClipPlayerTests(ITestOutputHelper output)
         return stream.ToArray();
     }
 
-    record Buffer(int Length, int Rate);
-
     sealed class Session : IAsyncDisposable
     {
         readonly IPlaywright playwright;
@@ -118,7 +117,19 @@ public class ClipPlayerTests(ITestOutputHelper output)
             await page.RouteAsync(baseUrl + "editor", async route =>
                 await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));
             await page.GotoAsync(baseUrl + "editor");
-            await page.Locator(".dock-layout").WaitForAsync(new() { Timeout = 60_000 });
+
+            // NOTE: The test server of scripts/playwright.sh has a short listen queue. It can reset a request in the burst of the
+            // first page load, and the runtime then does not start. One reload gets the files from a quiet server.
+            try
+            {
+                await page.Locator(".dock-layout").WaitForAsync(new() { Timeout = 30_000 });
+            }
+            catch (TimeoutException)
+            {
+                await page.ReloadAsync();
+                await page.Locator(".dock-layout").WaitForAsync(new() { Timeout = 60_000 });
+            }
+
             return new Session(playwright, browser, page);
         }
 
