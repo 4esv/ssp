@@ -31,6 +31,7 @@ public static class Program
         root.Subcommands.Add(RunCommand(output));
         root.Subcommands.Add(SweepCommand(output));
         root.Subcommands.Add(RenderCommand());
+        root.Subcommands.Add(McpCommand());
 
         return root.Parse(args).Invoke(new InvocationConfiguration { Output = output, Error = error ?? Console.Error });
     }
@@ -236,6 +237,16 @@ public static class Program
             return 0;
         });
 
+        return command;
+    }
+
+    /// <summary>
+    /// <c>ssp mcp</c>. Serves the run, render, sweep and explain tools over MCP on standard input and output.
+    /// </summary>
+    private static Command McpCommand()
+    {
+        var command = new Command("mcp", "Serve the tools to agents over MCP on standard input and output.");
+        command.SetAction((_, cancellationToken) => McpServerHost.RunAsync(cancellationToken));
         return command;
     }
 

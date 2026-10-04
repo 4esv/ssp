@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="ModelContextProtocol" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ssp.Core\Ssp.Core.csproj" />
