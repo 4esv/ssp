@@ -61,4 +61,30 @@ public class WorkerSimulationHostTests : BunitContext
         Assert.Equal(input.Length, samples.Length);
         Assert.All(samples, s => Assert.True(double.IsFinite(s)));
     }
+
+    // The fixed steps of the drawn fuzz chain stop after 6 ms, and the render starts again with variable steps (#219).
+    // The worker keeps that verdict for each netlist text, so the next render of the same netlist starts on variable steps.
+    [Fact]
+    public void WorkerRenderRemembersANetlistThatNeedsVariableSteps()
+    {
+        static string Block(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "blocks", name));
+        var fuzz = Ssp.Core.Chains.Chain.Compose(
+        [
+            new Ssp.Core.Chains.ChainStage("pedal", Fixture("fuzz-drawn.cir")),
+            new Ssp.Core.Chains.ChainStage("gain", Block("gain-variable-tl072.cir")),
+            new Ssp.Core.Chains.ChainStage("tone", Block("tone-baxandall-passive.cir")),
+            new Ssp.Core.Chains.ChainStage("power", Block("power-9v.cir")),
+        ]);
+        using var stream = File.OpenRead(Path.Combine(RepoPaths.Root, "src", "Ssp.Web", "Audio", "clip.wav"));
+        var input = Ssp.Core.Audio.Wav.Read(stream).Channels[0][..2205];
+        var clipper = Fixture("clipper-bjt-si.cir");
+
+        Assert.False(WorkerExports.StartsOnVariableSteps(fuzz));
+        var first = WorkerExports.RenderJson(fuzz, input, 44_100, 1);
+        WorkerExports.RenderJson(clipper, input, 44_100, 1);
+
+        Assert.True(WorkerExports.StartsOnVariableSteps(fuzz));
+        Assert.False(WorkerExports.StartsOnVariableSteps(clipper));
+        Assert.Equal(first, WorkerExports.RenderJson(fuzz, input, 44_100, 1));
+    }
 }

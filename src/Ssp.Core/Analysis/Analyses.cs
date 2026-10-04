@@ -237,10 +237,12 @@ public static class Analyses
     /// The circuit is the same afterwards.
     /// <paramref name="progress"/> gets the number of output samples done, about ten times for each second of audio.
     /// A render with variable steps starts again from 0. <paramref name="statistics"/>, if given, gets the solver work.
+    /// If <paramref name="variableSteps"/> is true, the render does not try fixed steps. A caller that saw a render of the
+    /// same circuit use variable steps can skip the fixed attempt that does not converge.
     /// </summary>
     /// <exception cref="InvalidOperationException">The variable steps also do not converge. The message gives the time
     /// and the node that changes most in the last iteration.</exception>
-    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample, Action<int>? progress = null, RenderStatistics? statistics = null)
+    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample, Action<int>? progress = null, RenderStatistics? statistics = null, bool variableSteps = false)
     {
         if (fs <= 0 || oversample < 1)
         {
@@ -299,27 +301,31 @@ public static class Analyses
                 circuit.Circuit.Add(source);
             }
 
-            try
+            if (!variableSteps)
             {
-                return Sample(circuit, new FixedTrapezoidal { Step = step, StopTime = stop }, outNode, input.Length, fs, progress, statistics);
-            }
-            catch (TimestepTooSmallException)
-            {
-                // NOTE: A loud transient into a saturating op-amp model needs steps near 1e-10 s for one sample (#210).
-                // The fixed method cannot make the step smaller, so the variable method renders the full input again.
-                // PERF: The Pwl sets a breakpoint at each sample, and the engine cuts the step after a breakpoint to a tenth.
-                // That is 4.6 steps for each sample (#219). The ramp has no breakpoints, and the method lands on each sample.
-                statistics?.VariableSteps = true;
-                var values = new double[points.Length / 2];
-                for (var i = 0; i < values.Length; i++)
+                try
                 {
-                    values[i] = points[(2 * i) + 1];
+                    return Sample(circuit, new FixedTrapezoidal { Step = step, StopTime = stop }, outNode, input.Length, fs, progress, statistics);
                 }
-
-                source.Parameters.Waveform = new SampledRamp(values, fs);
-                var method = new SampleTrapezoidal(1.0 / fs) { StopTime = stop, MaxStep = step / 2, InitialStep = step / 2 };
-                return Sample(circuit, method, outNode, input.Length, fs, progress, statistics);
+                catch (TimestepTooSmallException)
+                {
+                    // NOTE: A loud transient into a saturating op-amp model needs steps near 1e-10 s for one sample (#210).
+                    // The fixed method cannot make the step smaller, so the variable method renders the full input again.
+                }
             }
+
+            // PERF: The Pwl sets a breakpoint at each sample, and the engine cuts the step after a breakpoint to a tenth.
+            // That is 4.6 steps for each sample (#219). The ramp has no breakpoints, and the method lands on each sample.
+            statistics?.VariableSteps = true;
+            var values = new double[points.Length / 2];
+            for (var i = 0; i < values.Length; i++)
+            {
+                values[i] = points[(2 * i) + 1];
+            }
+
+            source.Parameters.Waveform = new SampledRamp(values, fs);
+            var method = new SampleTrapezoidal(1.0 / fs) { StopTime = stop, MaxStep = step / 2, InitialStep = step / 2 };
+            return Sample(circuit, method, outNode, input.Length, fs, progress, statistics);
         }
         finally
         {
@@ -336,6 +342,13 @@ public static class Analyses
     private static double[] Sample(LoadedCircuit circuit, TimeParameters method, string outNode, int count, int fs, Action<int>? progress, RenderStatistics? statistics)
     {
         var tran = new Transient("render", method);
+        if (method is SampleTrapezoidal)
+        {
+            // PERF: A relative tolerance of 1e-2, not 1e-3, takes 10 % fewer Newton iterations on the drawn fuzz chain, and the
+            // output moves by -60.6 dBFS RMS (#219). The step count does not change.
+            tran.BiasingParameters.RelativeTolerance = 1e-2;
+        }
+
         var voltage = new RealVoltageExport(tran, outNode);
         var output = new double[count];
         var written = 0;
