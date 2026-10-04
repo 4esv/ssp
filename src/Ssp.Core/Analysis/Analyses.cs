@@ -230,8 +230,9 @@ public static class Analyses
     /// The input drives the <c>ssp:input</c> node through a piecewise-linear source.
     /// The output is the voltage at the <c>ssp:output</c> node, or <c>out</c>.
     /// The solver uses fixed trapezoidal steps of 1 / (fs * oversample). The circuit is the same afterwards.
+    /// <paramref name="progress"/> gets the number of output samples done, about ten times for each second of audio.
     /// </summary>
-    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample)
+    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample, Action<int>? progress = null)
     {
         if (fs <= 0 || oversample < 1)
         {
@@ -288,6 +289,10 @@ public static class Analyses
                 {
                     output[k / oversample] = voltage.Value;
                     written++;
+                    if (progress is not null && written % Math.Max(1, fs / 10) == 0)
+                    {
+                        progress(written);
+                    }
                 }
             }
         }

@@ -13,6 +13,21 @@ public interface ISimulationHost
     /// <summary>Renders the input samples through the circuit and returns the output samples, one for each input sample.</summary>
     Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample);
 
+    /// <summary>
+    /// Renders as <see cref="Render(string, double[], int, int)"/> does and reports the seconds of audio done.
+    /// A host that cannot report progress ignores <paramref name="onProgress"/>.
+    /// </summary>
+    Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample, Action<double>? onProgress) =>
+        Render(netlist, input, sampleRate, oversample);
+
+    /// <summary>Stops the render that runs. The task of that render ends with an <see cref="OperationCanceledException"/>.</summary>
+    void CancelRender()
+    {
+    }
+
+    /// <summary>Convolves the samples with the impulse response, where the host can do it off the page thread.</summary>
+    Task<double[]> Convolve(double[] samples, double[] ir) => Task.FromResult(Ssp.Core.Audio.Convolution.Convolve(samples, ir));
+
     /// <summary>Runs the pipeline once for each value of the part <paramref name="reference"/>.</summary>
     Task<SweepResult> Sweep(string netlist, string reference, IReadOnlyList<double> values, RunOptions options);
 

@@ -137,3 +137,19 @@ The click response is from the click to the click handler in the page.
 
 The payload sizes are the same in each run.
 A test with the render on the page thread fails: the page handles the click only after the render.
+
+## Try in the virtual amp
+
+Try renders the bundled clip (2.0 s) through the preset chain of the virtual amp, in Chromium, oversample 1.
+The render time is from the click on Try to `sspClipBuffer`. The cabinet IR convolution is included.
+The longest block is the longest long task in the page (`PerformanceObserver`, entry type `longtask`). The longest gap between two animation frames agrees with it.
+The measurement is one run for each build. Chromium is headless, Playwright, on the same machine as [Browser](#browser).
+
+| Build | Render time | Longest main-thread block | Longest frame gap |
+|---|---|---|---|
+| Before #208 (convolution on the page thread, no progress) | 17.9 s | 1144 ms | 1153 ms |
+| After #208 (convolution in the worker, progress, Cancel) | 18.7 s | 331 ms | 348 ms |
+
+The render time does not change. Faster solving is out of scope. The status showed `Rendering…` for the whole run before, and shows `Rendering 1.1 of 2.0 s at 1x oversample.` at 10 s now.
+Cancel at 8 s: `Cancelled.` showed 38 ms after the click, and a second Try after the cancel rendered again.
+The 331 ms block that is left is the reading of the render result (JSON) and the output on the page thread.
