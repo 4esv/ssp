@@ -16,7 +16,7 @@ public class SchematicPlaceKindsTests
     public static TheoryData<string, int> NewKinds => new()
     {
         { "npn", 4 }, { "pnp", 4 }, { "diode", 2 }, { "led", 2 }, { "pot", 3 },
-        { "battery", 2 }, { "source", 2 }, { "jack-in", 2 }, { "jack-out", 2 },
+        { "battery", 2 }, { "source", 2 },
     };
 
     [Theory]
@@ -59,23 +59,17 @@ public class SchematicPlaceKindsTests
         Assert.Matches(@"V1 n\d+ 0 DC 9", battery.Netlist);
     }
 
-    [Fact]
-    public void Place_jacks_label_the_nodes_in_and_out()
-    {
-        var jacks = SchematicEdits.Place(SchematicEdits.Place(Empty, NoLayout, "jack-in").Netlist, NoLayout, "jack-out");
-        var circuit = NetlistLoader.Load(jacks.Netlist);
-
-        Assert.Contains("in", circuit.NodeNames);
-        Assert.Contains("out", circuit.NodeNames);
-        Assert.Contains("* ssp:input in", jacks.Netlist);
-        Assert.Contains("* ssp:output out", jacks.Netlist);
-    }
+    [Theory]
+    [InlineData("jack-in")]
+    [InlineData("jack-out")]
+    public void Place_refuses_a_jack_because_it_is_a_marker(string kind) =>
+        Assert.Throws<ArgumentException>(() => SchematicEdits.Place(Empty, NoLayout, kind));
 
     [Fact]
     public void Placed_parts_wired_together_run_without_errors()
     {
         var change = new SchematicChange(Empty, NoLayout);
-        foreach (var kind in new[] { "npn", "diode", "pot", "battery", "source", "jack-out" })
+        foreach (var kind in new[] { "npn", "diode", "pot", "battery", "source" })
             change = SchematicEdits.Place(change.Netlist, change.Layout, kind);
 
         // Battery V1 pin 0 is the supply. Source V2 pin 0 is the signal node.
@@ -90,7 +84,8 @@ public class SchematicPlaceKindsTests
         change = Wire(change, parts, "RV1", 0, "V1", 0);
         change = SchematicEdits.Ground(change.Netlist, change.Layout, parts, new PinRef("RV1", 1));
 
-        change = Wire(change, parts, "R1", 1, "Q1", 0);   // output jack to the collector
+        // The output jack marks the collector.
+        change = SchematicEdits.PlaceJack(change.Netlist, change.Layout, parts, "jack-out", new Spot(default, new PinRef("Q1", 0)));
         var result = Runner.Run(change.Netlist, new RunOptions());
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == Severity.Error);
     }
