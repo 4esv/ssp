@@ -198,4 +198,19 @@ public class SchematicMovesTests : BunitContext
         Assert.NotEmpty(editor.FindAll("g.pin-add"));
         Assert.Contains("R2 pin 2", editor.Find("p.schematic-hint").TextContent);
     }
+
+    [Fact]
+    public void Ground_from_the_picker_keeps_the_pin_active_and_the_ground_stem_takes_down_away()
+    {
+        var changes = new List<SchematicChange>();
+        var editor = Editor(changes);
+        editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"1\"]").Click();
+        Assert.Equal(3, editor.FindAll("g.pin-add").Count);
+        editor.Find("g.pin-add[data-dir=right]").Click();
+        editor.Find(".pin-menu button[data-action=ground]").Click();
+        editor.Render(p => p.Add(c => c.Netlist, changes[0].Netlist).Add(c => c.Layout, changes[0].Layout));
+
+        Assert.Equal("0", PinOf(changes[0], new PinRef("R1", 1)).Node);
+        Assert.Equal(2, editor.FindAll("g.pin-add").Count);
+    }
 }
