@@ -25,7 +25,7 @@ The netlist is [`circuits/fixtures/clipper-bjt-si.cir`](../circuits/fixtures/cli
 | Runtime | Native .NET 9, Apple Silicon, warm JIT |
 | Output peak | 0.639 V (`Analyses.Render` in the .NET 10 test run, oversample 1 and 4, last 100 ms of 200 ms) |
 
-The benchmark program is not in the repository yet. `scripts/bench.sh` will add it.
+Run `scripts/bench.sh` to measure the real-time factor of `clipper-bjt-si.cir`. It runs `ssp render` on 10 s of audio (`BENCH_SECONDS` changes the length), prints the factor, and appends one row to the table in [Results](#results). The wall time includes the process start and the JIT.
 
 ## Results
 
@@ -38,6 +38,12 @@ The real-time factors below were measured before `clipper-bjt-si.cir` was writte
 | Native .NET 9, Apple Silicon | Fixed Euler | 44.1 kHz | 7.7x |
 | Native .NET 9, Apple Silicon | Fixed trapezoidal | 176.4 kHz (4x oversample) | 3.2x |
 | Browser (WebAssembly) | - | 44.1 kHz | see [Browser](#browser) |
+| Native .NET 10, Darwin arm64 | Fixed trapezoidal | 44.1 kHz | 7.2x |
+
+### Row format
+
+Each row has four columns: Platform, Method, Sample rate, Real-time factor.
+`scripts/bench.sh` writes `Native .NET <major>, <OS> <architecture>`, `Fixed trapezoidal`, `44.1 kHz`, and the factor with one decimal and an `x` suffix.
 
 ## Browser
 
