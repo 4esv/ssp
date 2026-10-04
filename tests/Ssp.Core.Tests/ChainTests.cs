@@ -105,4 +105,24 @@ public class ChainTests
     [Fact]
     public void StageNamesMustBeUnique() =>
         Assert.Throws<ArgumentException>(() => Chain.Compose([Stages[0], Stages[0]]));
+
+    [Fact]
+    public void ASourceBehindASeriesResistorOnTheInputIsTheInputSource()
+    {
+        const string Drawn = "* drawn\n* ssp:input in\n* ssp:output out\nR1 in n2 1m\nV1 n2 0 DC 0 AC 1\nR2 in out 10k\nR3 out 0 10k\n.END\n";
+        var netlist = Chain.Compose([new ChainStage("pedal", Drawn), Stage("buffer", "buffer-opamp-tl072.cir")]);
+
+        Assert.DoesNotContain("n2", netlist);
+        Assert.DoesNotContain("1m", netlist);
+        var loaded = NetlistLoader.Load(netlist);
+        Assert.Equal("", Errors(loaded.Diagnostics));
+        Assert.DoesNotContain(loaded.Circuit.OfType<VoltageSource>(), v => v.Nodes.Contains("Xpedal.in") && v.Nodes.Contains("Xpedal.n2"));
+    }
+
+    [Fact]
+    public void ASourceBehindAResistorOver10MegohmIsLeftAlone()
+    {
+        const string Drawn = "* drawn\n* ssp:input in\n* ssp:output out\nR1 in n2 20meg\nV1 n2 0 DC 0 AC 1\nR2 in out 10k\nR3 out 0 10k\n.END\n";
+        Assert.Contains("n2", Chain.Compose([new ChainStage("pedal", Drawn)]));
+    }
 }

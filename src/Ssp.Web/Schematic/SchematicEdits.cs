@@ -29,7 +29,7 @@ public static partial class SchematicEdits
 
     /// <summary>
     /// The kinds that <see cref="Place"/> can add: the reference prefix and the default value. The value of a diode, LED
-    /// or transistor is its model name. The value of a pot is its total resistance. A jack and a signal source have none.
+    /// or transistor is its model name. The value of a pot is its total resistance. A jack and a signal source have none. A jack is a marker, not a part: see <see cref="PlaceJack"/>.
     /// </summary>
     public static readonly IReadOnlyDictionary<string, (string Prefix, string Value)> Kinds = new Dictionary<string, (string, string)>(StringComparer.Ordinal)
     {
@@ -42,8 +42,8 @@ public static partial class SchematicEdits
         ["pot"] = ("RV", "10k"),
         ["battery"] = ("V", "9"),
         ["source"] = ("V", ""),
-        ["jack-in"] = ("R", "1m"),
-        ["jack-out"] = ("R", "1m"),
+        ["jack-in"] = ("", ""),
+        ["jack-out"] = ("", ""),
     };
 
     // The .model line that a kind needs, by model name.
@@ -59,13 +59,13 @@ public static partial class SchematicEdits
 
     /// <summary>
     /// Adds a part with a new reference and a new node for each pin. A battery has its minus pin on node 0 and a
-    /// transistor has its substrate on node 0. A jack has its outer pin on the node <c>in</c> or <c>out</c>, and adds the
-    /// <c>ssp:input</c> or <c>ssp:output</c> directive if the netlist has none. A pot adds a <c>ssp:knob</c> line, a diode,
+    /// transistor has its substrate on node 0. A pot adds a <c>ssp:knob</c> line, a diode,
     /// LED or transistor adds its <c>.model</c> line if missing. The layout places the part one column to the right of
     /// the other parts. With no value the part gets the default value of its kind.
     /// </summary>
     public static SchematicChange Place(string netlist, LayoutDoc layout, string kind, string? value = null)
     {
+        if (kind is "jack-in" or "jack-out") throw new ArgumentException("A jack marks a pin. Use PlaceJack.", nameof(kind));
         var (prefix, fallback) = Kinds[kind];
         if (kind == "pot" && value is not null) throw new ArgumentException("A pot has the default value.", nameof(value));
         value ??= fallback;
@@ -103,11 +103,6 @@ public static partial class SchematicEdits
             case "source":
                 added.Add($"{reference} {Node()} {Node()} DC 0 AC 1 SINE(0 1 1k)");
                 break;
-            case "jack-in" or "jack-out":
-                var (label, directive) = kind == "jack-in" ? ("in", "input") : ("out", "output");
-                added.Add($"{reference} {(kind == "jack-in" ? $"{label} {Node()}" : $"{Node()} {label}")} {value}");
-                if (!HasDirective(netlist, directive)) added.Add($"* ssp:{directive} {label}");
-                break;
             default:
                 added.Add($"{reference} {Node()} {Node()} {value}");
                 break;
@@ -123,6 +118,23 @@ public static partial class SchematicEdits
         var x = layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep;
         var parts = layout.Parts.Append(new PartPlacement(kind == "pot" ? reference + "_1" : reference, x, Row, 0, false)).ToList();
         return new SchematicChange(Join(lines), new LayoutDoc(parts, layout.Wires));
+    }
+
+    /// <summary>
+    /// Marks the node of a spot as the input or the output of the circuit: <c>* ssp:input &lt;node&gt;</c> or <c>* ssp:output &lt;node&gt;</c>.
+    /// A directive that the netlist has is moved. No component line is added and the layout does not change.
+    /// </summary>
+    public static SchematicChange PlaceJack(string netlist, LayoutDoc layout, PartMap parts, string kind, Spot spot)
+    {
+        var directive = kind switch { "jack-in" => "input", "jack-out" => "output", _ => throw new ArgumentException("Not a jack.", nameof(kind)) };
+        var node = NodeOf(NetlistLoader.Load(netlist), layout, parts, spot);
+        var lines = Lines(netlist);
+        var line = $"* ssp:{directive} {node}";
+        var at = lines.FindIndex(l => Regex.IsMatch(l, $@"^\s*\*\s*ssp:{directive}\b", RegexOptions.IgnoreCase));
+        if (at >= 0) lines[at] = line;
+        // NOTE: The first line of a netlist is its title.
+        else lines.Insert(Math.Min(1, lines.Count), line);
+        return new SchematicChange(Join(lines), layout);
     }
 
     /// <summary>Rounds a coordinate to the nearest <see cref="Symbols.Grid"/> step.</summary>
@@ -207,7 +219,6 @@ public static partial class SchematicEdits
     {
         "npn" or "pnp" => (1, 0),
         "pot" => (0, 2),
-        "jack-in" => (1, 0),
         _ => (0, 1),
     };
 
@@ -363,9 +374,6 @@ public static partial class SchematicEdits
         }
         return false;
     }
-
-    static bool HasDirective(string netlist, string name) =>
-        Lines(netlist).Any(l => Regex.IsMatch(l, $@"^\s*\*\s*ssp:{name}\b", RegexOptions.IgnoreCase));
 
     static Regex ModelLine(string name) => new($@"^\s*\.model\s+{Regex.Escape(name)}\b", RegexOptions.IgnoreCase);
 
