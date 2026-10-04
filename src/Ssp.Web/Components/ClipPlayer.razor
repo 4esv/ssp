@@ -18,7 +18,8 @@
     <p class="clip-source">@sourceName</p>
 
     <button type="button" class="clip-play" @onclick="() => Try(Netlist)" disabled="@busy">Play clip</button>
-    @if (busy)
+    @* NOTE: A cancel hides the button in the same render as the "Cancelled." status. The render unwinds after it (#225). *@
+    @if (busy && !cancelled)
     {
         <button type="button" class="clip-cancel" @onclick="Cancel">Cancel</button>
     }
@@ -53,6 +54,7 @@
     int outputRate;
     string status = "";
     bool busy;
+    bool rendering;
     bool cancelled;
     long started;
     double done;
@@ -73,6 +75,7 @@
         }
 
         busy = true;
+        rendering = true;
         cancelled = false;
         started = Clock.GetTimestamp();
         done = 0;
@@ -87,6 +90,7 @@
             // NOTE: The status shows the elapsed time even when the worker reports nothing.
             ticker = Clock.CreateTimer(_ => _ = InvokeAsync(() => { ShowProgress(); StateHasChanged(); }), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             var (rendered, used) = await RenderWithRetry(netlist, samples, rate);
+            rendering = false;
 
             // NOTE: A sample that is not finite plays as silence.
             double[] wet = [.. rendered.Select(sample => double.IsFinite(sample) ? sample : 0)];
@@ -108,10 +112,10 @@
 
             var levels = $"Output peak {peak:0.0} dBFS, RMS {rms:0} dBFS.";
             var how = irRate == rate ? "Playing with the cabinet IR." : $"Playing without the cabinet IR. The clip is {rate} Hz and the IR is {irRate} Hz.";
-            status = (used > 1 ? $"Rendered at {used}x oversample. " : "") + how + " " + levels;
             output = wet;
             outputRate = rate;
             await (await Module()).InvokeVoidAsync("play", ToFloat32Bytes(wet), rate);
+            status = (used > 1 ? $"Rendered at {used}x oversample. " : "") + how + " " + levels;
         }
         catch (OperationCanceledException)
         {
@@ -123,6 +127,7 @@
         }
         finally
         {
+            rendering = false;
             ticker?.Dispose();
             ticker = null;
             // NOTE: A parent calls Try from its own event, so the parent draws again and this player does not (#148).
@@ -158,9 +163,11 @@
         });
 
     // The status of a render that runs: the seconds done, and the question when it is slow.
+    // NOTE: The timer can fire after the render, while the player applies the IR or loads its script. The status after the
+    // render must stay, so the progress shows only while the render runs (#225).
     void ShowProgress()
     {
-        if (!busy || cancelled)
+        if (!rendering || cancelled)
         {
             return;
         }

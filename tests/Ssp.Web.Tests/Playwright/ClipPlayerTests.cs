@@ -102,7 +102,6 @@ public class ClipPlayerTests(ITestOutputHelper output)
 
         public static async Task<Session> Start(ITestOutputHelper output, string[]? browserArgs = null)
         {
-            var baseUrl = Environment.GetEnvironmentVariable(PlaywrightFactAttribute.BaseUrlVariable)!;
             var withDeps = Environment.GetEnvironmentVariable("SSP_PLAYWRIGHT_WITH_DEPS") == "1";
             var install = withDeps ? new[] { "install", "--with-deps", "chromium" } : new[] { "install", "chromium" };
             Assert.Equal(0, Microsoft.Playwright.Program.Main(install));
@@ -112,6 +111,14 @@ public class ClipPlayerTests(ITestOutputHelper output)
             var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
             page.Console += (_, message) => output.WriteLine("console: " + message.Text);
             page.PageError += (_, error) => output.WriteLine("page error: " + error);
+            await OpenEditor(page);
+            return new Session(playwright, browser, page);
+        }
+
+        /// <summary>Opens the editor of the served site and waits for the dock layout.</summary>
+        public static async Task OpenEditor(IPage page)
+        {
+            var baseUrl = Environment.GetEnvironmentVariable(PlaywrightFactAttribute.BaseUrlVariable)!;
 
             // NOTE: The test server has no fallback to index.html, so the test serves it for the editor route.
             await page.RouteAsync(baseUrl + "editor", async route =>
@@ -129,8 +136,6 @@ public class ClipPlayerTests(ITestOutputHelper output)
                 await page.ReloadAsync();
                 await page.Locator(".dock-layout").WaitForAsync(new() { Timeout = 60_000 });
             }
-
-            return new Session(playwright, browser, page);
         }
 
         public async ValueTask DisposeAsync()
