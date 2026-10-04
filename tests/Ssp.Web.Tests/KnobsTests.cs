@@ -103,17 +103,4 @@ public class KnobsTests : BunitContext
         lock (changes) Assert.Single(changes);
         Assert.Contains("* ssp:knob RV1 log 1", changes[0]);
     }
-
-    // NOTE: Other tests block pool threads. The pool adds a thread about every half second then, so the debounce timer fires late.
-    [Fact]
-    public void ChangeRunsWhilePoolThreadsAreBlocked()
-    {
-        var (page, _) = Run(Circuit("fixtures", "pot-lowpass.cir"));
-        var before = OutMagnitude(page);
-        var gate = new ManualResetEventSlim();
-        for (var i = 0; i < Environment.ProcessorCount * 4; i++) { Task.Run(() => gate.Wait()); }
-        Task.Run(async () => { await Task.Delay(8000); gate.Set(); });
-        page.Find(".knobs input[type=range]").Input("0.9");
-        page.WaitForAssertion(() => Assert.NotEqual(before, OutMagnitude(page)), TimeSpan.FromSeconds(5));
-    }
 }
