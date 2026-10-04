@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RootNamespace>Ssp.Web</RootNamespace>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
-    <PublishTrimmed>true</PublishTrimmed>
+    <PublishTrimmed>false</PublishTrimmed>
     <!-- NOTE: [JSExport] in Hosting/WorkerExports.cs needs unsafe code. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
