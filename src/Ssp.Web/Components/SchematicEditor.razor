@@ -133,7 +133,7 @@
             }
             <div class="schematic-zoom" role="group" aria-label="Zoom" @onclick:stopPropagation>
                 <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
-                <output class="zoom-level" aria-label="Zoom level">@(view is { } v ? $"{(int)Math.Round(v.Zoom * 100)}%" : "Fit")</output>
+                <output class="zoom-level" aria-label="Zoom level">@($"{(int)Math.Round(Zoom() * 100)}%")</output>
                 <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)" disabled="@(view is { Zoom: >= ViewTransform.MaxZoom })" @onclick="() => ZoomStep(ZoomStepFactor)">+</button>
                 <button type="button" data-zoom="fit" title="Fit the circuit (0)" @onclick="FitView">Fit</button>
             </div>
@@ -212,7 +212,7 @@
 
     // The view of the canvas, in pixels of the pane. World is in units of the view box.
     // NOTE: Every pointer position goes through the view, so place, move and wire hit the same grid point at any zoom.
-    // NOTE: Null is the CSS fit, so a page with no pointer never loads the module. The first pointer or key use makes it a view.
+    // NOTE: Null only until the first render has measured the pane. Then the view is a real transform, and only Fit, zoom, wheel, pinch and pan change it.
     const double ZoomStepFactor = 1.25;
     const double FitMargin = 24;
     ViewTransform? view;
@@ -244,11 +244,13 @@
         // NOTE: The parent passes each edit back. That echo keeps the undo, any other netlist drops it.
         if (Netlist != netlist) ClearUndo();
         // NOTE: The echo of an edit keeps the active pin, so the chain goes on when the parent passes the change back.
-        var keep = Netlist == netlist ? active : null;
+        var external = Netlist != netlist;
+        var keep = external ? null : active;
+        // NOTE: An edit keeps the view. A circuit from outside the editor gets a new fit.
         netlist = Netlist;
         given = Layout;
         Build();
-        view = null;
+        if (external) view = null;
         if (keep is { } again) Activate(again);
     }
 
@@ -314,14 +316,41 @@
     })?.Svg ?? "";
 
     // The pane box in client pixels: left, top, width, height.
-    async Task<double[]> PaneBox() =>
-        paneBox = await (await Module()).InvokeAsync<double[]>("paneBox", pane);
+    // NOTE: A module that gives no box, as in a test, leaves the last box.
+    async Task<double[]> PaneBox()
+    {
+        var measured = await (await Module()).InvokeAsync<double[]>("paneBox", pane);
+        if (measured is { Length: >= 4 }) paneBox = measured;
+        return paneBox;
+    }
 
     async Task<ViewTransform> Current()
     {
         if (view is not null) return view;
         var b = await PaneBox();
-        return view = ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], b[3], FitMargin);
+        return view = b is { Length: >= 4 } && b[2] > 0
+            ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], b[3], FitMargin)
+            : ViewTransform.Identity;
+    }
+
+    // NOTE: The first render draws the stage hidden. This measures the pane and sets the view, so the canvas never shows a view that it then replaces.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (svg is null || view is not null) return;
+        try { await Current(); }
+        catch (Exception) { return; }
+        StateHasChanged();
+    }
+
+    // NOTE: The least that brings a world box in view. The zoom does not change.
+    async Task Reveal(Point min, Point max)
+    {
+        if (view is null || svg is null) return;
+        double[] b;
+        try { b = await PaneBox(); }
+        catch (JSException) { return; }
+        if (b is not { Length: >= 4 } || b[2] <= 0) return;
+        view = view.Reveal(min, max, b[2], b[3], FitMargin);
     }
 
     // The world point of a client position, and whether the position is on the canvas.
@@ -476,18 +505,16 @@
     }
 
     // The dot radius in schematic units: 22 px at the zoom of the view.
-    // NOTE: With the CSS fit there is no view, so the zoom is the fit of the last pane box.
     double DotRadius() => DotPixels / Zoom();
 
-    double Zoom() =>
-        view?.Zoom ?? (paneBox[2] > 0 && box.W > 0 ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, paneBox[2], paneBox[3], FitMargin).Zoom : 1);
+    double Zoom() => view?.Zoom ?? 1;
 
     static string Name(Spot spot) => spot.Pin is { } pin ? $"{pin.Reference} pin {pin.Pin + 1}" : "open end";
 
     string PinClass(PinView pin) =>
         pin.Ref == active?.Pin ? "pin active" : connecting ? "pin target" : "pin";
 
-    // NOTE: The picker opens under its dot, or over it near the foot of the pane. With the CSS fit there is no pixel position, so the style is empty.
+    // NOTE: The picker opens under its dot, or over it near the foot of the pane.
     string MenuStyle(Spot origin, Direction direction)
     {
         if (view is not { } v || paneBox[2] <= 0) return "";
@@ -520,11 +547,13 @@
             var (wired, open) = SchematicEdits.ExtendWire(netlist, layout, parts, from, direction);
             await Apply(wired);
             Activate(open);
+            await Reveal(open.At, open.At);
             return;
         }
         var (change, far) = SchematicEdits.PlaceNext(netlist, layout, parts, choice, from, direction);
         await Apply(change);
         Activate(far);
+        await Reveal(far.At, far.At);
     }
 
     async Task PlaceAt(string kind, Point at)
@@ -533,6 +562,7 @@
         await Apply(change);
         // NOTE: Place puts the new part last in the layout.
         selected = change.Layout.Parts[^1].Reference;
+        if (outlines.FirstOrDefault(o => o.Reference == selected) is { } outline) await Reveal(outline.Min, outline.Max);
     }
 
     async Task PartDown(string reference, PointerEventArgs e)
@@ -574,6 +604,7 @@
         await Apply(change);
         // NOTE: Place puts the new part last in the layout.
         selected = change.Layout.Parts[^1].Reference;
+        if (outlines.FirstOrDefault(o => o.Reference == selected) is { } outline) await Reveal(outline.Min, outline.Max);
     }
 
     string Hint() =>
@@ -773,6 +804,7 @@
         var change = SchematicEdits.Duplicate(netlist, layout, part);
         await Apply(change);
         selected = change.Layout.Parts[^1].Reference;
+        if (outlines.FirstOrDefault(o => o.Reference == selected) is { } outline) await Reveal(outline.Min, outline.Max);
     }
 
     static string ActionGlyph(string action) => action switch
@@ -797,7 +829,7 @@
 
     // NOTE: With a view, the four buttons make one row above the part, beyond its labels and the hit circles of its pins.
     // Where the row does not fit above, it goes below. Each centre is clamped so the whole 44 px button stays in the pane.
-    // A wire gets one Delete at its middle. With the CSS fit there is no pixel position, so the styles are empty and CSS places the row.
+    // A wire gets one Delete at its middle.
     List<(string Action, string Label, string Style)>? ActionSpots()
     {
         Point min, max;

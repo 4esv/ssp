@@ -24,6 +24,16 @@ public sealed record ViewTransform(double Zoom, double X, double Y)
         return new ViewTransform(zoom, screen.X - world.X * zoom, screen.Y - world.Y * zoom);
     }
 
+    /// <summary>Pans by the least that brings a world box inside the pane, with a margin. A box larger than the pane keeps its top left in. The zoom never changes.</summary>
+    public ViewTransform Reveal(Point min, Point max, double paneWidth, double paneHeight, double margin)
+    {
+        var (a, b) = (WorldToScreen(min), WorldToScreen(max));
+        return Pan(Shift(a.X, b.X, paneWidth, margin), Shift(a.Y, b.Y, paneHeight, margin));
+
+        static double Shift(double lo, double hi, double size, double margin) =>
+            lo < margin ? margin - lo : hi > size - margin ? Math.Max(size - margin - hi, margin - lo) : 0;
+    }
+
     /// <summary>The view that centres a world box in a pane, as large as the margin allows, within the zoom limits and never past 100 percent.</summary>
     public static ViewTransform Fit(double minX, double minY, double width, double height, double paneWidth, double paneHeight, double margin)
     {
