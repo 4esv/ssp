@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 using Ssp.Core;
+using Ssp.Core.Audio;
 using Ssp.Core.Analysis;
 using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
@@ -27,6 +28,54 @@ public static partial class WorkerExports
     [JSExport]
     [SupportedOSPlatform("browser")]
     public static string Versions() => VersionsJson();
+
+    static MonitorSession? monitor;
+
+    [JSExport]
+    [SupportedOSPlatform("browser")]
+    public static string MonitorStart(string netlist, int sampleRate) => MonitorStartJson(netlist, sampleRate);
+
+    [JSExport]
+    [SupportedOSPlatform("browser")]
+    public static string MonitorProcess(double[] chunk) => MonitorProcessJson(chunk);
+
+    [JSExport]
+    [SupportedOSPlatform("browser")]
+    public static string MonitorStop() => MonitorStopJson();
+
+    /// <summary>Starts the one monitor session of this runtime. A session that runs is stopped first.</summary>
+    public static string MonitorStartJson(string netlist, int sampleRate)
+    {
+        monitor?.Dispose();
+        var circuit = NetlistLoader.Load(netlist);
+        Pot.Apply(circuit);
+        monitor = new MonitorSession(circuit, sampleRate);
+        return "true";
+    }
+
+    /// <summary>Gives the chunk to the monitor session and writes the output chunk as a JSON array. A sample that is not finite is 0.</summary>
+    public static string MonitorProcessJson(double[] chunk)
+    {
+        var session = monitor ?? throw new InvalidOperationException("The monitor is not started.");
+        var output = session.Process(chunk);
+        return Write(w =>
+        {
+            w.WriteStartArray();
+            foreach (var sample in output)
+            {
+                w.WriteNumberValue(double.IsFinite(sample) ? sample : 0);
+            }
+
+            w.WriteEndArray();
+        });
+    }
+
+    public static string MonitorStopJson()
+    {
+        monitor?.Dispose();
+        monitor = null;
+        return "true";
+    }
 
     /// <summary>Renders the input through the circuit and writes the output samples as a JSON array of numbers.</summary>
     public static string RenderJson(string netlist, double[] input, int sampleRate, int oversample) =>

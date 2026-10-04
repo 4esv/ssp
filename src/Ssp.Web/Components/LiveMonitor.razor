@@ -1,0 +1,116 @@
+@using Microsoft.JSInterop
+@using Ssp.Core.Audio
+@implements IAsyncDisposable
+@inject ISimulationHost Host
+@inject IJSRuntime Js
+
+<section class="live-monitor">
+    <h2>Live monitor</h2>
+    <p class="monitor-note">monitor, not real time</p>
+
+    <button type="button" class="monitor-start" @onclick="Start" disabled="@(running || starting)">Start monitor</button>
+    <button type="button" class="monitor-stop" @onclick="Stop" disabled="@(!running)">Stop monitor</button>
+
+    <p class="monitor-latency">Latency: @(latency is { } ms ? ms.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) : "–") ms</p>
+    <p class="monitor-dropped">Dropped chunks: @dropped</p>
+    <p class="monitor-status" role="status">@status</p>
+</section>
+
+@code {
+    /// <summary>The netlist that the monitor runs. It needs an <c>ssp:input</c> node.</summary>
+    [Parameter] public string Netlist { get; set; } = "";
+
+    IJSObjectReference? module;
+    DotNetObjectReference<LiveMonitor>? self;
+    Hosting.IMonitorHost? monitor;
+    bool running;
+    bool starting;
+    double? latency;
+    long dropped;
+    string status = "";
+
+    async Task Start()
+    {
+        monitor = Host as Hosting.IMonitorHost;
+        if (monitor is null)
+        {
+            status = "This host cannot run the monitor.";
+            return;
+        }
+
+        starting = true;
+        status = "Starting…";
+        try
+        {
+            module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/live-monitor.js");
+            var rate = await module.InvokeAsync<int>("open");
+            await monitor.MonitorStart(Netlist, rate);
+            self = DotNetObjectReference.Create(this);
+            await module.InvokeVoidAsync("begin", self, MonitorSession.ChunkSamples);
+            running = true;
+            latency = null;
+            dropped = 0;
+            status = $"Running at {rate} Hz, {MonitorSession.ChunkSamples} samples a chunk. Use headphones.";
+        }
+        catch (Exception e)
+        {
+            status = "Monitor failed: " + e.Message;
+            await Stop();
+        }
+        finally
+        {
+            starting = false;
+        }
+    }
+
+    async Task Stop()
+    {
+        running = false;
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("close");
+            }
+            catch (JSException)
+            {
+                // NOTE: A start that failed before the microphone opened has nothing to close.
+            }
+        }
+
+        if (monitor is not null)
+        {
+            await monitor.MonitorStop();
+        }
+
+        self?.Dispose();
+        self = null;
+    }
+
+    /// <summary>Called from live-monitor.js with one input chunk. Returns the output chunk.</summary>
+    [JSInvokable]
+    public async Task<double[]> Process(double[] chunk) => await monitor!.MonitorProcess(chunk);
+
+    /// <summary>Called from live-monitor.js after each chunk plays.</summary>
+    [JSInvokable]
+    public Task Report(double milliseconds, long droppedChunks)
+    {
+        latency = milliseconds;
+        dropped = droppedChunks;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (running)
+        {
+            await Stop();
+        }
+
+        if (module is not null)
+        {
+            await module.DisposeAsync();
+        }
+    }
+}

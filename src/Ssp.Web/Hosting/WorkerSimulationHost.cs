@@ -12,7 +12,7 @@ namespace Ssp.Web.Hosting;
 /// NOTE: <see cref="Run"/> and <see cref="Sweep"/> stay on the calling thread. They take milliseconds, and the web app
 /// has no reader for the run result JSON yet.
 /// </remarks>
-public sealed class WorkerSimulationHost(IJSRuntime js) : ISimulationHost
+public sealed class WorkerSimulationHost(IJSRuntime js) : ISimulationHost, IMonitorHost
 {
     /// <summary>The page module that starts the worker and posts the requests.</summary>
     public const string ClientModule = "./js/simulation-worker-client.js";
@@ -24,6 +24,12 @@ public sealed class WorkerSimulationHost(IJSRuntime js) : ISimulationHost
 
     public async Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample) =>
         ReadSamples(await Call("render", netlist, input, sampleRate, oversample));
+
+    public async Task MonitorStart(string netlist, int sampleRate) => await Call("monitorStart", netlist, sampleRate);
+
+    public async Task<double[]> MonitorProcess(double[] chunk) => ReadSamples(await Call("monitorProcess", chunk));
+
+    public async Task MonitorStop() => await Call("monitorStop");
 
     public Task<SweepResult> Sweep(string netlist, string reference, IReadOnlyList<double> values, RunOptions options) =>
         inProcess.Sweep(netlist, reference, values, options);
