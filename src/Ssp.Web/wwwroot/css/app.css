@@ -817,3 +817,10 @@ h1[tabindex="-1"]:focus-visible {
     font-weight: 700;
     pointer-events: none;
 }
+
+.schematic-editor { position: relative; }
+/* NOTE: The box floats at the bottom of the canvas area, so a selection never moves the palette or the circuit. */
+.value-edit-box { position: absolute; left: 8rem; bottom: 0.5rem; z-index: 3; margin: 0; }
+.value-edit { width: 7rem; min-height: 44px; box-sizing: border-box; padding: 0 0.5rem; font: inherit; text-align: center; }
+.value-edit[aria-invalid="true"] { border-color: #b00020; }
+.value-error { position: absolute; left: 8rem; bottom: 3.5rem; z-index: 3; margin: 0; padding: 0.25rem 0.5rem; font-size: 0.85rem; color: #fff; background: #b00020; border-radius: 4px; }

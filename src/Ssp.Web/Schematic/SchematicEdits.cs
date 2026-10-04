@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Ssp.Core.Layout;
 using Ssp.Core.Netlist;
@@ -460,6 +461,96 @@ public static partial class SchematicEdits
         }
         throw new ArgumentException($"No two-pin part {reference} with a value.", nameof(reference));
     }
+
+    static readonly (string Suffix, double Scale)[] Scales =
+        [("meg", 1e6), ("k", 1e3), ("", 1), ("m", 1e-3), ("u", 1e-6), ("n", 1e-9), ("p", 1e-12)];
+
+    static readonly double[] E12 = [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2];
+
+    /// <summary>
+    /// Reads a value such as <c>47k</c>, <c>4u7</c>, <c>10n</c> or <c>1M</c>. A capital M or <c>meg</c> is mega and a small m is milli.
+    /// A unit after the scale (Ω, F, H) is ignored. On failure the error says why.
+    /// </summary>
+    public static bool TryParseValue(string? text, out double value, out string error)
+    {
+        value = 0;
+        var trimmed = (text ?? "").Trim();
+        if (trimmed.Length == 0)
+        {
+            error = "Type a value, like 47k, 4u7 or 10n.";
+            return false;
+        }
+
+        if (trimmed.StartsWith('-') && ValueText().IsMatch(trimmed[1..]))
+        {
+            error = "A value must be above zero.";
+            return false;
+        }
+
+        var m = ValueText().Match(trimmed);
+        if (!m.Success)
+        {
+            error = $"\"{trimmed}\" is not a value. Use a number and a scale, like 47k, 4u7 or 10n.";
+            return false;
+        }
+
+        // NOTE: 4u7 means 4.7 u: the scale letter stands for the decimal point.
+        var number = m.Groups["whole"].Success ? $"{m.Groups["whole"].Value}.{m.Groups["frac"].Value}" : m.Groups["num"].Value;
+        var scale = m.Groups["scale"].Value;
+        var factor = scale.Length == 0 ? 1 : scale == "M" || scale.Equals("meg", StringComparison.OrdinalIgnoreCase) ? 1e6
+            : Scales.First(s => s.Suffix == scale.ToLowerInvariant().Replace("µ", "u")).Scale;
+        value = double.Parse(number, NumberStyles.Float, CultureInfo.InvariantCulture) * factor;
+        if (!double.IsFinite(value) || value <= 0)
+        {
+            error = double.IsFinite(value) ? "A value must be above zero." : $"\"{trimmed}\" is too large.";
+            return false;
+        }
+        error = "";
+        return true;
+    }
+
+    /// <summary>Writes a value for the netlist with three significant digits and a SPICE scale: <c>4.7u</c>, <c>1meg</c>.</summary>
+    public static string FormatValue(double value)
+    {
+        var (suffix, scale) = Scales.FirstOrDefault(s => value >= s.Scale * (1 - 1e-9), Scales[^1]);
+        var scaled = double.Parse((value / scale).ToString("G3", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+        return scaled.ToString("0.###", CultureInfo.InvariantCulture) + suffix;
+    }
+
+    /// <summary>The next E12 value up (+1) or down (-1) from a value. A value off the series goes to its nearest neighbour in that direction.</summary>
+    public static double StepE12(double value, int direction)
+    {
+        var decade = Math.Floor(Math.Log10(value) + 1e-9);
+        var mantissa = value / Math.Pow(10, decade);
+        const double Same = 1e-6;
+        // NOTE: Past the ends of the list the step goes to the next decade.
+        var index = direction > 0
+            ? Array.FindIndex(E12, m => m > mantissa * (1 + Same))
+            : Array.FindLastIndex(E12, m => m < mantissa * (1 - Same));
+        if (index < 0) (index, decade) = direction > 0 ? (0, decade + 1) : (E12.Length - 1, decade - 1);
+        var next = E12[index];
+        return double.Parse((next * Math.Pow(10, decade)).ToString("G3", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>The value word of a two-pin part, or null when the part has none.</summary>
+    public static string? ValueOf(string netlist, string reference)
+    {
+        var inSubcircuit = false;
+        foreach (var line in Lines(netlist).Skip(1))
+        {
+            var words = Words().Split(line);
+            var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+            var word = words.Length > first ? words[first] : "";
+            if (word.StartsWith(".subckt", StringComparison.OrdinalIgnoreCase)) inSubcircuit = true;
+            else if (word.StartsWith(".ends", StringComparison.OrdinalIgnoreCase)) inSubcircuit = false;
+            if (inSubcircuit || !Names.Equals(word, reference)) continue;
+            return first + 6 < words.Length ? words[first + 6] : null;
+        }
+        return null;
+    }
+
+    [GeneratedRegex(@"^(?:(?<whole>\d+)(?<scale>meg|[pnuµmkM])(?<frac>\d+)|(?<num>(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*(?<scale>meg|[pnuµmkM])?)\s*(?:Ω|ohms?|[FH])?$", RegexOptions.IgnoreCase)]
+    private static partial Regex ValueText();
 
     /// <summary>The node and schematic position of a pin.</summary>
     public static (string Node, Point Position) Pin(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, PinRef pin)
