@@ -362,6 +362,112 @@ public static partial class SchematicEdits
     }
 
     /// <summary>
+    /// Removes one wire, by its index in the layout. The wire is the only link between the pins that it joined, so the
+    /// netlist splits the net: the largest group of pins that the wire touched keeps the node, and each other group moves
+    /// to a new node. A ground stem (a wire on node 0 with one free end) moves its pin off node 0. A piece of wire that no
+    /// pin reaches any more goes with it, and so do the bars of a ground symbol.
+    /// </summary>
+    public static SchematicChange DeleteWire(string netlist, LayoutDoc layout, PartMap parts, int index)
+    {
+        var wire = layout.Wires[index];
+        var circuit = NetlistLoader.Load(netlist);
+        var pins = new List<(SchematicElement Element, int Pin, Point At)>();
+        foreach (var e in SchematicRenderer.Elements(circuit, parts))
+        {
+            if (layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])) is not { } placement) continue;
+            var all = SchematicRenderer.Pins(e, placement);
+            for (var i = 0; i < all.Count; i++)
+            {
+                if (!all[i].Hidden && all[i].Net == wire.Net) pins.Add((e, i, all[i].At));
+            }
+        }
+
+        // The other wires of the net, by index in the layout.
+        var rest = Enumerable.Range(0, layout.Wires.Count).Where(i => i != index && layout.Wires[i].Net == wire.Net).ToList();
+        // Union-find over the pins, then the rest wires.
+        var parent = Enumerable.Range(0, pins.Count + rest.Count).ToArray();
+        int Find(int x) => parent[x] == x ? x : parent[x] = Find(parent[x]);
+        void Union(int a, int b) => parent[Find(a)] = Find(b);
+        for (var w = 0; w < rest.Count; w++)
+        {
+            var route = layout.Wires[rest[w]];
+            for (var k = 0; k < pins.Count; k++)
+            {
+                if (OnWire(route, pins[k].At)) Union(k, pins.Count + w);
+            }
+            for (var v = 0; v < w; v++)
+            {
+                var other = layout.Wires[rest[v]];
+                if (route.Points.Any(q => OnWire(other, q)) || other.Points.Any(q => OnWire(route, q))) Union(pins.Count + v, pins.Count + w);
+            }
+        }
+
+        var touched = Enumerable.Range(0, pins.Count).Where(k => OnWire(wire, pins[k].At)).Select(Find).Distinct().ToList();
+        var ends = new[] { wire.Points[0], wire.Points[^1] };
+        var stem = wire.Net == Zero && ends.Count(q => pins.Any(p => p.At == q)) < 2;
+        int PinsIn(int root) => Enumerable.Range(0, pins.Count).Count(k => Find(k) == root);
+        var keeper = stem || touched.Count == 0 ? -1 : touched.MaxBy(PinsIn);
+        var moved = touched.Where(r => r != keeper).ToList();
+
+        var lines = Lines(netlist);
+        var used = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
+        var renamed = new Dictionary<int, string>();
+        foreach (var root in moved)
+        {
+            var node = Fresh("n", used);
+            used.Add(node);
+            renamed[root] = node;
+            foreach (var (element, pin, _) in Enumerable.Range(0, pins.Count).Where(k => Find(k) == root).Select(k => pins[k]))
+            {
+                // NOTE: A pot P is P_1 and P_2. The wiper is the second node of P_1 and the first node of P_2.
+                if (element.Kind == "pot" && element.Members.Count == 2)
+                {
+                    if (pin < 2) SetNode(lines, element.Members[0], pin, node);
+                    if (pin > 0) SetNode(lines, element.Members[1], pin - 1, node);
+                }
+                else SetNode(lines, element.Members[0], pin, node);
+            }
+        }
+
+        var drop = new HashSet<int> { index };
+        if (stem)
+        {
+            var free = ends.FirstOrDefault(q => pins.All(p => p.At != q), ends[^1]);
+            foreach (var i in rest)
+            {
+                var points = layout.Wires[i].Points;
+                if (points.All(q => Math.Abs(q.X - free.X) <= 10 && q.Y >= free.Y && q.Y <= free.Y + 8)) drop.Add(i);
+            }
+        }
+        var wires = new List<WireRoute>();
+        for (var i = 0; i < layout.Wires.Count; i++)
+        {
+            var w = rest.IndexOf(i);
+            if (w >= 0)
+            {
+                var root = Find(pins.Count + w);
+                var reaches = Enumerable.Range(0, pins.Count).Any(k => Find(k) == root);
+                // NOTE: A piece with no pin that touched the deleted wire only drew that link.
+                if (!reaches && layout.Wires[i].Points.Any(q => OnWire(wire, q)) || (!reaches && wire.Points.Any(q => OnWire(layout.Wires[i], q)))) drop.Add(i);
+                if (!drop.Contains(i) && renamed.TryGetValue(root, out var node)) { wires.Add(layout.Wires[i] with { Net = node }); continue; }
+            }
+            if (!drop.Contains(i)) wires.Add(layout.Wires[i]);
+        }
+        return new SchematicChange(Join(lines), new LayoutDoc(layout.Parts, wires));
+    }
+
+    // Sets the node of one pin of an element line. The pin index is the node index.
+    static void SetNode(List<string> lines, string reference, int pin, string node)
+    {
+        var (at, _) = Element(lines, reference);
+        var words = Words().Split(lines[at]);
+        var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+        // NOTE: Words has the separators at odd indices.
+        words[first + 2 * (pin + 1)] = node;
+        lines[at] = string.Concat(words);
+    }
+
+    /// <summary>
     /// Copies a part with the next free reference of its prefix and a new node for each pin. The layout places the
     /// copy one column to the right of the other parts, with the rotation and flip of the part.
     /// </summary>

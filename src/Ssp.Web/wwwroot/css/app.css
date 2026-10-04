@@ -683,6 +683,31 @@ h1[tabindex="-1"]:focus-visible {
     min-height: 12rem;
 }
 
+/* NOTE: In the dock the schematic fills its panel, so the bar and the menu at the bottom of the canvas are in view. The narrow layout keeps 60vh. */
+@media (min-width: 48.01rem) {
+    .dock-panel:has(.schematic-editor) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dock-panel:has(.schematic-editor) .schematic-editor {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .dock-panel:has(.schematic-editor) .schematic-body {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .dock-panel:has(.schematic-editor) .schematic-body .schematic {
+        height: auto;
+        min-height: 0;
+    }
+}
+
 @media (max-width: 48rem) {
     .schematic-body {
         flex-direction: column;
@@ -696,4 +721,50 @@ h1[tabindex="-1"]:focus-visible {
         flex: none;
         width: 5rem;
     }
+}
+
+/* NOTE: Selection bar and delete status (#190). Every button is 44 px or more. */
+.schematic-pins .wire-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 16;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    cursor: pointer;
+}
+
+.schematic-pins .wire-hit.selected {
+    stroke: currentColor;
+    stroke-opacity: 0.35;
+}
+
+.selection-bar {
+    position: absolute;
+    left: 0.5rem;
+    bottom: 0.5rem;
+    z-index: 2;
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    max-width: calc(100% - 1rem);
+    background: var(--bg, Canvas);
+    border: 1px solid currentColor;
+    border-radius: 0.25rem;
+}
+
+.selection-bar button {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.delete-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.delete-status button {
+    min-height: 44px;
+    min-width: 44px;
 }
