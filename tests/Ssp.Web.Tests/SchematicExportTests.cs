@@ -11,6 +11,8 @@ namespace Ssp.Web.Tests;
 
 public class SchematicExportTests : BunitContext
 {
+    public SchematicExportTests() => Services.AddSingleton(TimeProvider.System);
+
     const string DataPrefix = "data:image/svg+xml;base64,";
 
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));

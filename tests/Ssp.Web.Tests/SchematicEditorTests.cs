@@ -13,6 +13,8 @@ namespace Ssp.Web.Tests;
 
 public class SchematicEditorTests : BunitContext
 {
+    public SchematicEditorTests() => Services.AddSingleton(TimeProvider.System);
+
     // NOTE: R2 is not on the flow from node a.
     const string TwoResistors = "* two resistors\nV1 in 0 1\nR1 in a 1k\nR2 b 0 1k\n.END\n";
 

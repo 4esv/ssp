@@ -10,6 +10,10 @@ namespace Ssp.Web.Tests;
 
 public class KnobsTests : BunitContext
 {
+    readonly ManualTimeProvider time = new();
+
+    public KnobsTests() => Services.AddSingleton<TimeProvider>(time);
+
     static string Circuit(string folder, string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", folder, name));
 
     sealed class CountingHost : ISimulationHost
@@ -63,26 +67,26 @@ public class KnobsTests : BunitContext
     }
 
     [Fact]
-    public void SliderChangeChangesBodeSeries()
+    public async Task SliderChangeChangesBodeSeries()
     {
         var (page, _) = Run(Circuit("fixtures", "pot-lowpass.cir"));
         var before = OutMagnitude(page);
 
-        page.Find(".knobs input[type=range]").Input("0.9");
+        await page.InvokeAsync(() => page.Find(".knobs input[type=range]").Input("0.9"));
+        time.Advance(Knobs.DefaultDebounce + TimeSpan.FromMilliseconds(1));
 
         page.WaitForAssertion(() =>
         {
             Assert.NotEqual(before, OutMagnitude(page));
             Assert.Equal("90%", page.Find(".knobs .position").TextContent);
-        }, TimeSpan.FromSeconds(5));
+        }, TimeSpan.FromSeconds(30));
         Assert.Contains("* ssp:knob RV1 log 0.9", page.Find("textarea").GetAttribute("value"));
     }
 
     [Fact]
     public async Task ManyFastChangesGiveOneChange()
     {
-        // NOTE: The debounce is far longer than any burst, so a slow runner cannot split the burst in two.
-        var debounce = TimeSpan.FromSeconds(3);
+        var debounce = TimeSpan.FromSeconds(1);
         var changes = new List<string>();
         var knobs = Render<Knobs>(p => p
             .Add(c => c.Netlist, Circuit("fixtures", "pot-lowpass.cir"))
@@ -93,13 +97,14 @@ public class KnobsTests : BunitContext
         {
             // NOTE: Find and Input in one dispatch, so a render cannot remove the handler between them.
             await knobs.InvokeAsync(() => knobs.Find(".knobs input[type=range]").Input(pos));
+            time.Advance(debounce / 2);
         }
         lock (changes) Assert.Empty(changes);
 
-        // NOTE: The callback does not render the component, so WaitForAssertion would not check again. Poll instead.
-        Assert.True(SpinWait.SpinUntil(() => { lock (changes) return changes.Count == 1; }, debounce * 4));
-        // NOTE: Wait past another debounce window to show that no late change follows.
-        await Task.Delay(debounce);
+        time.Advance(debounce);
+        // NOTE: The callback runs on the renderer after the timer fires, so poll for it.
+        Assert.True(SpinWait.SpinUntil(() => { lock (changes) return changes.Count == 1; }, TimeSpan.FromSeconds(30)));
+        time.Advance(debounce * 3);
         lock (changes) Assert.Single(changes);
         Assert.Contains("* ssp:knob RV1 log 1", changes[0]);
     }
