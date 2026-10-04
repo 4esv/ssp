@@ -19,9 +19,8 @@ public static class Symbols
     // Triangle and bar. Anode at left, cathode at right.
     const string DiodeBody = "M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10";
 
-    // Bar at x 20, base at left, collector up, emitter down. The substrate pin is a dashed stub under the bar.
+    // Bar at x 20, base at left, collector up, emitter down.
     const string BjtBody = "M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30";
-    const string Substrate = "<path stroke-dasharray=\"2 2\" d=\"M20 15V30\"/>";
 
     // Channel at x 20, gate at left, drain up, source down.
     const string JfetBody = "M0 0H20M20 -15V15M20 -10H40V-30M20 10H40V30";
@@ -54,11 +53,11 @@ public static class Symbols
         Make("led", "0 -26 60 38", DiodeBody + "M28 -13L36 -21M36 -13L44 -21", [new("A", 0, 0), new("K", 60, 0)],
             new SymbolArrow(20, 0, 40, 0), draw: false, extra: "<path fill=\"currentColor\" stroke=\"none\" d=\"M38 -23L33 -21.5L36.5 -18Z M46 -23L41 -21.5L44.5 -18Z\"/>"),
 
-        // Collector, base, emitter, substrate: the SPICE node order. The emitter arrow points out.
-        Make("npn", "0 -30 40 60", BjtBody, Bjt, new SymbolArrow(26, 10.9, 36, 17.4), extra: Substrate),
+        // Collector, base, emitter, substrate: the SPICE node order. The substrate pin is hidden under the bar. The emitter arrow points out.
+        Make("npn", "0 -30 40 60", BjtBody, Bjt, new SymbolArrow(26, 10.9, 36, 17.4)),
 
         // The emitter arrow points in.
-        Make("pnp", "0 -30 40 60", BjtBody, Bjt, new SymbolArrow(36, 17.4, 26, 10.9), extra: Substrate),
+        Make("pnp", "0 -30 40 60", BjtBody, Bjt, new SymbolArrow(36, 17.4, 26, 10.9)),
 
         // Drain, gate, source: the SPICE node order. The gate arrow points in for N-channel.
         Make("njf", "0 -30 40 60", JfetBody, Jfet, new SymbolArrow(4, 0, 19, 0)),
@@ -93,7 +92,7 @@ public static class Symbols
             [new("a", 0, 0), new("k", 60, 0), new("p1", 0, 60), new("p2", 60, 60)]),
     }.ToDictionary(s => s.Kind, StringComparer.Ordinal);
 
-    static SymbolPin[] Bjt => [new("C", 40, -30), new("B", 0, 0), new("E", 40, 30), new("S", 20, 30)];
+    static SymbolPin[] Bjt => [new("C", 40, -30), new("B", 0, 0), new("E", 40, 30), new("S", 20, 30, Hidden: true)];
 
     static SymbolPin[] Jfet => [new("D", 40, -30), new("G", 0, 0), new("S", 40, 30)];
 

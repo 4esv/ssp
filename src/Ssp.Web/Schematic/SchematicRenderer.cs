@@ -66,7 +66,7 @@ public static class SchematicRenderer
                 var pins = LocalPins(symbol, e.Nodes.Count);
                 for (var i = 0; i < e.Nodes.Count; i++)
                 {
-                    if (!IsGround(e.Nodes[i])) continue;
+                    if (!IsGround(e.Nodes[i]) || symbol?.Pins[i].Hidden == true) continue;
                     var (x, y) = Place(p, pins[i].X, pins[i].Y);
                     var (groundInner, groundBox) = Drawing(Symbols.For("ground"));
                     body.Append("<g transform=\"translate(").Append(N(x)).Append(' ').Append(N(y)).Append(")\">").Append(groundInner).Append("</g>\n");

@@ -204,4 +204,14 @@ public class SchematicRendererTests
         // Labels are outside the rotated group.
         Assert.DoesNotMatch("<g data-ref[^>]*>[^\\n]*<text", svg);
     }
+
+    [Fact]
+    public void GroundedPinGetsAGroundSymbolButTheHiddenSubstrateDoesNot()
+    {
+        var bjt = Render(File.ReadAllText(Fixture("bjt-ce-bias.cir")), new LayoutDoc([new PartPlacement("Q1", 0, 0, 0, false)], []));
+        var resistor = Render(File.ReadAllText(Fixture("bjt-ce-bias.cir")), new LayoutDoc([new PartPlacement("RE", 0, 0, 0, false)], []));
+
+        Assert.DoesNotContain("<g transform=\"translate(", bjt);
+        Assert.Contains("<g transform=\"translate(60 0)\">", resistor);
+    }
 }

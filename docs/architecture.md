@@ -173,7 +173,7 @@ Limits:
 | `inductor` | Coil | 1, 2 |
 | `diode` | Triangle and bar | anode, cathode |
 | `led` | Diode with two light arrows | anode, cathode |
-| `npn`, `pnp` | Base, collector, emitter. Emitter arrow out for NPN, in for PNP. Dashed substrate stub. | C, B, E, S |
+| `npn`, `pnp` | Base, collector, emitter. Emitter arrow out for NPN, in for PNP. The substrate pin is hidden. | C, B, E, S |
 | `njf`, `pjf` | Channel bar. Gate arrow in for N-channel, out for P-channel. | D, G, S |
 | `opamp` | Triangle, `-` input above `+` input, output at the apex | in-, in+, out |
 | `opamp5` | Op-amp with supply pins | in+, in-, out, V+, V- |

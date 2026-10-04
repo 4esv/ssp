@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -34 250 386" fill="none" stroke="currentColor" stroke-width="2">
-<g data-ref="Q1" transform="translate(0 30)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path stroke-dasharray="2 2" d="M20 15V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
-<g transform="translate(20 60)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="Q1" transform="translate(0 30)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
 <g data-ref="R1" transform="translate(0 170)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
 <g data-ref="R2" transform="translate(0 310)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
 <g transform="translate(60 310)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>

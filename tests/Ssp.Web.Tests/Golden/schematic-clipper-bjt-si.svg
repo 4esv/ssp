@@ -9,8 +9,7 @@
 <g transform="translate(480 170)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="D2" transform="translate(420 310)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
 <g transform="translate(420 310)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
-<g data-ref="Q1" transform="translate(140 30)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path stroke-dasharray="2 2" d="M20 15V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
-<g transform="translate(160 60)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="Q1" transform="translate(140 30)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
 <g data-ref="R1" transform="translate(140 170)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
 <g data-ref="R2" transform="translate(140 310)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
 <g transform="translate(200 310)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
