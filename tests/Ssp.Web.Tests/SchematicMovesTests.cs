@@ -77,17 +77,15 @@ public class SchematicMovesTests : BunitContext
     [InlineData(Direction.Left, "battery")]
     public void The_far_pin_is_away_from_the_pin_in_each_direction(Direction dir, string kind = "capacitor")
     {
-        var spot = new Spot(new Point(500, 500));
-        var circuit = "* t\nR1 a 0 1k\nR2 b 0 1k\n.END\n";
-        var layout = new LayoutDoc([new PartPlacement("R1", 100, 100, 0, false), new PartPlacement("R2", 100, 200, 0, false)],
-            [new WireRoute("a", [new Point(500, 500), new Point(500, 500)])]);
-        layout = new LayoutDoc(layout.Parts, []);
+        // NOTE: The body of R1 is to the right of pin 0 and to the left of pin 1, so use the pin that keeps dir free.
+        var pin = new PinRef("R1", dir == Direction.Right ? 1 : 0);
+        var (_, at) = PinOf(new SchematicChange(One, Placed), pin);
 
-        var (change, far) = SchematicEdits.PlaceNext(circuit, layout, Map(circuit), kind, spot with { }, dir);
+        var (change, far) = SchematicEdits.PlaceNext(One, Placed, Map(One), kind, new Spot(at, pin), dir);
 
         Assert.Empty(change.Layout.Validate(NetlistLoader.Load(change.Netlist)));
         var (dx, dy) = dir switch { Direction.Up => (0, -1), Direction.Down => (0, 1), Direction.Left => (-1, 0), _ => (1, 0) };
-        Assert.True((far.At.X - 500) * dx + (far.At.Y - 500) * dy > SchematicEdits.Step);
+        Assert.True((far.At.X - at.X) * dx + (far.At.Y - at.Y) * dy > SchematicEdits.Step);
     }
 
     [Fact]

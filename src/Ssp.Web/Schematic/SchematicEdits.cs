@@ -14,6 +14,12 @@ public sealed record SchematicChange(string Netlist, LayoutDoc Layout);
 /// <summary>One pin of a placed component. The pin index is the node index.</summary>
 public sealed record PinRef(string Reference, int Pin);
 
+/// <summary>A direction on the canvas, one grid step of a move.</summary>
+public enum Direction { Up, Down, Left, Right }
+
+/// <summary>A point that a move starts from: a pin, or the open end of a wire. An open end has no pin.</summary>
+public readonly record struct Spot(Point At, PinRef? Pin = null);
+
 /// <summary>The edits of the schematic editor. Each edit writes the netlist and the layout.</summary>
 public static partial class SchematicEdits
 {
@@ -135,22 +141,127 @@ public static partial class SchematicEdits
         return Settle(change, last.Reference);
     }
 
-    /// <summary>
-    /// <see cref="PlaceAt"/> with the part to the right of a pin, one column away and on the row of the pin. Its first
-    /// pin is wired to the pin, so it joins the net of that pin. The pin is in the netlist before the edit.
-    /// </summary>
-    public static SchematicChange PlaceFrom(string netlist, LayoutDoc layout, PartMap parts, string kind, PinRef pin)
+    /// <summary>The distance from a pin to the part or wire that one move adds, in schematic units.</summary>
+    public const double Step = 40;
+
+    /// <summary>The point one <see cref="Step"/> from a point in a direction.</summary>
+    public static Point Toward(Point at, Direction direction) => direction switch
     {
-        var (_, at) = Pin(NetlistLoader.Load(netlist), layout, parts, pin);
-        var placed = PlaceAt(netlist, layout, kind, new Point(at.X + ColumnStep / 2, at.Y));
+        Direction.Up => new Point(at.X, at.Y - Step),
+        Direction.Down => new Point(at.X, at.Y + Step),
+        Direction.Left => new Point(at.X - Step, at.Y),
+        _ => new Point(at.X + Step, at.Y),
+    };
+
+    /// <summary>
+    /// The directions that a move from a spot can go, in the order up, down, left, right. A direction is free if no wire
+    /// leaves the spot that way and no part outline holds the point one <see cref="Step"/> away or half way there.
+    /// </summary>
+    public static IReadOnlyList<Direction> Directions(string netlist, LayoutDoc layout, PartMap parts, Spot spot)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var outlines = new List<(Point Min, Point Max)>();
+        foreach (var e in SchematicRenderer.Elements(circuit, parts))
+        {
+            if (layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])) is { } placement)
+            {
+                outlines.Add(SchematicRenderer.Outline(e, placement));
+            }
+        }
+
+        bool Inside(Point p) => outlines.Any(o => p.X >= o.Min.X - 0.01 && p.X <= o.Max.X + 0.01 && p.Y >= o.Min.Y - 0.01 && p.Y <= o.Max.Y + 0.01);
+        var taken = layout.Wires.SelectMany(w => Leaves(w, spot.At)).ToHashSet();
+        return Enum.GetValues<Direction>().Where(d =>
+        {
+            var end = Toward(spot.At, d);
+            return !taken.Contains(d) && !Inside(end) && !Inside(new Point((spot.At.X + end.X) / 2, (spot.At.Y + end.Y) / 2));
+        }).ToList();
+    }
+
+    // The directions that a wire leaves a point: the end of a segment, or both ways along a segment that passes through.
+    static IEnumerable<Direction> Leaves(WireRoute w, Point p)
+    {
+        for (var i = 1; i < w.Points.Count; i++)
+        {
+            var (a, b) = (w.Points[i - 1], w.Points[i]);
+            if (a == b || !OnWire(new WireRoute(w.Net, [a, b]), p)) continue;
+            if (p != b) yield return Along(a, b);
+            if (p != a) yield return Along(b, a);
+        }
+    }
+
+    static Direction Along(Point from, Point to) =>
+        Math.Abs(to.X - from.X) >= Math.Abs(to.Y - from.Y)
+            ? to.X > from.X ? Direction.Right : Direction.Left
+            : to.Y > from.Y ? Direction.Down : Direction.Up;
+
+    // The node of a spot: the node of its pin, or the net of the wire that it sits on.
+    static string NodeOf(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, Spot spot) =>
+        spot.Pin is { } pin
+            ? Pin(circuit, layout, parts, pin).Node
+            : layout.Wires.FirstOrDefault(w => OnWire(w, spot.At))?.Net
+                ?? throw new ArgumentException("The spot is on no pin and no wire.", nameof(spot));
+
+    // The near pin joins the spot, the far pin is the next spot. A transistor is wired at its base and goes on at its collector.
+    static (int Near, int Far) Ends(string kind) => kind switch
+    {
+        "npn" or "pnp" => (1, 0),
+        "pot" => (0, 2),
+        "jack-in" => (1, 0),
+        _ => (0, 1),
+    };
+
+    /// <summary>
+    /// Adds a part one <see cref="Step"/> from a spot in a direction. The part is turned so that its far pin points away
+    /// from the spot. A wire joins the spot to the near pin of the part, so that pin joins the net of the spot. The far pin
+    /// is the next spot.
+    /// </summary>
+    public static (SchematicChange Change, Spot Far) PlaceNext(string netlist, LayoutDoc layout, PartMap parts, string kind, Spot from, Direction direction)
+    {
+        var node = NodeOf(NetlistLoader.Load(netlist), layout, parts, from);
+        var placed = Place(netlist, layout, kind);
         var circuit = NetlistLoader.Load(placed.Netlist);
+        var element = ElementOf(circuit, PartMap.Resolve(circuit, Ssp.Web.Components.SchematicView.Table), placed.Layout.Parts[^1].Reference);
+        var (near, far) = Ends(kind);
+
+        var target = Toward(from.At, direction);
+        var (ux, uy) = (Math.Sign(target.X - from.At.X), Math.Sign(target.Y - from.At.Y));
+        var best = new[] { 0, 90, 180, 270 }
+            .Select(r => placed.Layout.Parts[^1] with { X = 0, Y = 0, Rotation = r, Flip = false })
+            .MaxBy(o =>
+            {
+                var pins = SchematicRenderer.Pins(element, o);
+                return (pins[far].At.X - pins[near].At.X) * ux + (pins[far].At.Y - pins[near].At.Y) * uy;
+            })!;
+        var origin = SchematicRenderer.Pins(element, best)[near].At;
+        var placement = best with { X = Snap(target.X - origin.X), Y = Snap(target.Y - origin.Y) };
+
+        var laid = new LayoutDoc(placed.Layout.Parts.SkipLast(1).Append(placement).ToList(), placed.Layout.Wires);
+        var pinsAt = SchematicRenderer.Pins(element, placement);
+        var wire = new WireRoute(node, [from.At, pinsAt[near].At]);
+        var joined = pinsAt[near].Net == node
+            ? new SchematicChange(placed.Netlist, new LayoutDoc(laid.Parts, [.. laid.Wires, wire]))
+            : Rename(placed.Netlist, circuit, laid, pinsAt[near].Net, node, [wire]);
+        var change = Settle(joined, placement.Reference);
+
         // NOTE: A pot is placed as P_1 and its pins are those of P.
-        var reference = Pair().Replace(placed.Layout.Parts[^1].Reference, "");
-        var added = new PinRef(reference, 0);
-        var resolved = PartMap.Resolve(circuit, Ssp.Web.Components.SchematicView.Table);
-        // NOTE: A pin that Settle has already joined to the pin needs no wire.
-        if (Pin(circuit, placed.Layout, resolved, added).Node == Pin(circuit, placed.Layout, resolved, pin).Node) return placed;
-        return Wire(placed.Netlist, placed.Layout, resolved, pin, added);
+        return (change, new Spot(pinsAt[far].At, new PinRef(element.Reference, far)));
+    }
+
+    /// <summary>Adds a wire one <see cref="Step"/> from a spot in a direction. The wire ends in an open spot. The netlist does not change.</summary>
+    public static (SchematicChange Change, Spot Open) ExtendWire(string netlist, LayoutDoc layout, PartMap parts, Spot from, Direction direction)
+    {
+        var node = NodeOf(NetlistLoader.Load(netlist), layout, parts, from);
+        var end = Toward(from.At, direction);
+        var wire = new WireRoute(node, [from.At, end]);
+        return (new SchematicChange(netlist, new LayoutDoc(layout.Parts, [.. layout.Wires, wire])), new Spot(end));
+    }
+
+    /// <summary><see cref="Ground(string, LayoutDoc, PartMap, PinRef)"/> for a pin or an open wire end.</summary>
+    public static SchematicChange Ground(string netlist, LayoutDoc layout, PartMap parts, Spot spot)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        return Ground(netlist, circuit, layout, NodeOf(circuit, layout, parts, spot), spot.At);
     }
 
     /// <summary>
@@ -262,11 +373,16 @@ public static partial class SchematicEdits
     /// Joins the nodes of two pins. The joined node is node 0 if one of the pins is on it, else the node of the first pin.
     /// The layout gets a wire between the two pins.
     /// </summary>
-    public static SchematicChange Wire(string netlist, LayoutDoc layout, PartMap parts, PinRef from, PinRef to)
+    public static SchematicChange Wire(string netlist, LayoutDoc layout, PartMap parts, PinRef from, PinRef to) =>
+        Wire(netlist, layout, parts, new Spot(Pin(NetlistLoader.Load(netlist), layout, parts, from).Position, from), to);
+
+    /// <summary><see cref="Wire(string, LayoutDoc, PartMap, PinRef, PinRef)"/> from a pin or an open wire end.</summary>
+    public static SchematicChange Wire(string netlist, LayoutDoc layout, PartMap parts, Spot from, PinRef to)
     {
         var circuit = NetlistLoader.Load(netlist);
-        var (a, pa) = Pin(circuit, layout, parts, from);
+        var a = NodeOf(circuit, layout, parts, from);
         var (b, pb) = Pin(circuit, layout, parts, to);
+        var pa = from.At;
         var (keep, drop) = b == Zero ? (b, a) : (a, b);
 
         var corner = new Point(pb.X, pa.Y);
@@ -274,11 +390,38 @@ public static partial class SchematicEdits
         return Rename(netlist, circuit, layout, drop, keep, [wire]);
     }
 
+    /// <summary>
+    /// The open ends of the wires: ends that no pin and no other wire touches. A wire on node 0 has none, as its free
+    /// ends are the ground symbol.
+    /// </summary>
+    public static IReadOnlyList<Point> OpenEnds(LayoutDoc layout, IEnumerable<Point> pins)
+    {
+        var at = pins.ToHashSet();
+        var ends = new List<Point>();
+        for (var i = 0; i < layout.Wires.Count; i++)
+        {
+            var w = layout.Wires[i];
+            if (w.Net == Zero) continue;
+            foreach (var end in new[] { w.Points[0], w.Points[^1] })
+            {
+                if (at.Contains(end) || ends.Contains(end)) continue;
+                if (layout.Wires.Where((o, j) => j != i && OnWire(o, end)).Any()) continue;
+                ends.Add(end);
+            }
+        }
+        return ends;
+    }
+
     /// <summary>Connects the node of a pin to node 0. The layout gets a ground symbol below the pin, drawn as wires.</summary>
     public static SchematicChange Ground(string netlist, LayoutDoc layout, PartMap parts, PinRef pin)
     {
         var circuit = NetlistLoader.Load(netlist);
         var (node, p) = Pin(circuit, layout, parts, pin);
+        return Ground(netlist, circuit, layout, node, p);
+    }
+
+    static SchematicChange Ground(string netlist, LoadedCircuit circuit, LayoutDoc layout, string node, Point p)
+    {
         double Y(int dy) => p.Y + dy;
         WireRoute Bar(int dy, int half) => new(Zero, [new Point(p.X - half, Y(dy)), new Point(p.X + half, Y(dy))]);
         return Rename(netlist, circuit, layout, node, Zero,
