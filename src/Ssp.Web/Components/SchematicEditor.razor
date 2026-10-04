@@ -9,15 +9,26 @@
 
 <section class="schematic-editor">
     <div class="schematic-tools" role="toolbar" aria-label="Schematic tools">
-        @foreach (var kind in SchematicEdits.Kinds.Keys)
-        {
-            <button type="button" class="place" data-kind="@kind" disabled="@hasErrors" @onclick="() => Place(kind)">@Label(kind)</button>
-        }
-        <button type="button" class="tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)">Wire</button>
-        <button type="button" class="tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)">Ground</button>
+        <div class="tool-group" role="group" aria-label="Parts">
+            <span class="tool-label">Add a part</span>
+            @foreach (var kind in SchematicEdits.Kinds.Keys)
+            {
+                <button type="button" class="place" data-kind="@kind" disabled="@hasErrors" @onclick="() => Place(kind)">@Label(kind)</button>
+            }
+        </div>
+        <div class="tool-group" role="group" aria-label="Tools">
+            <span class="tool-label">Connect</span>
+            <button type="button" class="tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)">Wire</button>
+            <button type="button" class="tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)">Ground</button>
+        </div>
     </div>
+    <p class="schematic-hint" role="status">@Hint()</p>
     <figure class="schematic" aria-label="Schematic" tabindex="0"
             @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null)">
+        @if (svg is null && !hasErrors)
+        {
+            <p class="schematic-empty">The schematic is empty. Add a part with Resistor or Capacitor, then use Wire to join two pins and Ground to mark a pin as 0 V.</p>
+        }
         @if (svg is not null)
         {
             @((MarkupString)svg)
@@ -32,6 +43,7 @@
                 }
                 @foreach (var pin in pins)
                 {
+                    <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" />
                     <circle class="@(pin.Ref == pending ? "pin pending" : "pin")" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
                             cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="5" @onclick="() => Click(pin.Ref)">
                         <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), node @pin.Node</title>
@@ -71,7 +83,10 @@
     List<PinView> pins = [];
     List<PartView> outlines = [];
     string? selected;
-    Tool tool = Tool.Wire;
+    Tool? tool = Tool.Wire;
+
+    // NOTE: The hit circle is 24 units across or more, the least that a finger can hit.
+    const double HitRadius = 12;
     PinRef? pending;
 
     // NOTE: The editor keeps its own copy, so a parent that does not pass the change back still sees each edit.
@@ -114,16 +129,31 @@
         if (!outlines.Any(p => p.Reference == selected)) selected = null;
     }
 
-    Task Place(string kind) => Apply(SchematicEdits.Place(netlist, layout, kind));
+    async Task Place(string kind)
+    {
+        var change = SchematicEdits.Place(netlist, layout, kind);
+        await Apply(change);
+        // NOTE: Place puts the new part last in the layout.
+        selected = change.Layout.Parts[^1].Reference;
+    }
+
+    string Hint() =>
+        pending is { } p ? $"Wire: click a second pin to connect it to {p.Reference} pin {p.Pin + 1}"
+        : selected is { } s ? $"{s} selected: R rotate, H/V flip, arrows move, Delete remove"
+        : tool == Tool.Wire ? "Wire: click a pin"
+        : tool == Tool.Ground ? "Ground: click a pin"
+        : "Choose a tool, or place a part.";
 
     void Select(Tool next)
     {
-        tool = next;
+        tool = tool == next ? null : next;
         pending = null;
+        selected = null;
     }
 
     async Task Click(PinRef pin)
     {
+        if (tool is null) return;
         if (tool == Tool.Ground)
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));
