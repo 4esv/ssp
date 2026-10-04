@@ -1,6 +1,7 @@
 using SpiceSharp;
 using SpiceSharp.Components;
 using SpiceSharpParser;
+using SpiceSharpParser.Models.Netlist.Spice.Objects;
 using SpiceSharpParser.Models.Netlist.Spice.Objects.Parameters;
 using ParsedComponent = SpiceSharpParser.Models.Netlist.Spice.Objects.Component;
 
@@ -25,7 +26,7 @@ public static class NetlistLoader
             {
                 var model = new SpiceSharpReader().Read(parsed.FinalModel);
                 circuit = model.Circuit;
-                BindModels(parsed.FinalModel.Statements.OfType<ParsedComponent>(), circuit);
+                BindModels(parsed.FinalModel.Statements, circuit);
                 subcircuits.AddRange(Subcircuits(parsed.FinalModel.Statements.OfType<ParsedComponent>()));
                 foreach (var error in model.ValidationResult.Errors)
                 {
@@ -55,10 +56,9 @@ public static class NetlistLoader
     // NOTE: the reader flattens each X line into the parts of its subcircuit. Keep the X line, so a rule can find the pins of the instance.
     private static IEnumerable<SubcircuitInstance> Subcircuits(IEnumerable<ParsedComponent> components)
     {
-        foreach (var x in components.Where(c => c.Name.StartsWith('X') || c.Name.StartsWith('x')))
+        foreach (var x in components.Where(IsInstance))
         {
-            var words = x.PinsAndParameters.OfType<SingleParameter>().Select(p => p.Value)
-                .TakeWhile(v => !v.Equals("params:", StringComparison.OrdinalIgnoreCase)).ToList();
+            var words = Words(x);
             if (words.Count >= 2)
             {
                 yield return new SubcircuitInstance(x.Name, words[^1], words[..^1]);
@@ -66,23 +66,75 @@ public static class NetlistLoader
         }
     }
 
+    private static bool IsInstance(ParsedComponent c) => c.Name.StartsWith('X') || c.Name.StartsWith('x');
+
+    private static List<string> Words(ParsedComponent x) =>
+        x.PinsAndParameters.OfType<SingleParameter>().Select(p => p.Value)
+            .TakeWhile(v => !v.Equals("params:", StringComparison.OrdinalIgnoreCase)).ToList();
+
     // NOTE: the parser leaves BipolarJunctionTransistor.Model and Diode.Model unset, so a BJT simulation throws. Bind them from the netlist.
-    private static void BindModels(IEnumerable<ParsedComponent> components, Circuit circuit)
+    // A part inside a subcircuit is flattened to X1.D1, and a .model inside the subcircuit to X1.NAME, so walk the X lines to find both.
+    private static void BindModels(IEnumerable<Statement> statements, Circuit circuit)
     {
-        var byName = components.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
+        var parts = new Dictionary<string, (ParsedComponent Statement, string Scope)>(StringComparer.OrdinalIgnoreCase);
+        Collect(statements.ToList(), "", [], new HashSet<SubCircuit>(), parts);
         foreach (var bjt in circuit.OfType<BipolarJunctionTransistor>())
         {
-            if (string.IsNullOrEmpty(bjt.Model) && byName.TryGetValue(bjt.Name, out var statement))
+            if (string.IsNullOrEmpty(bjt.Model) && parts.TryGetValue(bjt.Name, out var part))
             {
-                bjt.Model = statement.PinsAndParameters[statement.PinsAndParameters.Count - 1].Value;
+                bjt.Model = ModelName(part.Statement, part.Scope, circuit);
             }
         }
         foreach (var diode in circuit.OfType<Diode>())
         {
-            if (string.IsNullOrEmpty(diode.Model) && byName.TryGetValue(diode.Name, out var statement))
+            if (string.IsNullOrEmpty(diode.Model) && parts.TryGetValue(diode.Name, out var part))
             {
-                diode.Model = statement.PinsAndParameters[statement.PinsAndParameters.Count - 1].Value;
+                diode.Model = ModelName(part.Statement, part.Scope, circuit);
             }
         }
+    }
+
+    private static void Collect(
+        IReadOnlyList<Statement> statements,
+        string scope,
+        IReadOnlyList<IReadOnlyDictionary<string, SubCircuit>> outer,
+        IReadOnlySet<SubCircuit> active,
+        Dictionary<string, (ParsedComponent Statement, string Scope)> parts)
+    {
+        var local = statements.OfType<SubCircuit>().GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Last(), StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<IReadOnlyDictionary<string, SubCircuit>> scopes = [local, .. outer];
+        foreach (var component in statements.OfType<ParsedComponent>())
+        {
+            parts[scope + component.Name] = (component, scope);
+            if (!IsInstance(component) || Words(component) is not [.., var name])
+            {
+                continue;
+            }
+
+            var definition = scopes.Select(d => d.GetValueOrDefault(name)).FirstOrDefault(d => d is not null);
+            if (definition is not null && !active.Contains(definition))
+            {
+                Collect(definition.Statements.ToList(), scope + component.Name + ".", scopes, new HashSet<SubCircuit>(active) { definition }, parts);
+            }
+        }
+    }
+
+    // NOTE: the innermost .model wins. X1.X2.NAME, then X1.NAME, then NAME.
+    private static string ModelName(ParsedComponent statement, string scope, Circuit circuit)
+    {
+        var model = statement.PinsAndParameters[statement.PinsAndParameters.Count - 1].Value;
+        while (scope.Length > 0)
+        {
+            if (circuit.Contains(scope + model))
+            {
+                return scope + model;
+            }
+
+            var dot = scope.LastIndexOf('.', scope.Length - 2);
+            scope = dot < 0 ? "" : scope[..(dot + 1)];
+        }
+
+        return model;
     }
 }
