@@ -339,3 +339,21 @@ Measured on 2026-10-04 in Chromium with Playwright, through `scripts/playwright.
 | Brotli download (sum of the `.br` files in `wwwroot`) | 8,618,412 bytes (8.6 MB) | 10,643,988 bytes (10.6 MB) |
 
 The drawn fuzz time drops by 10.8 %. The limit of the issue is 10 %. The preset chain drops by 7.8 %. The download grows by 2.0 MB (23.5 %).
+
+## Gallery
+
+`GalleryTimingTests` clicks the Gallery link on the home page of the published site and times it in the page (`performance.now()`).
+The time ends at the first animation frame and timer turn after the gallery list is in the DOM, so the main thread is free again.
+Run it with `scripts/playwright.sh`. The test log shows the time at detailed verbosity, and the test fails above 1000 ms (#174).
+
+| Item | Value |
+|---|---|
+| Machine | Apple M3 Pro, macOS |
+| Browser | Chromium, headless (Playwright) |
+| Build | Release, not AOT |
+| Runs | 3 for each build |
+
+| Build | Click to first interaction |
+|---|---|
+| Previews rendered in the page (loader, placer and renderer on the main thread) | 16281, 16358, 16285 ms |
+| Previews are committed SVG files (`wwwroot/previews`, `<img>`) | 13, 14, 15 ms |
