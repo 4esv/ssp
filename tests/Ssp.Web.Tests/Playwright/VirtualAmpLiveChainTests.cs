@@ -24,6 +24,14 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
         await using var session = await ClipPlayerTests.Session.Start(output);
         await session.Page.Locator(".dock-tab[data-panel=amp]").ClickAsync();
 
+        // NOTE: Before #225 the one-second progress timer could write "Rendering 1.0 of 1.0 s" over the final status while
+        // the player loaded clip-player.js, and the status stayed so. A slow script load makes that gap sure on every machine.
+        await session.Page.RouteAsync("**/js/clip-player.js", async route =>
+        {
+            await Task.Delay(1500);
+            await route.ContinueAsync();
+        });
+
         var watch = Stopwatch.StartNew();
         await session.Page.Locator(".virtual-amp button.amp-try").ClickAsync();
         try
