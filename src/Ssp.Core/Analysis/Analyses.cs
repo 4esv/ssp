@@ -263,12 +263,26 @@ public static class Analyses
             points[(2 * i) + 1] = input[Math.Min(i, input.Length - 1)];
         }
 
+        var sources = circuit.Circuit.OfType<VoltageSource>().ToList();
+        var existing = sources.FirstOrDefault(v => string.Equals(v.Nodes[0], inNode, StringComparison.Ordinal)
+                && string.Equals(v.Nodes[1], "0", StringComparison.Ordinal));
+        // NOTE: A source drawn with its plus on ground has Nodes[0] = 0. It drives the input node with the input negated (#216).
+        var reversed = existing is null
+            ? sources.FirstOrDefault(v => string.Equals(v.Nodes[0], "0", StringComparison.Ordinal)
+                && string.Equals(v.Nodes[1], inNode, StringComparison.Ordinal))
+            : null;
+        existing ??= reversed;
+        if (reversed is not null)
+        {
+            for (var i = 1; i < points.Length; i += 2)
+            {
+                points[i] = -points[i];
+            }
+        }
+
         var pwl = new Pwl();
         pwl.SetPoints(points);
 
-        var existing = circuit.Circuit.OfType<VoltageSource>()
-            .FirstOrDefault(v => string.Equals(v.Nodes[0], inNode, StringComparison.Ordinal)
-                && string.Equals(v.Nodes[1], "0", StringComparison.Ordinal));
         var source = existing ?? new VoltageSource("V_ssp_render", inNode, "0", 0.0);
         var saved = source.Parameters.Waveform;
         var step = 1.0 / ((double)fs * oversample);
