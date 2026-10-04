@@ -32,6 +32,9 @@ public class LiveMonitorTests(ITestOutputHelper output)
 
             var panel = session.Page.Locator(".dock-panel[data-panel=monitor] .live-monitor");
             await Assertions.Expect(panel.Locator(".monitor-note")).ToHaveTextAsync("monitor, not real time");
+            // NOTE: The audio context is inside live-monitor.js. The test keeps a reference, so a failure can show its state.
+            await session.Page.EvaluateAsync(
+                "() => { const A = globalThis.AudioContext; globalThis.AudioContext = class extends A { constructor(...a) { super(...a); globalThis.sspContext = this; } }; }");
             await panel.Locator("button.monitor-start").ClickAsync();
             var watch = System.Diagnostics.Stopwatch.StartNew();
             try
@@ -42,7 +45,8 @@ public class LiveMonitorTests(ITestOutputHelper output)
             finally
             {
                 output.WriteLine($"After {watch.Elapsed.TotalSeconds:F1} s: " + await session.Page.EvaluateAsync<string>(
-                    "() => [...document.querySelectorAll('.live-monitor p')].map(p => p.textContent.trim()).join(' | ') + ' | output ' + JSON.stringify(globalThis.sspMonitorOutput)"));
+                    "() => [...document.querySelectorAll('.live-monitor p')].map(p => p.textContent.trim()).join(' | ') + ' | output ' + JSON.stringify(globalThis.sspMonitorOutput)"
+                    + " + ' | context ' + globalThis.sspContext?.state + ' at ' + globalThis.sspContext?.currentTime + ' s, ' + globalThis.sspContext?.sampleRate + ' Hz'"));
             }
 
             var state = await session.Page.EvaluateAsync<JsonElement>(
