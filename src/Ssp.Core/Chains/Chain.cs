@@ -21,7 +21,10 @@ public static partial class Chain
     /// <summary>
     /// Returns one netlist for the stages in series. A voltage source from a node to ground that is not the input source
     /// is a supply. The supply nodes are shared, and the first source for each supply node stays.
-    /// The input source of the first stage drives the chain. Each <c>knob</c> directive is named <c>&lt;stage&gt;.&lt;part&gt;</c>.
+    /// A stage whose input source has a DC value that is not 0 is a power stage. If the chain has a stage that is not a power
+    /// stage, each power stage keeps its input source as a supply and is not in the signal path.
+    /// The input source of the first stage in the signal path drives the chain.
+    /// Each <c>knob</c> directive is named <c>&lt;stage&gt;.&lt;part&gt;</c>.
     /// </summary>
     /// <exception cref="ArgumentException">A stage name is bad or not unique, a stage has no input or output,
     /// or two stages have different definitions with the same name.</exception>
@@ -48,26 +51,35 @@ public static partial class Chain
         var knobs = new List<string>();
         string? chainInput = null, node = null;
 
-        foreach (var stage in stages)
+        // NOTE: power-9v.cir has the 9 V adapter as its input source. In series it put the 47 ohm and 100u filter in the
+        // signal path, and it took the chain output, so the chain was silent (#155).
+        var powers = stages.Select(IsPower).ToList();
+        if (powers.All(p => p)) powers = [.. powers.Select(_ => false)];
+
+        foreach (var (stage, power) in stages.Zip(powers))
         {
             var directives = DirectiveParser.Parse(stage.Netlist).Directives;
             var input = directives.Input ?? throw new ArgumentException($"Stage {stage.Name} has no ssp:input directive.", nameof(stages));
             var output = directives.Output ?? throw new ArgumentException($"Stage {stage.Name} has no ssp:output directive.", nameof(stages));
             var instance = "X" + stage.Name;
-            chainInput ??= $"{instance}.{input}";
-            node ??= chainInput;
+            var first = !power && chainInput is null;
+            if (first)
+            {
+                chainInput = $"{instance}.{input}";
+                node = chainInput;
+            }
 
             var parts = new List<string>();
             var pins = new List<string>();
             foreach (var line in Statements(stage.Netlist, stage.Name, definitions))
             {
-                var words = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                var words = Words(line);
                 if (IsSourceToGround(words, out var top))
                 {
-                    if (top.Equals(input, StringComparison.OrdinalIgnoreCase))
+                    if (!power && top.Equals(input, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (stage == stages[0])
-                            sources.Add(Join([$"V{stage.Name}.{words[0]}", .. words[1..3].Select(w => w == top ? chainInput : w), .. words[3..]]));
+                        if (first)
+                            sources.Add(Join([$"V{stage.Name}.{words[0]}", .. words[1..3].Select(w => w == top ? chainInput! : w), .. words[3..]]));
                         continue;
                     }
 
@@ -82,11 +94,11 @@ public static partial class Chain
             }
 
             var next = $"{instance}.{output}";
-            bodies.AppendLine($".subckt STAGE_{stage.Name} {Join([input, output, .. pins])}");
+            bodies.AppendLine($".subckt STAGE_{stage.Name} {Join(power ? [output, .. pins] : [input, output, .. pins])}");
             foreach (var part in parts) bodies.AppendLine(part);
             bodies.AppendLine($".ends STAGE_{stage.Name}");
-            bodies.AppendLine($"{instance} {Join([node, next, .. pins])} STAGE_{stage.Name}");
-            node = next;
+            bodies.AppendLine($"{instance} {Join(power ? [next, .. pins] : [node!, next, .. pins])} STAGE_{stage.Name}");
+            if (!power) node = next;
 
             knobs.AddRange(directives.Knobs.Select(k =>
                 $"* ssp:knob {stage.Name}.{k.Part} {k.Taper} {k.Position.ToString("R", CultureInfo.InvariantCulture)}"));
@@ -166,6 +178,16 @@ public static partial class Chain
         if (current is not null) yield return current;
     }
 
+    // A power stage has an input source with a DC value that is not 0, such as the 9 V adapter.
+    private static bool IsPower(ChainStage stage)
+    {
+        var input = DirectiveParser.Parse(stage.Netlist).Directives.Input;
+        return Lines(stage.Netlist).Select(Words).Any(w =>
+            IsSourceToGround(w, out var top) && top.Equals(input, StringComparison.OrdinalIgnoreCase) && !IsZero(DcValue(w)));
+    }
+
+    private static string[] Words(string line) => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
     private static bool IsSourceToGround(string[] words, out string node)
     {
         node = "";
@@ -178,6 +200,18 @@ public static partial class Chain
         else if (IsGround(words[1])) node = words[2];
         return node.Length > 0 && !IsGround(node);
     }
+
+    // Returns the DC value of a source: the word after DC, or the first value word. A source with no DC value is at 0.
+    private static string DcValue(string[] words)
+    {
+        var dc = Array.FindIndex(words, 3, w => w.Equals("dc", StringComparison.OrdinalIgnoreCase));
+        if (dc >= 0) return words.ElementAtOrDefault(dc + 1) ?? "0";
+        return words.Length > 3 && (char.IsDigit(words[3][0]) || words[3][0] is '.' or '-' or '+') ? words[3] : "0";
+    }
+
+    // A SPICE value with any unit suffix. A value that is not a number, such as an expression, is not 0.
+    private static bool IsZero(string value) =>
+        double.TryParse(value[..(value.Length - value.Reverse().TakeWhile(char.IsLetter).Count())], NumberStyles.Float, CultureInfo.InvariantCulture, out var n) && n == 0;
 
     private static bool IsGround(string node) => node == "0" || node.Equals("gnd", StringComparison.OrdinalIgnoreCase);
 
