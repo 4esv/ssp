@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -34 530 664" fill="none" stroke="currentColor" stroke-width="2">
+<g data-ref="Rl" transform="translate(420 30)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(480 30)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="V1" transform="translate(0 30)"><path d="M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41"/><circle cx="30" cy="0" r="14"/></g>
+<g transform="translate(60 30)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="Vcc" transform="translate(280 30)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="Vee" transform="translate(280 170)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="X1" transform="translate(140 30)"><path d="M0 -10H20M0 10H20M60 0H80M20 -30V30L60 0Z M24 -10H30 M24 10H30M27 7V13M40 -15V-30M40 15V30"/></g>
+<polyline data-net="0" points="0,170 60,170 60,30"/>
+<polyline data-net="0" points="60,30 200,30"/>
+<polyline data-net="0" points="200,30 200,330"/>
+<polyline data-net="0" points="200,330 200,470"/>
+<polyline data-net="0" points="200,470 200,610"/>
+<polyline data-net="0" points="200,610 340,610 340,30"/>
+<polyline data-net="0" points="340,30 340,170"/>
+<polyline data-net="0" points="340,170 340,310"/>
+<polyline data-net="0" points="340,310 480,310 480,30"/>
+<polyline data-net="X1.o" points="140,330 280,330 280,610"/>
+<polyline data-net="X1.x" points="60,170 140,170 140,30"/>
+<polyline data-net="X1.x" points="140,30 140,50"/>
+<polyline data-net="X1.x" points="140,50 140,130"/>
+<polyline data-net="X1.x" points="140,130 140,150"/>
+<polyline data-net="X1.x" points="140,150 140,170"/>
+<polyline data-net="X1.x" points="140,170 140,350"/>
+<polyline data-net="X1.x" points="140,350 140,470"/>
+<polyline data-net="X1.x" points="140,470 140,610"/>
+<polyline data-net="X1.x" points="140,610 200,610 200,50"/>
+<polyline data-net="X1.x" points="200,50 200,70"/>
+<polyline data-net="X1.x" points="200,70 200,90"/>
+<polyline data-net="X1.x" points="200,90 200,190"/>
+<polyline data-net="X1.x" points="200,190 200,210"/>
+<polyline data-net="X1.x" points="200,210 200,230"/>
+<polyline data-net="in" points="0,30 0,190"/>
+<polyline data-net="in" points="0,190 0,310"/>
+<polyline data-net="out" points="60,190 60,310"/>
+<polyline data-net="out" points="60,310 280,310"/>
+<polyline data-net="out" points="280,310 280,330"/>
+<polyline data-net="out" points="280,330 280,410"/>
+<polyline data-net="out" points="280,410 280,430"/>
+<polyline data-net="out" points="280,430 280,450"/>
+<polyline data-net="out" points="280,450 340,450 340,330"/>
+<polyline data-net="out" points="340,330 340,350"/>
+<polyline data-net="out" points="340,350 340,370"/>
+<polyline data-net="out" points="340,370 340,470"/>
+<polyline data-net="out" points="340,470 340,490"/>
+<polyline data-net="out" points="340,490 340,510"/>
+<polyline data-net="out" points="340,510 340,610"/>
+<polyline data-net="out" points="340,610 420,610 420,30"/>
+<polyline data-net="vcc" points="140,190 200,190 200,110"/>
+<polyline data-net="vcc" points="200,110 200,250"/>
+<polyline data-net="vcc" points="200,250 280,250 280,30"/>
+<polyline data-net="vcc" points="280,30 280,470"/>
+<polyline data-net="vcc" points="280,470 340,470 340,390"/>
+<polyline data-net="vcc" points="340,390 340,530"/>
+<polyline data-net="vee" points="140,70 140,90"/>
+<polyline data-net="vee" points="140,90 140,110"/>
+<polyline data-net="vee" points="140,110 140,210"/>
+<polyline data-net="vee" points="140,210 140,230"/>
+<polyline data-net="vee" points="140,230 140,250"/>
+<polyline data-net="vee" points="140,250 200,250 200,130"/>
+<polyline data-net="vee" points="200,130 200,150"/>
+<polyline data-net="vee" points="200,150 200,170"/>
+<polyline data-net="vee" points="200,170 280,170"/>
+<polyline data-net="vee" points="280,170 280,350"/>
+<polyline data-net="vee" points="280,350 280,370"/>
+<polyline data-net="vee" points="280,370 280,390"/>
+<polyline data-net="vee" points="280,390 280,490"/>
+<polyline data-net="vee" points="280,490 280,510"/>
+<polyline data-net="vee" points="280,510 280,530"/>
+<polyline data-net="vee" points="280,530 340,530 340,410"/>
+<polyline data-net="vee" points="340,410 340,430"/>
+<polyline data-net="vee" points="340,430 340,450"/>
+<g fill="currentColor" stroke="none" font-family="sans-serif" font-size="10" text-anchor="middle">
+<text x="450" y="18">Rl</text>
+<text x="450" y="52">10k</text>
+<text x="30" y="11">V1</text>
+<text x="30" y="59">1V AC 1V</text>
+<text x="280" y="6">+15V</text>
+<text x="280" y="146">-15V</text>
+<text x="180" y="-4">X1</text>
+<text x="180" y="74">TL072</text>
+</g>
+</svg>

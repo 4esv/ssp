@@ -72,7 +72,7 @@ public static class NetlistLoader
         x.PinsAndParameters.OfType<SingleParameter>().Select(p => p.Value)
             .TakeWhile(v => !v.Equals("params:", StringComparison.OrdinalIgnoreCase)).ToList();
 
-    // NOTE: the parser leaves BipolarJunctionTransistor.Model and Diode.Model unset, so a BJT simulation throws. Bind them from the netlist.
+    // NOTE: the parser leaves BipolarJunctionTransistor.Model, Diode.Model and JFET.Model unset, so a BJT simulation throws. Bind them from the netlist.
     // A part inside a subcircuit is flattened to X1.D1, and a .model inside the subcircuit to X1.NAME, so walk the X lines to find both.
     private static void BindModels(IEnumerable<Statement> statements, Circuit circuit)
     {
@@ -90,6 +90,13 @@ public static class NetlistLoader
             if (string.IsNullOrEmpty(diode.Model) && parts.TryGetValue(diode.Name, out var part))
             {
                 diode.Model = ModelName(part.Statement, part.Scope, circuit);
+            }
+        }
+        foreach (var jfet in circuit.OfType<JFET>())
+        {
+            if (string.IsNullOrEmpty(jfet.Model) && parts.TryGetValue(jfet.Name, out var part))
+            {
+                jfet.Model = ModelName(part.Statement, part.Scope, circuit);
             }
         }
     }
