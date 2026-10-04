@@ -24,6 +24,7 @@ public static class SchematicRenderer
     const double Margin = 20;
     const double LabelGap = 4;
     const double FontSize = 10;
+    const double SymbolLength = 20;
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
 
@@ -48,8 +49,12 @@ public static class SchematicRenderer
         var bounds = new Bounds();
         var body = new StringBuilder();
         var labels = new StringBuilder();
+        var elements = Elements(circuit, parts);
+        var rails = elements.Where(e => e.Kind == "rail").ToDictionary(e => e.Nodes[0], e => e.Value, Names);
+        var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
+            .Select(p => (p.X, p.Y)).ToHashSet();
 
-        foreach (var e in Elements(circuit, parts))
+        foreach (var e in elements)
         {
             var p = placements.GetValueOrDefault(e.Reference)
                     ?? e.Members.Order(Names).Select(placements.GetValueOrDefault).FirstOrDefault(m => m is not null);
@@ -66,21 +71,46 @@ public static class SchematicRenderer
                 var pins = LocalPins(symbol, e.Nodes.Count);
                 for (var i = 0; i < e.Nodes.Count; i++)
                 {
-                    if (!IsGround(e.Nodes[i]) || symbol?.Pins[i].Hidden == true) continue;
+                    if (symbol?.Pins[i].Hidden == true) continue;
                     var (x, y) = Place(p, pins[i].X, pins[i].Y);
-                    var (groundInner, groundBox) = Drawing(Symbols.For("ground"));
-                    body.Append("<g transform=\"translate(").Append(N(x)).Append(' ').Append(N(y)).Append(")\">").Append(groundInner).Append("</g>\n");
-                    bounds.Add((x + groundBox.X, y + groundBox.Y));
-                    bounds.Add((x + groundBox.X + groundBox.W, y + groundBox.Y + groundBox.H));
+                    // NOTE: A ground net or a supply net has a symbol at each pin, not a wire. A rail element on the pin is that symbol.
+                    if (IsGround(e.Nodes[i]))
+                    {
+                        PinSymbol(body, bounds, "ground", false, x, y);
+                    }
+                    else if (rails.TryGetValue(e.Nodes[i], out var volts) && !railPins.Contains((Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0)))
+                    {
+                        var down = volts.StartsWith('-');
+                        PinSymbol(body, bounds, "rail", down, x, y);
+                        Label(labels, bounds, x, down ? y + SymbolLength + LabelGap + FontSize : y - SymbolLength - LabelGap, volts);
+                    }
                 }
             }
 
             bounds.Add(part);
-            var labelX = (part.MinX + part.MaxX) / 2;
-            var top = e.Kind == "rail" ? e.Value : e.Reference;
-            var bottom = e.Kind == "rail" ? "" : e.Value;
-            Label(labels, bounds, labelX, part.MinY - LabelGap, top);
-            if (bottom.Length > 0) Label(labels, bounds, labelX, part.MaxY + LabelGap + FontSize, bottom);
+            if (e.Kind == "rail")
+            {
+                // The value is at the far end of the stem.
+                Label(labels, bounds, (part.MinX + part.MaxX) / 2, p.Flip ? part.MaxY + LabelGap + FontSize : part.MinY - LabelGap, e.Value);
+            }
+            else if (Norm(p.Rotation) is 90 or 270)
+            {
+                // A vertical part has its labels beside it, so a wire at its pins does not cross them.
+                var middle = (part.MinY + part.MaxY) / 2;
+                Label(labels, bounds, part.MaxX + LabelGap, middle - LabelGap / 2, e.Reference, start: true);
+                if (e.Value.Length > 0) Label(labels, bounds, part.MaxX + LabelGap, middle + FontSize, e.Value, start: true);
+            }
+            else
+            {
+                // NOTE: A pin at the top or bottom centre has a lead and a symbol. The label goes beside them.
+                var pinsAt = Pins(e, p).Where(x => !x.Hidden).Select(x => x.At).ToList();
+                var middle = (part.MinX + part.MaxX) / 2;
+                double Beside(double edge) => pinsAt.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - middle) < 15).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
+                var top = Beside(part.MinY);
+                var bottom = Beside(part.MaxY);
+                Label(labels, bounds, double.IsNaN(top) ? middle : top, part.MinY - LabelGap, e.Reference, end: !double.IsNaN(top));
+                if (e.Value.Length > 0) Label(labels, bounds, double.IsNaN(bottom) ? middle : bottom, part.MaxY + LabelGap + FontSize, e.Value, end: !double.IsNaN(bottom));
+            }
         }
 
         foreach (var w in layout.Wires)
@@ -294,11 +324,21 @@ public static class SchematicRenderer
         return transform;
     }
 
-    static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text)
+    static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text, bool start = false, bool end = false)
     {
-        bounds.Add((x, y - FontSize));
-        bounds.Add((x, y));
-        labels.Append("<text x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append("\">").Append(Escape(text)).Append("</text>\n");
+        bounds.Add((x - (end ? text.Length * FontSize * 0.6 : 0), y - FontSize));
+        bounds.Add((x + (start ? text.Length * FontSize * 0.6 : 0), y));
+        labels.Append("<text x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"').Append(start ? " text-anchor=\"start\"" : end ? " text-anchor=\"end\"" : "").Append('>').Append(Escape(text)).Append("</text>\n");
+    }
+
+    // A ground symbol hangs below a pin. A rail symbol stands above it, or hangs below it when down.
+    static void PinSymbol(StringBuilder body, Bounds bounds, string kind, bool down, double x, double y)
+    {
+        var (inner, box) = Drawing(Symbols.For(kind));
+        body.Append("<g transform=\"translate(").Append(N(x)).Append(' ').Append(N(y)).Append(')').Append(down ? " scale(1 -1)" : "").Append("\">").Append(inner).Append("</g>\n");
+        var (y0, y1) = (down ? y - box.Y - box.H : y + box.Y, down ? y - box.Y : y + box.Y + box.H);
+        bounds.Add((x + box.X, y0));
+        bounds.Add((x + box.X + box.W, y1));
     }
 
     static string Document(Bounds bounds, StringBuilder body, StringBuilder labels)
