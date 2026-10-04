@@ -30,7 +30,7 @@ public class EditorPageTests : BunitContext
             .ToList();
         // NOTE: Vout = 1 V * 2k / (1k + 2k). Node 0 is ground and is not in the table.
         Assert.Equal(
-            [["in", "1 V"], ["out", "0.6667 V"]],
+            [["in", "1 V"], ["out", "667 mV"]],
             rows);
     }
 
@@ -85,7 +85,10 @@ public class EditorPageTests : BunitContext
 
         page.Find("textarea").Input(netlist);
 
-        var href = page.Find("a.share").GetAttribute("href")!;
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        page.Find("button.share").Click();
+
+        var href = Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri;
         Assert.Equal(netlist, ShareCodec.Decode(href[(href.IndexOf('#') + 1)..]));
     }
 

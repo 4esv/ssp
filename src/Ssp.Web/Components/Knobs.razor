@@ -6,6 +6,7 @@
 {
     <section class="knobs">
         <h2>Knobs</h2>
+        <p class="panel-hint">Move a slider to change the part. The circuit runs again.</p>
         @for (var i = 0; i < knobs.Count; i++)
         {
             var index = i;
@@ -18,6 +19,10 @@
             </label>
         }
     </section>
+}
+else
+{
+    <p class="panel-hint">No knobs. Add a line like "* ssp:knob RV1 log 0.5" to the netlist to get a slider for a pot.</p>
 }
 
 @code {

@@ -1,5 +1,5 @@
 @page "/editor"
-@using System.Globalization
+@using Microsoft.JSInterop
 @using Ssp.Core
 @using Ssp.Core.Analysis
 @using Ssp.Core.Netlist
@@ -10,16 +10,32 @@
 @using LayoutDoc = Ssp.Core.Layout.Layout
 @inject ISimulationHost Host
 @inject NavigationManager Nav
+@inject IJSRuntime Js
 
 <PageTitle>ssp editor</PageTitle>
 
 <h1>Editor</h1>
 
-<button class="run" @onclick="Run" disabled="@running">Run</button>
-<button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
-<button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
-<a class="share" href="@ShareHref">Share link</a>
-<SchematicExport Netlist="@netlist" />
+<div class="editor" @onkeydown="Hotkey">
+<div class="toolbar" role="toolbar" aria-label="Editor actions">
+    <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
+    <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
+    <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
+    <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
+    <SchematicExport Netlist="@netlist" />
+    <span class="toolbar-hint">Run: Ctrl+Enter or Cmd+Enter</span>
+    <span class="toolbar-status" role="status">@toolbarStatus</span>
+</div>
+
+@if (RunErrors().ToList() is { Count: > 0 } errors)
+{
+    <ul class="run-errors" role="alert">
+        @foreach (var d in errors)
+        {
+            <li class="error">The run stopped. @d.Message@(d.Line is int line ? $" (netlist line {line})" : "")</li>
+        }
+    </ul>
+}
 
 <DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor">
     <DockPanel Id="text" Title="Netlist">
@@ -43,6 +59,11 @@
     </DockPanel>
 
     <DockPanel Id="results" Title="Results">
+        @if (shareError is null && result is null)
+        {
+            <p class="panel-hint">Press Run to solve the circuit. Diagnostics and node voltages show here.</p>
+        }
+
         @if (shareError is not null)
         {
             <ul class="diagnostics">
@@ -58,6 +79,11 @@
                     <li class="@Class(d.Severity)">@d.Severity@(d.Line is int line ? $" (line {line})" : ""): @d.Message</li>
                 }
             </ul>
+
+            @if (result.OperatingPoint is null)
+            {
+                <p class="panel-hint">No node voltages. Fix the errors above, then press Run.</p>
+            }
 
             @if (result.OperatingPoint is { } op)
             {
@@ -75,6 +101,15 @@
     </DockPanel>
 
     <DockPanel Id="plots" Title="Plots">
+        @if (result is null)
+        {
+            <p class="panel-hint">Run to plot. Frequency response, impedance and noise show here.</p>
+        }
+        else if (result.FrequencyResponse is null && result.Impedance is null && result.Noise is null)
+        {
+            <p class="panel-hint">This run gave no plots. Fix the errors in Results, then press Run.</p>
+        }
+
         @if (result is not null)
         {
             @if (result.FrequencyResponse is { } ac)
@@ -120,6 +155,7 @@
         <VirtualAmp />
     </DockPanel>
 </DockLayout>
+</div>
 
 @code {
     // NOTE: Node 0 is the ground reference. It is always 0 V, so the table leaves it out.
@@ -132,13 +168,39 @@
     ClipPlayer? clipPlayer;
     RunResult? result;
     Diagnostic? shareError;
+    string toolbarStatus = "";
 
     // NOTE: The netlist and the schematic are side by side. The panels under them are tabs.
     static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
     [
-        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare", "clip", "monitor", "amp"])], [0.55, 0.45]),
-        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc"])], [0.55, 0.45]),
+        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare", "clip"])], [0.55, 0.45]),
+        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc", "monitor", "amp"])], [0.55, 0.45]),
     ]));
+
+    IEnumerable<Diagnostic> RunErrors() => result?.Diagnostics.Where(d => d.Severity == Severity.Error) ?? [];
+
+    async Task Hotkey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey) && !running)
+        {
+            await Run();
+        }
+    }
+
+    // NOTE: The address bar takes the link so it survives a clipboard that the browser denies.
+    async Task Share()
+    {
+        Nav.NavigateTo(ShareHref);
+        try
+        {
+            await Js.InvokeVoidAsync("navigator.clipboard.writeText", Nav.ToAbsoluteUri(ShareHref).ToString());
+            toolbarStatus = "Link copied.";
+        }
+        catch (JSException)
+        {
+            toolbarStatus = "Copy the link from the address bar.";
+        }
+    }
 
     string ShareHref => "editor#" + ShareCodec.Encode(netlist);
 
@@ -181,6 +243,7 @@
     async Task Analyse()
     {
         shareError = null;
+        toolbarStatus = "";
         running = true;
         result = await Host.Run(netlist, new RunOptions());
         running = false;
@@ -229,7 +292,7 @@
 
     static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
 
-    static string Volts(double value) => value.ToString("G4", CultureInfo.InvariantCulture) + " V";
+    static string Volts(double value) => Eng.Format(value, "V");
 
     static IReadOnlyDictionary<string, IReadOnlyList<double>> WithoutGround(IReadOnlyDictionary<string, IReadOnlyList<double>> series) =>
         series.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal).ToDictionary(kv => kv.Key, kv => kv.Value);

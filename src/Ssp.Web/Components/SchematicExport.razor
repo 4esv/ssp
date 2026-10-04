@@ -1,13 +1,21 @@
 @using System.Text
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
 
 @if (SchematicView.Svg(Netlist) is { } svg)
 {
-    @* NOTE: A data URL needs no script and no server. The file is the same SVG that the schematic shows. *@
-    <a class="svg-download" download="schematic.svg" href="@DataUrl(svg)">Download SVG</a>
+    @* NOTE: The file is the same SVG that the schematic shows. A data URL needs no server. *@
+    <button type="button" class="svg-download" title="Save the schematic as an SVG file" @onclick="() => Download(svg)">Download SVG</button>
 }
 
 @code {
     [Parameter] public string Netlist { get; set; } = "";
+
+    async Task Download(string svg)
+    {
+        await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
+        await module.InvokeVoidAsync("save", "schematic.svg", DataUrl(svg));
+    }
 
     static string DataUrl(string svg) => "data:image/svg+xml;base64," + Convert.ToBase64String(Encoding.UTF8.GetBytes(svg));
 }
