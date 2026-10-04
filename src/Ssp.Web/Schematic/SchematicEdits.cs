@@ -21,41 +21,108 @@ public static partial class SchematicEdits
     const int ColumnStep = 140;
     const int Row = 30;
 
-    /// <summary>The kinds that <see cref="Place"/> can add: the reference prefix and the default value.</summary>
+    /// <summary>
+    /// The kinds that <see cref="Place"/> can add: the reference prefix and the default value. The value of a diode, LED
+    /// or transistor is its model name. The value of a pot is its total resistance. A jack and a signal source have none.
+    /// </summary>
     public static readonly IReadOnlyDictionary<string, (string Prefix, string Value)> Kinds = new Dictionary<string, (string, string)>(StringComparer.Ordinal)
     {
         ["resistor"] = ("R", "10k"),
         ["capacitor"] = ("C", "100n"),
+        ["npn"] = ("Q", "QNPN"),
+        ["pnp"] = ("Q", "QPNP"),
+        ["diode"] = ("D", "DGEN"),
+        ["led"] = ("D", "LED_RED"),
+        ["pot"] = ("RV", "10k"),
+        ["battery"] = ("V", "9"),
+        ["source"] = ("V", ""),
+        ["jack-in"] = ("R", "1m"),
+        ["jack-out"] = ("R", "1m"),
+    };
+
+    // The .model line that a kind needs, by model name.
+    static readonly Dictionary<string, string> Models = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["QNPN"] = ".model QNPN NPN (IS=1e-14 BF=200)",
+        ["QPNP"] = ".model QPNP PNP (IS=1e-14 BF=100)",
+        ["DGEN"] = ".model DGEN D (IS=1e-14 N=1.9)",
+        ["LED_RED"] = ".model LED_RED D(Is=4.2555e-19 N=2)",
     };
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
 
     /// <summary>
-    /// Adds a two-pin part with a new reference and two new nodes. The layout places it one column to the right of
+    /// Adds a part with a new reference and a new node for each pin. A battery has its minus pin on node 0 and a
+    /// transistor has its substrate on node 0. A jack has its outer pin on the node <c>in</c> or <c>out</c>, and adds the
+    /// <c>ssp:input</c> or <c>ssp:output</c> directive if the netlist has none. A pot adds a <c>ssp:knob</c> line, a diode,
+    /// LED or transistor adds its <c>.model</c> line if missing. The layout places the part one column to the right of
     /// the other parts. With no value the part gets the default value of its kind.
     /// </summary>
     public static SchematicChange Place(string netlist, LayoutDoc layout, string kind, string? value = null)
     {
         var (prefix, fallback) = Kinds[kind];
+        if (kind == "pot" && value is not null) throw new ArgumentException("A pot has the default value.", nameof(value));
         value ??= fallback;
         var circuit = NetlistLoader.Load(netlist);
-        var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).ToHashSet(Names);
+        // NOTE: A pot P is the two resistors P_1 and P_2. Its reference is P.
+        var references = circuit.Circuit.Select(e => Pair().Replace(e.Name.Split('.')[0], "")).ToHashSet(Names);
         var reference = Fresh(prefix, references);
         var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
-        var a = Fresh("n", nodes);
-        nodes.Add(a);
-        var b = Fresh("n", nodes);
+        string Node()
+        {
+            var node = Fresh("n", nodes);
+            nodes.Add(node);
+            return node;
+        }
+
+        var added = new List<string>();
+        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" ? value : null;
+        switch (kind)
+        {
+            case "npn" or "pnp":
+                added.Add($"{reference} {Node()} {Node()} {Node()} {Zero} {value}");
+                break;
+            case "diode" or "led":
+                added.Add($"{reference} {Node()} {Node()} {value}");
+                break;
+            case "pot":
+                var (top, wiper, bottom) = (Node(), Node(), Node());
+                added.Add($"{reference}_1 {top} {wiper} 5k");
+                added.Add($"{reference}_2 {wiper} {bottom} 5k");
+                added.Add($"* ssp:knob {reference} linear 0.5");
+                break;
+            case "battery":
+                added.Add($"{reference} {Node()} {Zero} DC {value}");
+                break;
+            case "source":
+                added.Add($"{reference} {Node()} {Node()} DC 0 AC 1 SINE(0 1 1k)");
+                break;
+            case "jack-in" or "jack-out":
+                var (label, directive) = kind == "jack-in" ? ("in", "input") : ("out", "output");
+                added.Add($"{reference} {(kind == "jack-in" ? $"{label} {Node()}" : $"{Node()} {label}")} {value}");
+                if (!HasDirective(netlist, directive)) added.Add($"* ssp:{directive} {label}");
+                break;
+            default:
+                added.Add($"{reference} {Node()} {Node()} {value}");
+                break;
+        }
 
         var lines = Lines(netlist);
         // NOTE: The first line of a netlist is its title. A part on it is not read.
         if (lines.Count == 0) lines.Add("* schematic");
         var end = lines.FindIndex(1, l => l.Trim().Equals(".end", StringComparison.OrdinalIgnoreCase));
-        lines.Insert(end < 0 ? lines.Count : end, $"{reference} {a} {b} {value}");
+        if (model is not null && !lines.Any(l => ModelLine(model).IsMatch(l))) added.Insert(0, Models[model]);
+        lines.InsertRange(end < 0 ? lines.Count : end, added);
 
         var x = layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep;
-        var parts = layout.Parts.Append(new PartPlacement(reference, x, Row, 0, false)).ToList();
+        var parts = layout.Parts.Append(new PartPlacement(kind == "pot" ? reference + "_1" : reference, x, Row, 0, false)).ToList();
         return new SchematicChange(Join(lines), new LayoutDoc(parts, layout.Wires));
     }
+
+    static bool HasDirective(string netlist, string name) =>
+        Lines(netlist).Any(l => Regex.IsMatch(l, $@"^\s*\*\s*ssp:{name}\b", RegexOptions.IgnoreCase));
+
+    static Regex ModelLine(string name) => new($@"^\s*\.model\s+{Regex.Escape(name)}\b", RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Joins the nodes of two pins. The joined node is node 0 if one of the pins is on it, else the node of the first pin.
@@ -112,8 +179,14 @@ public static partial class SchematicEdits
     /// <summary>The node and schematic position of a pin.</summary>
     public static (string Node, Point Position) Pin(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, PinRef pin)
     {
-        var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, pin.Reference));
+        // NOTE: A pot P is the resistors P_1 and P_2. The layout places it as P_1. Its pins are the top, the wiper and the bottom.
+        if (SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => e.Kind == "pot" && Names.Equals(e.Reference, pin.Reference)) is { } pot)
+        {
+            var at = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference) || Names.Equals(p.Reference, pot.Members[0]));
+            return (pot.Nodes[pin.Pin], SchematicRenderer.PotPins(at)[pin.Pin]);
+        }
         var placement = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference));
+        var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, pin.Reference));
         var positions = SchematicRenderer.Pins(component, placement, parts.Parts.GetValueOrDefault(component.Name));
         return (component.Nodes[pin.Pin], positions[pin.Pin]);
     }
@@ -264,6 +337,9 @@ public static partial class SchematicEdits
 
     [GeneratedRegex(@"(\s+)")]
     private static partial Regex Words();
+
+    [GeneratedRegex(@"_[12]$")]
+    private static partial Regex Pair();
 
     [GeneratedRegex(@"^[A-Za-z]+")]
     private static partial Regex Prefix();
