@@ -23,7 +23,16 @@ public static partial class WorkerExports
     [JSExport]
     [SupportedOSPlatform("browser")]
     public static string Render(string netlist, double[] input, int sampleRate, int oversample) =>
-        RenderJson(netlist, input, sampleRate, oversample);
+        RenderJson(netlist, input, sampleRate, oversample, done => Progress(done / (double)sampleRate));
+
+    [JSExport]
+    [SupportedOSPlatform("browser")]
+    public static string Convolve(double[] samples, double[] ir) => SamplesJson(Convolution.Convolve(samples, ir));
+
+    /// <summary>Tells the worker script the seconds of audio done. The script posts it to the page.</summary>
+    [JSImport("progress", "worker")]
+    [SupportedOSPlatform("browser")]
+    static partial void Progress(double seconds);
 
     [JSExport]
     [SupportedOSPlatform("browser")]
@@ -78,7 +87,7 @@ public static partial class WorkerExports
     }
 
     /// <summary>Renders the input through the circuit and writes the output samples as a JSON array of numbers.</summary>
-    public static string RenderJson(string netlist, double[] input, int sampleRate, int oversample) =>
+    public static string RenderJson(string netlist, double[] input, int sampleRate, int oversample, Action<int>? progress = null) =>
         Write(w =>
         {
             w.WriteStartArray();
@@ -86,7 +95,27 @@ public static partial class WorkerExports
 
             // NOTE: The knob directives set the pot parts, as in Runner.Run. A knob change then changes the output.
             Pot.Apply(circuit);
-            foreach (var sample in Analyses.Render(circuit, input, sampleRate, oversample))
+            foreach (var sample in Analyses.Render(circuit, input, sampleRate, oversample, progress))
+            {
+                if (double.IsFinite(sample))
+                {
+                    w.WriteNumberValue(sample);
+                }
+                else
+                {
+                    w.WriteNullValue();
+                }
+            }
+
+            w.WriteEndArray();
+        });
+
+    /// <summary>Writes the samples as a JSON array of numbers. A sample that is not finite is null.</summary>
+    public static string SamplesJson(double[] samples) =>
+        Write(w =>
+        {
+            w.WriteStartArray();
+            foreach (var sample in samples)
             {
                 if (double.IsFinite(sample))
                 {
