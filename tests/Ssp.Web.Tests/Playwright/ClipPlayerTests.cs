@@ -12,9 +12,9 @@ namespace Ssp.Web.Tests.Playwright;
 [Collection(PlaywrightCollection.Name)]
 public class ClipPlayerTests(ITestOutputHelper output)
 {
-    const int UploadFrames = 11_025;
-    const int UploadRate = 44_100;
-    const string Output = "() => globalThis.sspClipBuffer ? { length: globalThis.sspClipBuffer.length, rate: globalThis.sspClipBuffer.sampleRate } : null";
+    internal const int UploadFrames = 11_025;
+    internal const int UploadRate = 44_100;
+    internal const string Output = "() => globalThis.sspClipBuffer ? { length: globalThis.sspClipBuffer.length, rate: globalThis.sspClipBuffer.sampleRate } : null";
 
     static int CabFrames => Wav.Read(File.OpenRead(Path.Combine(RepoPaths.Root, "models", "ir", "cab-1x12.wav"))).Channels[0].Length;
 
@@ -41,13 +41,13 @@ public class ClipPlayerTests(ITestOutputHelper output)
         await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
 
-        await session.Page.Locator(".clip-player input[type=file]").SetInputFilesAsync(new FilePayload
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
         {
             Name = "sine.wav",
             MimeType = "audio/wav",
             Buffer = Sine(),
         });
-        await session.Page.Locator(".clip-player button.clip-play").ClickAsync();
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player button.clip-play").ClickAsync();
         await session.Page.WaitForFunctionAsync("() => globalThis.sspClipBuffer", null, new() { Timeout = 180_000 });
 
         var buffer = await session.Page.EvaluateAsync<JsonElement>(Output);
@@ -61,17 +61,17 @@ public class ClipPlayerTests(ITestOutputHelper output)
         await using var session = await Session.Start(output);
         await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
-        await session.Page.Locator(".clip-player input[type=file]").SetInputFilesAsync(new FilePayload
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
         {
             Name = "sine.wav",
             MimeType = "audio/wav",
             Buffer = Sine(),
         });
-        await session.Page.Locator(".clip-player button.clip-play").ClickAsync();
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player button.clip-play").ClickAsync();
         await session.Page.WaitForFunctionAsync("() => globalThis.sspClipBuffer", null, new() { Timeout = 180_000 });
 
         var download = await session.Page.RunAndWaitForDownloadAsync(
-            () => session.Page.Locator(".clip-player .clip-download").ClickAsync());
+            () => session.Page.Locator(".dock-panel[data-panel=clip] .clip-player .clip-download").ClickAsync());
         var path = await download.PathAsync();
         var wav = Wav.Read(File.OpenRead(path!));
 
@@ -83,7 +83,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
 
     static string Clipper => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", "clipper-bjt-si.cir"));
 
-    static byte[] Sine()
+    internal static byte[] Sine()
     {
         var samples = new double[UploadFrames];
         for (var i = 0; i < samples.Length; i++) samples[i] = 0.3 * Math.Sin(2 * Math.PI * 440 * i / UploadRate);
@@ -92,7 +92,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
         return stream.ToArray();
     }
 
-    sealed class Session : IAsyncDisposable
+    internal sealed class Session : IAsyncDisposable
     {
         readonly IPlaywright playwright;
         readonly IBrowser browser;
