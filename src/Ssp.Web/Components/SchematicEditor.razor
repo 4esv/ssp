@@ -30,6 +30,15 @@
         </div>
     </div>
     <p class="schematic-hint" role="status">@Hint()</p>
+    @if (HintsLeft().Any())
+    {
+        <ul class="first-run-hints" aria-label="First steps">
+            @foreach (var (id, text) in HintsLeft())
+            {
+                <li data-hint="@id">@text</li>
+            }
+        </ul>
+    }
     @if (problems.Count > 0)
     {
         <ul class="problems" aria-label="Problems">
@@ -175,6 +184,18 @@
 @code {
     enum Tool { Wire, Ground }
 
+    const string HintsKey = "ssp.hints";
+
+    static readonly (string Id, string Text)[] FirstRun =
+    [
+        ("place", "Tap a part in the palette to add it."),
+        ("pin", "Tap a pin to see where to go."),
+        ("select", "Tap a part to move, flip or delete it."),
+    ];
+
+    // The hints done so far. They are kept in localStorage, so a done hint stays gone.
+    readonly HashSet<string> dismissed = [];
+
     sealed record PinView(PinRef Ref, string Node, Point Position);
     sealed record JackView(Point At, string Label);
 
@@ -271,6 +292,8 @@
     bool moveMoved;
 
     // NOTE: The editor keeps its own copy, so a parent that does not pass the change back still sees each edit.
+    protected override async Task OnInitializedAsync() => await LoadHints();
+
     protected override void OnParametersSet()
     {
         if (Netlist == seenNetlist && ReferenceEquals(Layout, seenLayout)) return;
@@ -479,6 +502,7 @@
     async Task PaletteAdd(string kind)
     {
         if (hasErrors) return;
+        _ = Done("place");
         if (kind is "jack-in" or "jack-out")
         {
             if (active is { } pin && parts is not null)
@@ -535,6 +559,7 @@
     void Activate(Spot spot)
     {
         if (panMoved || parts is null) return;
+        _ = Done("pin");
         (selected, selectedWire) = (null, null);
         ClearActive();
         active = spot;
@@ -672,6 +697,7 @@
 
     async Task Place(string kind)
     {
+        _ = Done("place");
         var change = SchematicEdits.Place(netlist, layout, kind);
         await Apply(change);
         // NOTE: Place puts the new part last in the layout.
@@ -821,6 +847,7 @@
 
     void SelectPart(string reference)
     {
+        _ = Done("select");
         ClearActive();
         (selected, selectedWire) = (reference, null);
     }
@@ -1025,6 +1052,34 @@
         given = change.Layout;
         Build();
         await Changed.InvokeAsync(change);
+    }
+
+    IEnumerable<(string Id, string Text)> HintsLeft() => FirstRun.Where(h => !dismissed.Contains(h.Id));
+
+    async Task LoadHints()
+    {
+        try
+        {
+            var saved = await Js.InvokeAsync<string?>("localStorage.getItem", HintsKey);
+            foreach (var id in (saved ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)) dismissed.Add(id);
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The hints then show again after a reload.
+        }
+    }
+
+    async Task Done(string id)
+    {
+        if (!dismissed.Add(id)) return;
+        try
+        {
+            await Js.InvokeVoidAsync("localStorage.setItem", HintsKey, string.Join(',', dismissed.Order(StringComparer.Ordinal)));
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or full. The hint then shows again after a reload.
+        }
     }
 
     string Pressed(Tool t) => t == tool ? "true" : "false";
