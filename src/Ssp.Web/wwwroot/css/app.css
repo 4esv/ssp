@@ -651,7 +651,7 @@ h1[tabindex="-1"]:focus-visible {
     position: absolute;
     left: 0.5rem;
     right: 0.5rem;
-    bottom: 0.5rem;
+    top: 3.5rem;
     z-index: 2;
     display: flex;
     flex-wrap: wrap;
