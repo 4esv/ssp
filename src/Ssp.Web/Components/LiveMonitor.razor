@@ -13,7 +13,7 @@
     <button type="button" class="monitor-stop" @onclick="Stop" disabled="@(!running)">Stop monitor</button>
 
     <p class="monitor-latency">Latency: @(latency is { } ms ? ms.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) : "–") ms</p>
-    <p class="monitor-dropped">Dropped chunks: @dropped</p>
+    <p class="monitor-dropped">Dropped chunks: @(dropped + failed)</p>
     <p class="monitor-status" role="status">@status</p>
 </section>
 
@@ -28,7 +28,14 @@
     bool starting;
     double? latency;
     long dropped;
+    long failed;
+    int failedInRow;
+    int rate;
+    string? firstError;
     string status = "";
+
+    // NOTE: A failed chunk is silence, and the session restarts from the operating point. The monitor stops after this many in a row.
+    const int MaxFailedInRow = 20;
 
     async Task Start()
     {
@@ -44,14 +51,15 @@
         try
         {
             module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/live-monitor.js");
-            var rate = await module.InvokeAsync<int>("open");
+            rate = await module.InvokeAsync<int>("open");
             await monitor.MonitorStart(Netlist, rate);
             self = DotNetObjectReference.Create(this);
             await module.InvokeVoidAsync("begin", self, MonitorSession.ChunkSamples);
             running = true;
             latency = null;
-            dropped = 0;
-            status = $"Running at {rate} Hz, {MonitorSession.ChunkSamples} samples a chunk. Use headphones.";
+            dropped = failed = failedInRow = 0;
+            firstError = null;
+            status = RunningStatus();
         }
         catch (Exception e)
         {
@@ -88,9 +96,60 @@
         self = null;
     }
 
-    /// <summary>Called from live-monitor.js with one input chunk. Returns the output chunk.</summary>
+    string RunningStatus() =>
+        $"Running at {rate} Hz, {MonitorSession.ChunkSamples} samples a chunk. Use headphones."
+        + (failed > 0 ? $" Dropped {failed} chunks. First error: {firstError}" : "");
+
+    async Task StopWith(string message)
+    {
+        await Stop();
+        status = $"The monitor stopped: {message.TrimEnd('.')}. Press Start to try again.";
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Called from live-monitor.js with one input chunk. Returns the output chunk. A chunk that fails is silence and
+    /// counts as dropped. The solver state after a failed step is dead, so the session restarts from the operating point.
+    /// </summary>
     [JSInvokable]
-    public async Task<double[]> Process(double[] chunk) => await monitor!.MonitorProcess(chunk);
+    public async Task<double[]> Process(double[] chunk)
+    {
+        try
+        {
+            var output = await monitor!.MonitorProcess(chunk);
+            failedInRow = 0;
+            return output;
+        }
+        catch (Exception e) when (running)
+        {
+            failed++;
+            failedInRow++;
+            firstError ??= e.Message;
+            if (failedInRow >= MaxFailedInRow)
+            {
+                await StopWith(e.Message);
+                return new double[chunk.Length];
+            }
+
+            try
+            {
+                await monitor!.MonitorStop();
+                await monitor.MonitorStart(Netlist, rate);
+                status = RunningStatus();
+                StateHasChanged();
+            }
+            catch (Exception restart)
+            {
+                await StopWith(restart.Message);
+            }
+
+            return new double[chunk.Length];
+        }
+    }
+
+    /// <summary>Called from live-monitor.js when a call to <see cref="Process"/> fails in the interop. The monitor stops.</summary>
+    [JSInvokable]
+    public Task Fail(string message) => running ? StopWith(message) : Task.CompletedTask;
 
     /// <summary>Called from live-monitor.js after each chunk plays.</summary>
     [JSInvokable]

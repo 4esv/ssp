@@ -39,27 +39,18 @@ public class LiveMonitorTests(ITestOutputHelper output)
             var watch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                // NOTE: live-monitor.js stops for good when a Process call fails, and it shows nothing. On CI a solver error on
-                // the first chunks made the test wait 180 s for an output that did not come (#225). The worker runs when the
-                // status says "Running at", and a chunk then takes milliseconds. So an output that does not grow for 5 s
-                // means a stopped monitor, and the test stops waiting.
+                // NOTE: A failed chunk is silence and the session restarts (#234). After 20 failed chunks in a row the monitor
+                // stops and says so, and the test stops waiting then.
                 var end = await session.Page.WaitForFunctionAsync(
                     """
                     () => {
                         const o = globalThis.sspMonitorOutput;
                         if (o && o.nonzero > 0) return 'output';
-                        const running = [...document.querySelectorAll('.live-monitor p')].some(p => p.textContent.startsWith('Running at'));
-                        if (!o || !running) return false;
-                        const now = performance.now();
-                        if (globalThis.sspLength !== o.length) {
-                            globalThis.sspLength = o.length;
-                            globalThis.sspChanged = now;
-                        }
-                        return now - globalThis.sspChanged > 5000 ? 'stopped' : false;
+                        const status = document.querySelector('.live-monitor .monitor-status')?.textContent ?? '';
+                        return status.startsWith('The monitor stopped') ? 'stopped' : false;
                     }
                     """, null, new() { Timeout = 180_000, PollingInterval = 100 });
-                Assert.True(await end.JsonValueAsync<string>() == "output",
-                    "The monitor stopped before it gave a non-zero output. A Process call failed, and live-monitor.js stops then.");
+                Assert.True(await end.JsonValueAsync<string>() == "output", "The monitor stopped before it gave a non-zero output.");
             }
             finally
             {
