@@ -6,6 +6,7 @@
 * license: MIT
 * schematic
 * ssp:input in
+V1 in 0 DC 0 AC 1 SINE(0 0.05 220)
 C1 in n4 100n
 .model QNPN NPN (IS=1e-14 BF=200)
 Q1 n3 n4 n6 0 QNPN
