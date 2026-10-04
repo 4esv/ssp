@@ -20,10 +20,11 @@ Rid inp inn 1E+12
 Bgm 0 x I={0.00121261*tanh(0.002*V(inp,inn)/0.00121261)}
 Rp x 0 1E+08
 Cc x 0 6.06305E-11
-Bclamp x 0 I={0.00121261*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bclamp x 0 I={0.000606305*(sqrt((V(x)-V(vcc))*(V(x)-V(vcc))+0.000001)-sqrt((V(x)-V(vee))*(V(x)-V(vee))+0.000001)+V(x)-V(vcc)+V(x)-V(vee))}
 Bo o 0 V={V(x)}
 Rout o out 200
-Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))+V(vcc)-1.5-sqrt(((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))*((0.5*(V(out)+V(vee)+1.5+sqrt((V(out)-(V(vee)+1.5))*(V(out)-(V(vee)+1.5))+0.000001)))-(V(vcc)-1.5))+0.000001))))}
+Blo lo 0 V={V(vee)+1.5-0.5*(V(vee)-V(vcc)+3+sqrt((V(vee)-V(vcc)+3)*(V(vee)-V(vcc)+3)+0.000001))}
+Bout out 0 I={50*(sqrt((V(out)-V(vcc)+1.5)*(V(out)-V(vcc)+1.5)+0.000001)-sqrt((V(out)-V(lo))*(V(out)-V(lo))+0.000001)+V(out)-V(vcc)+1.5+V(out)-V(lo))}
 .ends TL072
 
 * provenance: generic 5 mm LED family typical Vf at IF = 10 mA, no single datasheet; values are UNVERIFIED against a manufacturer sheet (Kingbright WP7113 series is the nearest published family)

@@ -8,6 +8,8 @@ namespace Ssp.Core.Parts;
 /// A transconductance stage drives a resistor and a capacitor. The resistor sets the DC gain and the capacitor sets the gain-bandwidth product.
 /// The stage current is limited with tanh, so the capacitor charges at the slew rate at most.
 /// A clamp keeps the internal node inside the supply rails. The output stops <see cref="RailDrop"/> volts short of each rail.
+/// The low output limit is a node. It stops at the high limit when the rails are closer than two rail drops,
+/// as in the first steps of the source stepping of the operating point. A low limit above the high limit stops the solver from converging.
 /// </summary>
 /// <param name="Gain">Open-loop DC voltage gain, in V/V.</param>
 /// <param name="Gbw">Gain-bandwidth product, in Hz.</param>
@@ -64,20 +66,23 @@ public sealed record OpAmpModel(
         text.Append($"Bgm 0 x I={{{Num(imax)}*tanh({Num(gm)}*V(inp,inn)/{Num(imax)})}}\n");
         text.Append($"Rp x 0 {Num(StageResistance)}\n");
         text.Append($"Cc x 0 {Num(cc)}\n");
-        text.Append($"Bclamp x 0 I={{{Num(clamp)}*(V(x)-{Clamp("V(x)", "V(vee)", "V(vcc)")})}}\n");
+        text.Append($"Bclamp x 0 I={{{Num(0.5 * clamp)}*{Excess("V(x)-V(vcc)", "V(x)-V(vee)")}}}\n");
         text.Append("Bo o 0 V={V(x)}\n");
         text.Append($"Rout o out {Num(OutputResistance)}\n");
-        text.Append($"Bout out 0 I={{{Num(OutputClampConductance)}*(V(out)-{Clamp("V(out)", $"V(vee)+{Num(RailDrop)}", $"V(vcc)-{Num(RailDrop)}")})}}\n");
+        var crossing = $"V(vee)-V(vcc)+{Num(2 * RailDrop)}";
+        text.Append($"Blo lo 0 V={{V(vee)+{Num(RailDrop)}-0.5*({crossing}+sqrt(({crossing})*({crossing})+{Corner}))}}\n");
+        text.Append($"Bout out 0 I={{{Num(0.5 * OutputClampConductance)}*{Excess($"V(out)-V(vcc)+{Num(RailDrop)}", "V(out)-V(lo)")}}}\n");
         text.Append($".ends {name}\n");
         return text.ToString();
     }
 
-    // NOTE: a hard min/max stops the Newton solver from converging with a feedback loop. Use a clamp with a rounded corner of about 1 mV.
-    private static string Clamp(string value, string low, string high)
-    {
-        var raised = $"(0.5*({value}+{low}+sqrt(({value}-({low}))*({value}-({low}))+{Corner})))";
-        return $"(0.5*({raised}+{high}-sqrt(({raised}-({high}))*({raised}-({high}))+{Corner})))";
-    }
+    // Twice the distance of a value above the high limit or below the low limit, and 0 between them.
+    // The arguments are the value minus the high limit and the value minus the low limit.
+    // NOTE: a hard min/max stops the Newton solver from converging with a feedback loop. Each limit is a sqrt with a rounded corner of about 1 mV.
+    // PERF: one sqrt for each limit and no clamp inside a clamp. The engine loads the expression and its derivative to each node voltage
+    // in each Newton iteration, and the nested clamp made the derivatives large (#223).
+    private static string Excess(string aboveHigh, string aboveLow) =>
+        $"(sqrt(({aboveHigh})*({aboveHigh})+{Corner})-sqrt(({aboveLow})*({aboveLow})+{Corner})+{aboveHigh}+{aboveLow})";
 
     private static string Num(double value) => value.ToString("G6", CultureInfo.InvariantCulture);
 }
