@@ -2,16 +2,33 @@
 @using Ssp.Web.Library
 @using Ssp.Web.Sharing
 
-<PageTitle>ssp gallery</PageTitle>
-
-<h1>Gallery</h1>
+@if (!Embedded)
+{
+    <PageTitle>ssp gallery</PageTitle>
+    <h1>Gallery</h1>
+}
+else
+{
+    <h2>Starter circuits</h2>
+}
 
 <ul class="gallery">
     @foreach (var circuit in CircuitLibrary.All)
     {
         <li>
             <a href="@("editor#" + ShareCodec.Encode(circuit.Netlist))">@circuit.Title</a>
+            <figure class="preview" aria-hidden="true">
+                @if (SchematicView.Svg(circuit.Netlist) is { } svg)
+                {
+                    @((MarkupString)svg)
+                }
+            </figure>
             <span class="file">@circuit.FileName</span>
         </li>
     }
 </ul>
+
+@code {
+    /// <summary>True on the home page: the list shows under a smaller heading, and the page title stays.</summary>
+    [Parameter] public bool Embedded { get; set; }
+}
