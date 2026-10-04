@@ -289,7 +289,8 @@
 
     void PanMove(PointerEventArgs e)
     {
-        if (!touches.TryGetValue(e.PointerId, out var last) || moving is not null) return;
+        // NOTE: Until PanDown has made the view, the moves are lost.
+        if (view is null || !touches.TryGetValue(e.PointerId, out var last) || moving is not null) return;
         var now = new Point(e.ClientX, e.ClientY);
         var others = touches.Where(t => t.Key != e.PointerId).Select(t => t.Value).ToList();
         if (others.Count == 1)
