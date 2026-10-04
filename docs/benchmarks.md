@@ -233,6 +233,38 @@ The largest differences are in the fast edges of the gain stage. A change of `Tr
 
 The goal of 30 s in the browser is not met. At 140 µs for each iteration, 30 s is 214000 iterations, 2.4 for each sample. The fixed method alone takes 2.9 for each sample on this chain.
 
+## Cheaper op-amp clamps
+
+The TL072, LM308 and JRC4558 macro-models (`OpAmpModel`) had a soft max inside a soft min for each clamp. Each clamp now has one `sqrt` for each limit and no nested terms (#223).
+The low output limit is a node (`Blo`), so that the low limit does not go above the high limit in the source stepping of the operating point.
+The fit values of the provenance header do not change: DC gain, GBW, slew rate and rail drop stay within 1 % (`OpAmpCostTests`).
+
+Before is commit f6486869. Native, .NET 10, Release, Apple M-series Mac. The input is 0.5 s of `clip.wav` (samples 22050 to 44099), oversample 1.
+The clean chain is the preset amp: `gain-variable-tl072.cir`, `tone-baxandall-passive.cir`, `power-9v.cir`. The fuzz chain is `fuzz-drawn.cir` in front of the same chain.
+Load is `LoadTime` of `tran.Statistics` divided by the Newton iterations, the median of 15 runs. The linear row replaces the TL072 with a linear stage (no behavioral sources) and shows the Load of the rest of the chain.
+
+| Item | Before | After | Change |
+|---|---|---|---|
+| Expression nodes for each model, with the derivatives | 1209 | 447 | -63 % |
+| Clean chain, Load for each iteration | 1.82 µs | 1.20 µs | -34 % |
+| Clean chain, Load of the TL072 (minus the linear row, 0.63 µs) | 1.19 µs | 0.57 µs | -52 % |
+| Clean chain, Newton iterations | 44098 | 44098 | 0 |
+| Clean chain, render wall time | 107 ms | 80 ms | -25 % |
+| Fuzz chain, Load for each iteration | 2.26 µs | 1.64 µs | -27 % |
+| Fuzz chain, Newton iterations | 134008 | 133637 | -0.3 % |
+| Fuzz chain, render wall time | 452 ms | 357 ms | -21 % |
+
+The iterations for each sample do not change. The gain is in the cost of each Load. The browser was not measured.
+
+Output against before:
+
+| Chain | RMS difference | Largest difference | Crest factor before | Crest factor after |
+|---|---|---|---|---|
+| Clean | -263.6 dBFS | -251.8 dBFS | 3.962 | 3.962 |
+| Fuzz | -77.4 dBFS | -42.4 dBFS | 5.249 | 5.248 |
+
+The clean output is the same to the precision of the numbers. The fuzz output differs where the clamps conduct, because the rounded corners of the two clamp forms are not the same.
+
 ## Default clip of 1 s
 
 The bundled clip is cut from 2.0 s to 1.0 s (#222). The browser render time is proportional to the clip length.
