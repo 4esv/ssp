@@ -27,7 +27,7 @@ Status values: planned, in progress, done.
 | cli | `ssp run` | done |
 | cli | `ssp render` | done |
 | cli | `ssp sweep` | done |
-| cli | `ssp mcp` | planned |
+| cli | `ssp mcp` | done |
 | web | Simulation host interface | done |
 | web | Netlist editor, run, results | done |
 | web | Plots | done |
@@ -42,7 +42,7 @@ Status values: planned, in progress, done.
 | web | Knobs | done |
 | web | Multi-value compare | done |
 | core | Impulse response convolution | done |
-| web | Play a clip through the circuit | planned |
+| web | Play a clip through the circuit | done |
 | web | Live monitor | planned |
 | core | BOM export | done |
 | core | KiCad export | done |
