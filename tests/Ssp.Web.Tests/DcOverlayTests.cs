@@ -12,7 +12,7 @@ public class DcOverlayTests : BunitContext
 {
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
-    // NOTE: divider-basic has nodes in, out, and ground. in = 1 V, out = 0.6667 V.
+    // NOTE: divider-basic has nodes in, out, and ground. in = 1 V, out = 667 mV.
     static OpResult Divider() => Runner.Run(Fixture("divider-basic.cir"), new RunOptions()).OperatingPoint!;
 
     IRenderedComponent<DcOverlay> Overlay() => Render<DcOverlay>(p => p.Add(c => c.OperatingPoint, Divider()));
@@ -35,7 +35,7 @@ public class DcOverlayTests : BunitContext
         var overlay = Overlay();
         overlay.Find("input.dc-toggle").Change(true);
 
-        Assert.Equal(["1 V", "0.6667 V"], overlay.FindAll(".dc-label").Select(l => l.TextContent));
+        Assert.Equal(["1 V", "667 mV"], overlay.FindAll(".dc-label").Select(l => l.TextContent));
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class DcOverlayTests : BunitContext
 
         overlay.Find(".dc-node[data-node=out]").Click();
 
-        Assert.Equal("out: 0.6667 V", overlay.Find(".probe").TextContent);
+        Assert.Equal("out: 667 mV", overlay.Find(".probe").TextContent);
     }
 
     [Fact]

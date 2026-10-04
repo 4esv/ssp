@@ -29,10 +29,13 @@ public class SchematicExportTests : BunitContext
         var page = Render<Editor>();
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
 
-        var link = page.Find("a.svg-download");
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var save = JSInterop.SetupVoid("save", _ => true);
+        page.Find("button.svg-download").Click();
 
-        Assert.Equal("schematic.svg", link.GetAttribute("download"));
-        var file = FileContent(link.GetAttribute("href")!);
+        var call = Assert.Single(save.Invocations);
+        Assert.Equal("schematic.svg", call.Arguments[0]);
+        var file = FileContent((string)call.Arguments[1]!);
         Assert.Equal(SchematicView.Svg(Fixture("divider-basic.cir")), file);
         Assert.StartsWith("<svg xmlns=\"http://www.w3.org/2000/svg\"", file);
     }
@@ -42,7 +45,7 @@ public class SchematicExportTests : BunitContext
     {
         var export = Render<SchematicExport>(p => p.Add(c => c.Netlist, "R1 a\n.END\n"));
 
-        Assert.Empty(export.FindAll("a.svg-download"));
+        Assert.Empty(export.FindAll("button.svg-download"));
     }
 
     [PlaywrightFact]
@@ -60,7 +63,7 @@ public class SchematicExportTests : BunitContext
         await page.EvaluateAsync("Blazor.navigateTo('editor')");
         await page.Locator("textarea").FillAsync(Fixture("divider-basic.cir"));
 
-        var download = await page.RunAndWaitForDownloadAsync(() => page.Locator("a.svg-download").ClickAsync());
+        var download = await page.RunAndWaitForDownloadAsync(() => page.Locator("button.svg-download").ClickAsync());
         Assert.Equal("schematic.svg", download.SuggestedFilename);
         // NOTE: The browser picks the content type from the file extension.
         var path = Path.Combine(Path.GetTempPath(), $"ssp-{Guid.NewGuid():N}.svg");
