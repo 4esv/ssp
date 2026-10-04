@@ -362,13 +362,6 @@ h1[tabindex="-1"]:focus-visible {
     position: relative;
 }
 
-.schematic svg.schematic-pins {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-}
-
 .schematic-pins .pin {
     fill: currentColor;
     fill-opacity: 0.25;
@@ -549,7 +542,59 @@ h1[tabindex="-1"]:focus-visible {
 .schematic-body .schematic {
     flex: 1;
     min-width: 0;
-    min-height: 12rem;
+    min-height: 18rem;
+    height: 60vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* NOTE: With no view the schematic and the pin layer are the pane less a 24px margin, the CSS fit. With a view they are one pixel to one view box unit at 100%, and the transform places them. */
+.schematic-editor .schematic > svg {
+    position: absolute;
+    inset: 24px;
+    width: calc(100% - 48px);
+    height: calc(100% - 48px);
+    max-width: none;
+    transform-origin: 0 0;
+}
+
+.schematic-editor .schematic[data-view] > svg {
+    inset: auto;
+    top: 0;
+    left: 0;
+    width: var(--w);
+    height: var(--h);
+    transform: translate(var(--x), var(--y)) scale(var(--z));
+}
+
+.schematic-pins {
+    touch-action: none;
+}
+
+.schematic-zoom {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--bg, Canvas);
+    border: 1px solid currentColor;
+    border-radius: 0.25rem;
+}
+
+.schematic-zoom button {
+    min-width: 2rem;
+    min-height: 2rem;
+}
+
+.schematic-zoom .zoom-level {
+    min-width: 3.25rem;
+    text-align: center;
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
 }
 
 .palette {
