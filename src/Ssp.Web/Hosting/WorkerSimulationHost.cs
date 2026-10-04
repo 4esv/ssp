@@ -19,11 +19,48 @@ public sealed class WorkerSimulationHost(IJSRuntime js) : ISimulationHost, IMoni
 
     readonly InProcessSimulationHost inProcess = new();
     IJSObjectReference? module;
+    bool cancelled;
+
+    /// <summary>Receives the progress calls of the worker script.</summary>
+    sealed class ProgressSink(Action<double> report)
+    {
+        [JSInvokable]
+        public void Report(double seconds) => report(seconds);
+    }
+
+    // NOTE: A cancel ends the worker, so the pending call fails in JS. The failure is a cancel, not an error.
+    async Task<string> Cancellable(Func<Task<string>> call)
+    {
+        cancelled = false;
+        try
+        {
+            return await call();
+        }
+        catch (JSException) when (cancelled)
+        {
+            throw new OperationCanceledException();
+        }
+    }
 
     public Task<RunResult> Run(string netlist, RunOptions options) => inProcess.Run(netlist, options);
 
-    public async Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample) =>
-        ReadSamples(await Call("render", netlist, input, sampleRate, oversample));
+    public Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample) =>
+        Render(netlist, input, sampleRate, oversample, null);
+
+    public async Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample, Action<double>? onProgress)
+    {
+        using var sink = onProgress is null ? null : DotNetObjectReference.Create(new ProgressSink(onProgress));
+        return ReadSamples(await Cancellable(() => Call("render", netlist, input, sampleRate, oversample, sink!)));
+    }
+
+    public async Task<double[]> Convolve(double[] samples, double[] ir) =>
+        ReadSamples(await Cancellable(() => Call("convolve", samples, ir)));
+
+    public void CancelRender()
+    {
+        cancelled = true;
+        _ = module?.InvokeVoidAsync("cancel");
+    }
 
     public async Task MonitorStart(string netlist, int sampleRate) => await Call("monitorStart", netlist, sampleRate);
 

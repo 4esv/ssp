@@ -103,8 +103,8 @@ public class VirtualAmpTests : BunitContext
         panel.Find("button.amp-try").Click();
 
         await panel.WaitForAssertionAsync(() => Assert.Single(host.Renders));
-        await panel.WaitForAssertionAsync(() => Assert.NotEqual("Rendering…", panel.Find(".clip-status").TextContent), TimeSpan.FromSeconds(5));
-        Assert.False(panel.Find("button.clip-play").HasAttribute("disabled"));
+        await panel.WaitForAssertionAsync(() => Assert.False(panel.Find("button.clip-play").HasAttribute("disabled")), TimeSpan.FromSeconds(5));
+        Assert.DoesNotContain("Rendering", panel.Find(".clip-status").TextContent);
     }
 
     [Fact]
