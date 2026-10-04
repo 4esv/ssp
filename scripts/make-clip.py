@@ -2,7 +2,8 @@
 """Writes src/Ssp.Web/Audio/clip.wav, a synthetic plucked-string guitar clip.
 
 The clip is a Karplus-Strong string model. It plays the open E-minor chord notes in turn,
-then the chord. It is not a recording. Output: 44.1 kHz, 16-bit PCM, mono, 2.0 s.
+then the chord. It is not a recording. Output: 44.1 kHz, 16-bit PCM, mono, 1.0 s.
+The script builds 2.0 s of music and keeps the first 1.0 s (#222).
 The peak is 0.05 of full scale, a pickup level. A larger level makes the transient solver fail
 in circuits/fixtures/clipper-bjt-si.cir. The script uses only the Python standard library and
 gives the same bytes on each run.
@@ -16,10 +17,12 @@ import wave
 
 FS = 44_100
 SECONDS = 2.0
+CUT = 1.0
 PEAK = 0.05
 DECAY = 0.996
 SMOOTH = 6
 FADE_IN = 0.005
+FADE_OUT = 0.01
 
 # (start s, frequency Hz) of each pluck: E2, B2, E3, G3, B3, E4, then all as a strum.
 NOTES = [(0.00, 82.41), (0.18, 123.47), (0.36, 164.81), (0.54, 196.00), (0.72, 246.94), (0.90, 329.63)]
@@ -49,10 +52,11 @@ def main(path):
         begin = int(start * FS)
         for i, v in enumerate(pluck(freq, SECONDS - start, rng)):
             mix[begin + i] += v
+    mix = mix[: int(CUT * FS)]
     peak = max(abs(v) for v in mix)
     for i in range(int(FADE_IN * FS)):
         mix[i] *= i / (FADE_IN * FS)
-    fade = int(0.05 * FS)
+    fade = int(FADE_OUT * FS)
     for i in range(fade):
         mix[-1 - i] *= i / fade
     with wave.open(path, "wb") as w:
