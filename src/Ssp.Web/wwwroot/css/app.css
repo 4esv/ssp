@@ -370,9 +370,15 @@ h1[tabindex="-1"]:focus-visible {
 }
 
 .schematic-pins .pin {
-    fill: transparent;
+    fill: currentColor;
+    fill-opacity: 0.25;
     stroke: currentColor;
-    stroke-width: 1;
+    stroke-width: 1.5;
+    cursor: pointer;
+}
+
+.schematic-pins .pin-hit {
+    fill: transparent;
     cursor: pointer;
 }
 
@@ -391,6 +397,33 @@ h1[tabindex="-1"]:focus-visible {
     stroke: currentColor;
     stroke-width: 1;
     stroke-dasharray: 4 2;
+}
+
+.schematic-tools .tool-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding-right: 1rem;
+}
+
+.schematic-tools .tool-group + .tool-group {
+    padding-left: 1rem;
+    border-left: 1px solid currentColor;
+}
+
+.schematic-tools .tool-label {
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+.schematic-hint {
+    margin: 0.5rem 0;
+    font-size: 0.9em;
+}
+
+.schematic-empty {
+    margin: 1rem 0;
 }
 
 .schematic-tools {
@@ -412,4 +445,96 @@ h1[tabindex="-1"]:focus-visible {
 
 .home-versions {
     margin-top: 4rem;
+}
+
+/* NOTE: Toolbar, stacked option lists and panel hints (#152). Plain and dense, no decoration. */
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    align-items: center;
+    margin-bottom: var(--space-1);
+}
+
+.toolbar button {
+    min-width: 5rem;
+}
+
+.toolbar button:disabled {
+    background: transparent;
+    color: var(--text-muted);
+    border-style: dashed;
+    opacity: 0.7;
+}
+
+.toolbar-hint,
+.toolbar-status,
+.panel-hint {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.toolbar-hint {
+    margin-left: auto;
+}
+
+.panel-hint {
+    margin: 0.25rem 0 0.5rem;
+}
+
+.run-errors {
+    margin: 0 0 var(--space-1);
+    padding-left: 1.25rem;
+}
+
+.run-errors .error,
+.amp-error {
+    color: var(--error, #b3261e);
+}
+
+.amp-stack,
+.knobs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.amp-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.amp-stage select {
+    width: 100%;
+}
+
+.knob {
+    display: grid;
+    grid-template-columns: 4rem 1fr auto auto;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.knob .position {
+    min-width: 3rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.knob .taper {
+    color: var(--text-muted);
+}
+
+.calculator-panel .input {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin-bottom: 0.5rem;
+}
+
+/* NOTE: A tab strip wraps its tabs in a scroll-free row at 1280 px; the labels stay short. */
+.dock-tab {
+    padding: 0 0.4rem;
+    font-size: 0.875rem;
 }
