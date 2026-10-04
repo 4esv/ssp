@@ -54,8 +54,10 @@ public class GalleryPageTests : BunitContext
         Assert.Equal(Directory.GetFiles(Library).Length, entries.Count);
         Assert.All(entries, e =>
         {
-            Assert.NotNull(e.QuerySelector("figure.preview svg"));
-            Assert.NotEmpty(e.QuerySelectorAll("figure.preview svg *"));
+            var src = e.QuerySelector("figure.preview img")!.GetAttribute("src")!;
+            var file = Path.Combine(RepoPaths.Root, "src", "Ssp.Web", "wwwroot", src);
+            Assert.StartsWith("<svg", File.ReadAllText(file).TrimStart());
+            Assert.Null(e.QuerySelector("figure.preview svg"));
         });
     }
 
@@ -66,7 +68,7 @@ public class GalleryPageTests : BunitContext
 
         var page = Render<Home>();
 
-        Assert.Equal(Directory.GetFiles(Library).Length, page.FindAll("main.home ul.gallery li figure.preview svg").Count);
+        Assert.Equal(Directory.GetFiles(Library).Length, page.FindAll("main.home ul.gallery li figure.preview img").Count);
         Assert.Single(page.FindAll("h1"));
     }
 }

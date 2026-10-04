@@ -840,7 +840,7 @@ h1[tabindex="-1"]:focus-visible {
     overflow: hidden;
 }
 
-.gallery .preview svg {
+.gallery .preview img {
     width: 100%;
     height: 100%;
     display: block;

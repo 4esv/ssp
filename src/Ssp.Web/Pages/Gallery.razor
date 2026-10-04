@@ -18,10 +18,7 @@ else
         <li>
             <a href="@("editor#" + ShareCodec.Encode(circuit.Netlist))">@circuit.Title</a>
             <figure class="preview" aria-hidden="true">
-                @if (SchematicView.Svg(circuit.Netlist) is { } svg)
-                {
-                    @((MarkupString)svg)
-                }
+                <img src="@("previews/" + Path.ChangeExtension(circuit.FileName, ".svg"))" alt="" loading="lazy" />
             </figure>
             <span class="file">@circuit.FileName</span>
         </li>
