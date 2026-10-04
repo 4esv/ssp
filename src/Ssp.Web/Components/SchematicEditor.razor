@@ -27,7 +27,7 @@
             @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null)">
         @if (svg is null && !hasErrors)
         {
-            <p class="schematic-empty">The schematic is empty. Add a part with Resistor or Capacitor, then use Wire to join two pins and Ground to mark a pin as 0 V.</p>
+            <p class="schematic-empty">The schematic is empty. Add a part from the toolbar, then use Wire to join two pins and Ground to mark a pin as 0 V.</p>
         }
         @if (svg is not null)
         {
@@ -126,6 +126,13 @@
             var positions = SchematicRenderer.Pins(c, placement, row);
             pins.AddRange(positions.Select((p, i) => new PinView(new PinRef(c.Name, i), c.Nodes[i], p)));
         }
+        foreach (var pot in SchematicRenderer.Elements(circuit, parts).Where(e => e.Kind == "pot"))
+        {
+            if (!(placements.TryGetValue(pot.Reference, out var placement) || placements.TryGetValue(pot.Members[0], out placement))) continue;
+            var (min, max) = SchematicRenderer.PotOutline(placement);
+            outlines.Add(new PartView(pot.Reference, min, max));
+            pins.AddRange(SchematicRenderer.PotPins(placement).Select((p, i) => new PinView(new PinRef(pot.Reference, i), pot.Nodes[i], p)));
+        }
         if (!outlines.Any(p => p.Reference == selected)) selected = null;
     }
 
@@ -208,7 +215,7 @@
 
     string Pressed(Tool t) => t == tool ? "true" : "false";
 
-    static string Label(string kind) => char.ToUpperInvariant(kind[0]) + kind[1..];
+    static string Label(string kind) => char.ToUpperInvariant(kind[0]) + kind[1..].Replace('-', ' ');
 
     static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 }
