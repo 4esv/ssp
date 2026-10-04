@@ -13,8 +13,17 @@ namespace Ssp.Web.Tests;
 
 public class SchematicEditorTests : BunitContext
 {
-    // NOTE: Auto-placement puts R1 at (0, 30), V1 at (140, 30) and R2 at (280, 30). R2 is not on the flow from node a.
+    // NOTE: R2 is not on the flow from node a.
     const string TwoResistors = "* two resistors\nV1 in 0 1\nR1 in a 1k\nR2 b 0 1k\n.END\n";
+
+    // The position of a pin of a part in the auto-layout.
+    static Point PinAt(string reference, int pin)
+    {
+        var circuit = NetlistLoader.Load(TwoResistors);
+        var placement = AutoPlacer.Place(circuit, circuit.Directives).Parts.Single(p => p.Reference == reference);
+        var (x, y) = SchematicRenderer.Place(placement, pin * 60, 0);
+        return new Point(Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0);
+    }
 
     readonly List<SchematicChange> changes = [];
 
@@ -79,7 +88,8 @@ public class SchematicEditorTests : BunitContext
         Assert.Equal(3, circuit.NodeNames.Count);
         var wire = change.Layout.Wires[^1];
         Assert.Equal(Nodes(circuit, "R1")[1], wire.Net);
-        Assert.Equal([new Point(60, 30), new Point(280, 30)], wire.Points);
+        Assert.Equal(PinAt("R1", 1), wire.Points[0]);
+        Assert.Equal(PinAt("R2", 0), wire.Points[^1]);
     }
 
     [Fact]
@@ -114,7 +124,7 @@ public class SchematicEditorTests : BunitContext
 
         var change = Assert.Single(changes);
         Assert.Equal(["in", "0"], Nodes(Loads(change), "R1"));
-        Assert.Contains(change.Layout.Wires, w => w.Net == "0" && w.Points[0] == new Point(60, 30));
+        Assert.Contains(change.Layout.Wires, w => w.Net == "0" && w.Points[0] == PinAt("R1", 1));
     }
 
     [Fact]

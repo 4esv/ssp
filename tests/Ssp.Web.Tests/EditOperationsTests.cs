@@ -10,8 +10,14 @@ namespace Ssp.Web.Tests;
 
 public class EditOperationsTests : BunitContext
 {
-    // NOTE: Auto-placement puts R1 at (0, 30), V1 at (140, 30) and R2 at (280, 30).
     const string TwoResistors = "* two resistors\nV1 in 0 1\nR1 in a 1k\nR2 b 0 1k\n.END\n";
+
+    // The placement that auto-layout gives to a part. The tests start from it, so they do not depend on where the layout puts parts.
+    static PartPlacement Start(string reference)
+    {
+        var circuit = NetlistLoader.Load(TwoResistors);
+        return AutoPlacer.Place(circuit, circuit.Directives).Parts.Single(p => p.Reference == reference);
+    }
 
     readonly List<SchematicChange> changes = [];
 
@@ -38,6 +44,8 @@ public class EditOperationsTests : BunitContext
 
     static PartPlacement Placement(SchematicChange change, string reference) =>
         change.Layout.Parts.Single(p => p.Reference == reference);
+
+    static string Fmt(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
     static IReadOnlyList<string> Names(LoadedCircuit circuit) =>
         circuit.Circuit.OfType<IComponent>().Select(c => c.Name).Order(StringComparer.Ordinal).ToList();
@@ -70,7 +78,7 @@ public class EditOperationsTests : BunitContext
 
         var change = Assert.Single(changes);
         Loads(change);
-        Assert.Equal(new PartPlacement("R1", 0, 30, 90, false), Placement(change, "R1"));
+        Assert.Equal(Start("R1") with { Rotation = (Start("R1").Rotation + 90) % 360 }, Placement(change, "R1"));
         Assert.Equal(TwoResistors, change.Netlist);
     }
 
@@ -81,7 +89,7 @@ public class EditOperationsTests : BunitContext
 
         for (var i = 0; i < 4; i++) Press(editor, "R");
 
-        Assert.Equal(0, Placement(changes[^1], "R1").Rotation);
+        Assert.Equal(Start("R1").Rotation, Placement(changes[^1], "R1").Rotation);
     }
 
     [Fact]
@@ -93,10 +101,12 @@ public class EditOperationsTests : BunitContext
 
         var change = Assert.Single(changes);
         Loads(change);
-        Assert.Equal(new PartPlacement("R1", 0, 30, 180, true), Placement(change, "R1"));
-        // NOTE: R1 has its pins at x 0 and x 60. A left-right flip about x 0 puts the second pin at x -60.
+        var expected = Start("R1") with { Rotation = (Start("R1").Rotation + 180) % 360, Flip = !Start("R1").Flip };
+        Assert.Equal(expected, Placement(change, "R1"));
+        // NOTE: R1 has its pins at x 0 and x 60. A left-right flip mirrors the second pin about the vertical line through the first.
+        var (x, y) = SchematicRenderer.Place(Start("R1"), 60, 0);
         var pin = editor.Find("circle.pin[data-ref=R1][data-pin=\"1\"]");
-        Assert.Equal(("-60", "30"), (pin.GetAttribute("cx"), pin.GetAttribute("cy")));
+        Assert.Equal((Fmt(2 * Start("R1").X - x), Fmt(y)), (pin.GetAttribute("cx"), pin.GetAttribute("cy")));
     }
 
     [Fact]
@@ -108,7 +118,7 @@ public class EditOperationsTests : BunitContext
 
         var change = Assert.Single(changes);
         Loads(change);
-        Assert.Equal(new PartPlacement("R1", 0, 30, 0, true), Placement(change, "R1"));
+        Assert.Equal(Start("R1") with { Flip = !Start("R1").Flip }, Placement(change, "R1"));
     }
 
     [Theory]
@@ -124,7 +134,7 @@ public class EditOperationsTests : BunitContext
 
         var change = Assert.Single(changes);
         Loads(change);
-        Assert.Equal(new PartPlacement("R1", dx, 30 + dy, 0, false), Placement(change, "R1"));
+        Assert.Equal(Start("R1") with { X = Start("R1").X + dx, Y = Start("R1").Y + dy }, Placement(change, "R1"));
         Assert.Equal(TwoResistors, change.Netlist);
     }
 
@@ -167,7 +177,8 @@ public class EditOperationsTests : BunitContext
         var nodes = circuit.Circuit.OfType<IComponent>().Single(c => c.Name == "R3").Nodes;
         Assert.Equal(2, nodes.Distinct().Count());
         Assert.DoesNotContain(nodes, n => n is "in" or "a" or "b" or "0");
-        Assert.Equal(new PartPlacement("R3", 420, 30, 0, false), Placement(change, "R3"));
+        var right = AutoPlacer.Place(NetlistLoader.Load(TwoResistors), NetlistLoader.Load(TwoResistors).Directives).Parts.Max(p => p.X);
+        Assert.Equal(Start("R1") with { Reference = "R3", X = right + 140 }, Placement(change, "R3"));
         Assert.Equal(["R3"], editor.FindAll("rect.part.selected").Select(r => r.GetAttribute("data-ref")));
     }
 
