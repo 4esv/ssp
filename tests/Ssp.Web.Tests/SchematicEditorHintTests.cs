@@ -78,7 +78,7 @@ public class SchematicEditorHintTests : BunitContext
         var editor = Editor(TwoResistors);
         var parts = editor.Find("[role=group][aria-label=Parts]");
         var tools = editor.Find("[role=group][aria-label=Tools]");
-        Assert.Equal(2, parts.QuerySelectorAll("button.place").Length);
+        Assert.Equal(SchematicEdits.Kinds.Count, parts.QuerySelectorAll("button.place").Length);
         Assert.Equal(2, tools.QuerySelectorAll("button.tool").Length);
         Assert.Contains("Add a part", parts.TextContent);
     }
