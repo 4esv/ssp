@@ -45,6 +45,15 @@ public class SchematicEditorTests : BunitContext
     static void ClickPin(IRenderedComponent<SchematicEditor> editor, string reference, int pin) =>
         editor.Find($"circle.pin[data-ref=\"{reference}\"][data-pin=\"{pin}\"]").Click();
 
+    // NOTE: Tap a pin, tap a + dot, pick Connect to a pin, tap the second pin.
+    static void JoinPins(IRenderedComponent<SchematicEditor> editor, string reference, int pin, string other, int otherPin)
+    {
+        ClickPin(editor, reference, pin);
+        editor.Find("g.pin-add").Click();
+        editor.Find(".pin-menu button[data-action=connect]").Click();
+        ClickPin(editor, other, otherPin);
+    }
+
     [Fact]
     public void PlaceResistorWritesNetlistAndLayout()
     {
@@ -79,8 +88,7 @@ public class SchematicEditorTests : BunitContext
     {
         var editor = Editor(TwoResistors);
 
-        ClickPin(editor, "R1", 1);
-        ClickPin(editor, "R2", 0);
+        JoinPins(editor, "R1", 1, "R2", 0);
 
         var change = Assert.Single(changes);
         var circuit = Loads(change);
@@ -97,8 +105,7 @@ public class SchematicEditorTests : BunitContext
     {
         var editor = Editor(TwoResistors);
 
-        ClickPin(editor, "R1", 1);
-        ClickPin(editor, "R2", 1);
+        JoinPins(editor, "R1", 1, "R2", 1);
 
         Assert.Equal(["in", "0"], Nodes(Loads(changes.Single()), "R1"));
     }
@@ -108,8 +115,7 @@ public class SchematicEditorTests : BunitContext
     {
         var editor = Editor("* ssp:output b\n" + TwoResistors);
 
-        ClickPin(editor, "R1", 1);
-        ClickPin(editor, "R2", 0);
+        JoinPins(editor, "R1", 1, "R2", 0);
 
         Assert.Equal("a", Loads(changes.Single()).Directives.Output);
     }

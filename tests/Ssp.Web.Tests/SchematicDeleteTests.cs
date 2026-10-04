@@ -92,6 +92,8 @@ public class SchematicDeleteTests : BunitContext
         var seen = new List<SchematicChange>();
         var editor = Editor(seen);
         editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"1\"]").Click();
+        editor.Find("g.pin-add").Click();
+        editor.Find(".pin-menu button[data-action=connect]").Click();
         editor.Find("circle.pin[data-ref=\"R3\"][data-pin=\"0\"]").Click();
         var wires = seen[^1].Layout.Wires.Count;
         Assert.Equal(wires, editor.FindAll("polyline.wire-hit").Count);
