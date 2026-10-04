@@ -82,7 +82,9 @@
         }
         finally
         {
+            // NOTE: A parent calls Try from its own event, so the parent draws again and this player does not (#148).
             busy = false;
+            StateHasChanged();
         }
     }
 
