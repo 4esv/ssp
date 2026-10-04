@@ -153,3 +153,31 @@ The measurement is one run for each build. Chromium is headless, Playwright, on 
 The render time does not change. Faster solving is out of scope. The status showed `Rendering…` for the whole run before, and shows `Rendering 1.1 of 2.0 s at 1x oversample.` at 10 s now.
 Cancel at 8 s: `Cancelled.` showed 38 ms after the click, and a second Try after the cancel rendered again.
 The 331 ms block that is left is the reading of the render result (JSON) and the output on the page thread.
+
+## Fallback to variable steps
+
+A drawn fuzz into the virtual amp stopped the render with `TimestepTooSmallException` at t = 0.540 s (#210).
+The chain is [`circuits/fixtures/fuzz-drawn.cir`](../circuits/fixtures/fuzz-drawn.cir), `gain-variable-tl072`, `tone-baxandall-passive` and `power-9v`, composed with `Chain.Compose`.
+At the failing step, the node that changes most is `Xgain.o`, the op-amp output of the gain stage (0.127 V in the last iteration). The fixed step cannot get smaller, so Newton does not converge.
+The engine's variable trapezoidal method, with the step at most 1 / (fs * oversample), converges. Its smallest step on this input is 1.3e-10 s.
+
+`Analyses.Render` now tries fixed steps first. If a fixed step does not converge, it renders the full input again with variable steps and interpolates the output at the sample times.
+If the variable steps also do not converge, it throws `InvalidOperationException` with the time and the node that changes most.
+
+The values are the wall time of `ssp render`, with the process start and the JIT.
+
+| Item | Value |
+|---|---|
+| Machine | Apple M3 Pro, macOS |
+| Runtime | Native .NET 10 (SDK 10.0.401), Release |
+| Before | Commit df04cd3b |
+| Runs | 3. The values are the median, with the range. |
+
+| Render | Before | After |
+|---|---|---|
+| Chain, `clip.wav` (2 s), oversample 1 | Fails at t = 0.540 s after 0.66 s (0.65 to 0.67) | 4.47 s (4.35 to 5.66), 0.45x real time |
+| Chain, `clip.wav` (2 s), oversample 2 | Fails at t = 0.540 s after 0.85 s (0.83 to 0.85) | 4.75 s (4.65 to 4.75), 0.42x real time |
+| `clipper-bjt-si.cir`, sine 0.3 V 440 Hz (10 s), oversample 1 | 1.31 s (1.28 to 1.33) | 1.27 s (1.24 to 1.32) |
+
+The clipper does not use the fallback. Its output RMS (0.590) and peak (0.641) are the same before and after.
+The chain output after the change has an RMS of 0.117 and a peak of 0.720 of full scale.

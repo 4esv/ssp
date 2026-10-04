@@ -1,4 +1,5 @@
 using System.Numerics;
+using SpiceSharp;
 using SpiceSharp.Components;
 using SpiceSharp.Simulations;
 using SpiceSharp.Simulations.IntegrationMethods;
@@ -229,9 +230,14 @@ public static class Analyses
     /// Renders an input signal through a circuit and returns the output samples, one for each input sample.
     /// The input drives the <c>ssp:input</c> node through a piecewise-linear source.
     /// The output is the voltage at the <c>ssp:output</c> node, or <c>out</c>.
-    /// The solver uses fixed trapezoidal steps of 1 / (fs * oversample). The circuit is the same afterwards.
+    /// The solver uses fixed trapezoidal steps of 1 / (fs * oversample). If a fixed step does not converge, the render starts
+    /// again with variable trapezoidal steps of at most that size, and the output is interpolated at the sample times.
+    /// The circuit is the same afterwards.
     /// <paramref name="progress"/> gets the number of output samples done, about ten times for each second of audio.
+    /// A render with variable steps starts again from 0.
     /// </summary>
+    /// <exception cref="InvalidOperationException">The variable steps also do not converge. The message gives the time
+    /// and the node that changes most in the last iteration.</exception>
     public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample, Action<int>? progress = null)
     {
         if (fs <= 0 || oversample < 1)
@@ -268,8 +274,7 @@ public static class Analyses
         var source = existing ?? new VoltageSource("V_ssp_render", inNode, "0", 0.0);
         var saved = source.Parameters.Waveform;
         var step = 1.0 / ((double)fs * oversample);
-        var output = new double[input.Length];
-        var written = 0;
+        var stop = (input.Length - 1) * oversample * step;
         try
         {
             source.Parameters.Waveform = pwl;
@@ -278,22 +283,15 @@ public static class Analyses
                 circuit.Circuit.Add(source);
             }
 
-            var tran = new Transient("render", new FixedTrapezoidal { Step = step, StopTime = (input.Length - 1) * oversample * step });
-            var voltage = new RealVoltageExport(tran, outNode);
-
-            // Stream the steps: keep every oversample-th one and do not collect the rest.
-            foreach (var _ in tran.Run(circuit.Circuit, Transient.ExportTransient))
+            try
             {
-                var k = (long)Math.Round(tran.Time / step);
-                if (k % oversample == 0 && k / oversample < output.Length)
-                {
-                    output[k / oversample] = voltage.Value;
-                    written++;
-                    if (progress is not null && written % Math.Max(1, fs / 10) == 0)
-                    {
-                        progress(written);
-                    }
-                }
+                return Sample(circuit, new FixedTrapezoidal { Step = step, StopTime = stop }, outNode, input.Length, fs, progress);
+            }
+            catch (TimestepTooSmallException)
+            {
+                // NOTE: A loud transient into a saturating op-amp model needs steps near 1e-10 s for one sample (#210).
+                // The fixed method cannot make the step smaller, so the variable method renders the full input again.
+                return Sample(circuit, new Trapezoidal { StopTime = stop, MaxStep = step, InitialStep = step }, outNode, input.Length, fs, progress);
             }
         }
         finally
@@ -304,12 +302,88 @@ public static class Analyses
                 circuit.Circuit.Remove(source);
             }
         }
+    }
 
-        if (written != output.Length)
+    // Streams the accepted time points and keeps the output at each sample time i / fs, interpolated between the two
+    // time points around it. A time point within 1e-6 of a sample period from a sample time is that sample.
+    private static double[] Sample(LoadedCircuit circuit, TimeParameters method, string outNode, int count, int fs, Action<int>? progress)
+    {
+        var tran = new Transient("render", method);
+        var voltage = new RealVoltageExport(tran, outNode);
+        var output = new double[count];
+        var written = 0;
+        var reported = 0;
+        var tenth = Math.Max(1, fs / 10);
+        double lastTime = 0, lastValue = 0;
+        IBiasingSimulationState? state = null;
+        try
         {
-            throw new InvalidOperationException($"The solver gave {written} of {output.Length} output samples.");
+            foreach (var _ in tran.Run(circuit.Circuit, Transient.ExportTransient))
+            {
+                state ??= tran.GetState<IBiasingSimulationState>();
+                var time = tran.Time;
+                var value = voltage.Value;
+                while (written < count)
+                {
+                    var target = (double)written / fs;
+                    if (Math.Abs(time - target) * fs < 1e-6)
+                    {
+                        output[written++] = value;
+                    }
+                    else if (target < time && written > 0)
+                    {
+                        output[written++] = lastValue + ((value - lastValue) * (target - lastTime) / (time - lastTime));
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (progress is not null && written / tenth != reported / tenth)
+                {
+                    progress(written);
+                }
+
+                reported = written;
+                lastTime = time;
+                lastValue = value;
+            }
+        }
+        catch (TimestepTooSmallException e) when (method is not FixedTrapezoidal)
+        {
+            throw new InvalidOperationException(
+                $"The render stops at t = {e.Time:0.000000} s: the solver does not converge with a step of {e.Timestep:G3} s. "
+                + $"The node that changes most in the last iteration is {LargestChange(state)}.", e);
+        }
+
+        if (written != count)
+        {
+            throw new InvalidOperationException($"The solver gave {written} of {count} output samples.");
         }
 
         return output;
+    }
+
+    private static string LargestChange(IBiasingSimulationState? state)
+    {
+        if (state is null)
+        {
+            return "not known";
+        }
+
+        var name = "not known";
+        var largest = -1.0;
+        foreach (var (variable, index) in state.Map)
+        {
+            var change = Math.Abs(state.Solution[index] - state.OldSolution[index]);
+            if (index > 0 && change > largest)
+            {
+                largest = change;
+                name = $"{variable.Name}, by {change:G3}";
+            }
+        }
+
+        return name;
     }
 }
