@@ -29,6 +29,19 @@
         </div>
     </div>
     <p class="schematic-hint" role="status">@Hint()</p>
+    @if (ValueBox())
+    {
+        <div class="value-edit-box">
+            <input class="value-edit" type="text" inputmode="text" autocomplete="off" spellcheck="false" aria-label="Value of @selected"
+                   aria-invalid="@(valueError is null ? null : "true")" value="@valueText"
+                   @oninput="TypeValue"
+                   @onkeydown="ValueKey" @onkeydown:stopPropagation />
+        </div>
+    }
+    @if (valueError is not null && ValueBox())
+    {
+        <p class="value-error" role="alert">@valueError</p>
+    }
     @if (undo is { } undoable)
     {
         <p class="delete-status" role="status">Deleted @undoable.Name. <button type="button" @onclick="Undo">Undo</button></p>
@@ -135,19 +148,6 @@
                     @foreach (var (action, label, style) in spots)
                     {
                         <button type="button" class="part-action" data-action="@action" aria-label="@label" title="@label" style="@style" @onclick="() => Act(action)">@ActionGlyph(action)</button>
-                    }
-                </div>
-            }
-            @if (ValueBox() is { } box)
-            {
-                <div class="value-edit-box" style="@box" @onclick:stopPropagation>
-                    <input class="value-edit" type="text" inputmode="text" autocomplete="off" spellcheck="false" aria-label="Value of @selected"
-                           aria-invalid="@(valueError is null ? null : "true")" value="@valueText"
-                           @oninput="TypeValue"
-                           @onkeydown="ValueKey" @onkeydown:stopPropagation />
-                    @if (valueError is not null)
-                    {
-                        <p class="value-error" role="alert">@valueError</p>
                     }
                 </div>
             }
@@ -891,20 +891,16 @@
         reference.Length > 0 && char.ToUpperInvariant(reference[0]) is 'R' or 'C' or 'L'
         && SchematicEdits.ValueOf(netlist, reference) is { } text && SchematicEdits.TryParseValue(text, out _, out _);
 
-    // The style of the value box under the selected part, or null when the selection has no value to edit.
-    string? ValueBox()
+    // True when the selected part has a value to edit. The box is docked at the bottom left of the canvas, clear of the part's actions.
+    bool ValueBox()
     {
-        if (hasErrors || selected is not { } part || !Editable(part)) return null;
+        if (hasErrors || selected is not { } part || !Editable(part)) return false;
         if (valueFor != part)
         {
             (valueFor, valueError) = (part, null);
             valueText = SchematicEdits.ValueOf(netlist, part)!;
         }
-        if (view is null || paneBox[2] <= 0 || outlines.FirstOrDefault(o => o.Reference == part) is not { } outline) return "";
-        var (a, b) = (view.WorldToScreen(outline.Min), view.WorldToScreen(outline.Max));
-        var x = Math.Clamp((a.X + b.X) / 2, 60, Math.Max(60, paneBox[2] - 60));
-        var y = Math.Clamp(b.Y + HitRadius * view.Zoom + 8, 4, Math.Max(4, paneBox[3] - 70));
-        return FormattableString.Invariant($"left: {x:0.#}px; top: {y:0.#}px");
+        return true;
     }
 
     void TypeValue(ChangeEventArgs e) => (valueText, valueError) = (e.Value?.ToString() ?? "", null);
