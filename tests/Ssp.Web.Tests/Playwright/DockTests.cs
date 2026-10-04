@@ -6,8 +6,13 @@ namespace Ssp.Web.Tests.Playwright;
 [Collection(PlaywrightCollection.Name)]
 public class DockTests
 {
+    // NOTE: A Playwright drag in Chromium can wait for ever, and a test timeout does not stop it. Every test has a limit.
+    static readonly TimeSpan Limit = TimeSpan.FromMinutes(3);
+
     [PlaywrightFact]
-    public async Task AltShiftArrowDocksPanelAtLeftEdge()
+    public Task AltShiftArrowDocksPanelAtLeftEdge() => AltShiftArrowDocksPanelAtLeftEdgeCore().WaitAsync(Limit);
+
+    static async Task AltShiftArrowDocksPanelAtLeftEdgeCore()
     {
         var baseUrl = Environment.GetEnvironmentVariable(PlaywrightFactAttribute.BaseUrlVariable)!;
         var withDeps = Environment.GetEnvironmentVariable("SSP_PLAYWRIGHT_WITH_DEPS") == "1";
@@ -17,6 +22,7 @@ public class DockTests
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        page.SetDefaultTimeout(30_000);
 
         // NOTE: The test server has no fallback to index.html, so the test serves it for the editor route.
         await page.RouteAsync(baseUrl + "editor", async route =>
@@ -45,10 +51,10 @@ public class DockTests
     }
 
     [PlaywrightFact]
-    public Task DragMovesPanelToNewGroupInChromium() => DragMovesPanelToNewGroup("chromium");
+    public Task DragMovesPanelToNewGroupInChromium() => DragMovesPanelToNewGroup("chromium").WaitAsync(Limit);
 
     [PlaywrightFact]
-    public Task DragMovesPanelToNewGroupInFirefox() => DragMovesPanelToNewGroup("firefox");
+    public Task DragMovesPanelToNewGroupInFirefox() => DragMovesPanelToNewGroup("firefox").WaitAsync(Limit);
 
     static async Task DragMovesPanelToNewGroup(string name)
     {
@@ -61,6 +67,7 @@ public class DockTests
         var type = name == "firefox" ? playwright.Firefox : playwright.Chromium;
         await using var browser = await type.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        page.SetDefaultTimeout(30_000);
 
         await page.RouteAsync(baseUrl + "editor", async route =>
             await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));
@@ -74,7 +81,8 @@ public class DockTests
         // NOTE: The right zone of the schematic group docks the dragged panel as a new group.
         var target = page.Locator(".dock-panel[data-panel=schematic]");
         var box = (await target.BoundingBoxAsync())!;
-        await tab.DragToAsync(target, new() { TargetPosition = new() { X = (float)box.Width - 10, Y = (float)box.Height / 2 } });
+        await tab.DragToAsync(target, new() { TargetPosition = new() { X = (float)box.Width - 10, Y = (float)box.Height / 2 }, Timeout = 30_000 })
+            .WaitAsync(TimeSpan.FromSeconds(45));
 
         await Assertions.Expect(layout).ToHaveAttributeAsync("data-tree", new Regex(@"tabs\(schematic\*\), 0\.\d+ tabs\(knobs\*\)"));
         await Assertions.Expect(layout).Not.ToHaveAttributeAsync("data-tree", new Regex(@"tabs\(knobs\*, calculators"));

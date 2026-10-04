@@ -32,7 +32,7 @@
                     <button type="button" role="tab" class="dock-tab" data-panel="@panel" aria-selected="@(shown ? "true" : "false")"
                             draggable="true" title="@KeyHelp" @ref="tabs[panel]"
                             @onclick="() => Show(panel)" @onkeydown="e => Key(panel, e)"
-                            @ondragstart="() => dragging = panel" @ondragend="() => dragging = null">@Title(panel)</button>
+                            @ondragstart="() => StartDrag(panel)" @ondragend="() => dragging = null">@Title(panel)</button>
                     <button type="button" class="dock-close" aria-label="Close @Title(panel)" @onclick="() => Close(panel)">×</button>
                 </span>
             }
@@ -205,6 +205,13 @@
 
         focus = panel;
         await Save();
+    }
+
+    async Task StartDrag(string panel)
+    {
+        // NOTE: Chromium cancels a drag when the page changes the DOM inside dragstart. Wait one tick before the render.
+        await Task.Delay(1);
+        dragging = panel;
     }
 
     async Task Drop(DockTabs group, Zone zone)
