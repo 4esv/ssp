@@ -147,6 +147,8 @@
         var hash = new Uri(Nav.Uri).Fragment.TrimStart('#');
         if (hash.Length == 0)
         {
+            netlist = Starter();
+            history.Reset(netlist, null);
             return;
         }
         try
@@ -158,6 +160,12 @@
         {
             shareError = new Diagnostic(Severity.Error, e.Message, null);
         }
+    }
+
+    static string Starter()
+    {
+        using var reader = new StreamReader(typeof(Editor).Assembly.GetManifestResourceStream("starter.cir")!);
+        return reader.ReadToEnd();
     }
 
     // NOTE: Run plays the clip when the analyses finish. The render takes seconds, so the button is free again before it.
