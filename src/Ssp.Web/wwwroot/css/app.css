@@ -1,6 +1,136 @@
+/* NOTE: Colours are tokens. Dark mode follows the system setting. */
+:root {
+    color-scheme: light dark;
+    --bg: #fff;
+    --surface: #f4f4f4;
+    --text: #1b1b1b;
+    --text-muted: #5c5c5c;
+    --border: #c4c4c4;
+    --grid: #e4e4e4;
+    --accent: #1f6fb4;
+    --accent-soft: rgb(31 111 180 / 0.25);
+    --focus: #0b5cad;
+    --warn-bg: #fff6c2;
+    --series-0: #1f6fb4;
+    --series-1: #d9480f;
+    --series-2: #2b8a3e;
+    --series-3: #862e9c;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 1rem;
+    --space-4: 2rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #14171a;
+        --surface: #1e2328;
+        --text: #e6e8ea;
+        --text-muted: #a3abb2;
+        --border: #3a424a;
+        --grid: #2a3036;
+        --accent: #5aa9e6;
+        --accent-soft: rgb(90 169 230 / 0.3);
+        --focus: #7dbdf0;
+        --warn-bg: #4a4220;
+        --series-0: #5aa9e6;
+        --series-1: #ff8a5c;
+        --series-2: #5fc77a;
+        --series-3: #c78be0;
+    }
+}
+
 body {
     font-family: system-ui, sans-serif;
-    margin: 1rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin: var(--space-3);
+    background: var(--bg);
+    color: var(--text);
+}
+
+h1,
+h2,
+h3 {
+    line-height: 1.2;
+    margin: 0 0 var(--space-2);
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.1rem; }
+
+p {
+    max-width: 65ch;
+}
+
+a {
+    color: var(--accent);
+    text-underline-offset: 0.2em;
+}
+
+pre,
+code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.875rem;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+input,
+select,
+textarea {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+}
+
+/* NOTE: Every control shows a ring with keyboard navigation, in both colour schemes. */
+:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+/* NOTE: Blazor focuses the page heading after navigation. It is not a control, so it gets no ring. */
+h1[tabindex="-1"]:focus-visible {
+    outline: none;
+}
+
+.dock-tab:focus-visible,
+.dock-close:focus-visible {
+    outline-offset: -2px;
+}
+
+.dock-splitter:focus-visible {
+    outline-offset: 0;
+}
+
+.schematic-pins .pin:focus-visible,
+.schematic-pins .part:focus-visible {
+    outline-offset: 1px;
 }
 
 #blazor-error-ui {
@@ -10,7 +140,8 @@ body {
     left: 0;
     width: 100%;
     padding: 0.5rem;
-    background: lightyellow;
+    background: var(--warn-bg);
+    color: var(--text);
 }
 
 #blazor-error-ui .dismiss {
@@ -27,21 +158,21 @@ body {
 
 .line-chart .plot-area {
     fill: none;
-    stroke: #888;
+    stroke: var(--text-muted);
 }
 
 .line-chart .grid {
-    stroke: #e4e4e4;
+    stroke: var(--grid);
 }
 
 .line-chart .series {
     stroke-width: 1.5;
 }
 
-.line-chart .series-0 { stroke: #1f6fb4; fill: #1f6fb4; }
-.line-chart .series-1 { stroke: #d9480f; fill: #d9480f; }
-.line-chart .series-2 { stroke: #2b8a3e; fill: #2b8a3e; }
-.line-chart .series-3 { stroke: #862e9c; fill: #862e9c; }
+.line-chart .series-0 { stroke: var(--series-0); fill: var(--series-0); }
+.line-chart .series-1 { stroke: var(--series-1); fill: var(--series-1); }
+.line-chart .series-2 { stroke: var(--series-2); fill: var(--series-2); }
+.line-chart .series-3 { stroke: var(--series-3); fill: var(--series-3); }
 
 .line-chart path.series {
     fill: none;
@@ -70,9 +201,9 @@ body {
     height: var(--dock-tab-height);
     display: flex;
     overflow-x: auto;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-bottom: none;
-    background: #f4f4f4;
+    background: var(--surface);
 }
 
 .dock-tab-item {
@@ -83,6 +214,7 @@ body {
 .dock-tab,
 .dock-close {
     border: none;
+    border-radius: 0;
     background: none;
     padding: 0 0.5rem;
     cursor: pointer;
@@ -90,12 +222,12 @@ body {
 
 .dock-close {
     padding: 0 0.4rem 0 0;
-    color: #666;
+    color: var(--text-muted);
 }
 
 .dock-tab[aria-selected="true"] {
-    background: #fff;
-    font-weight: bold;
+    background: var(--bg);
+    font-weight: 600;
 }
 
 .dock-panel {
@@ -103,8 +235,8 @@ body {
     box-sizing: border-box;
     overflow: auto;
     padding: 0.5rem;
-    border: 1px solid #ccc;
-    background: #fff;
+    border: 1px solid var(--border);
+    background: var(--bg);
 }
 
 .dock-panel > textarea {
@@ -139,7 +271,7 @@ body {
 
 .dock-splitter:hover,
 .dock-splitter:focus-visible {
-    background: #1f6fb4;
+    background: var(--accent);
 }
 
 /* NOTE: The drop zones show only while a tab is dragged. */
@@ -158,7 +290,7 @@ body {
 }
 
 .dock-zone:hover {
-    background: rgb(31 111 180 / 0.25);
+    background: var(--accent-soft);
 }
 
 .dock-zone.center { inset: 25%; }
@@ -268,12 +400,14 @@ body {
 }
 
 .schematic-tools [aria-pressed="true"] {
-    font-weight: bold;
+    font-weight: 600;
+    border-color: var(--accent);
+    background: var(--accent-soft);
 }
 
 .home-links {
     display: flex;
-    gap: 1rem;
+    gap: var(--space-3);
 }
 
 .home-versions {
