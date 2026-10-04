@@ -26,15 +26,15 @@ public class SchematicEditorHintTests : BunitContext
     public void WireHintAsksForAPin()
     {
         var editor = Editor(TwoResistors);
-        Assert.Equal("Wire: click a pin", Hint(editor));
+        Assert.Equal("Tap a pin to see where to go.", Hint(editor));
     }
 
     [Fact]
-    public void WireWithPendingPinNamesThePin()
+    public void ActivePinNamesThePinAndWhatATapDoes()
     {
         var editor = Editor(TwoResistors);
         editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"0\"]").Click();
-        Assert.Equal("Connecting from R1 pin 1. Tap another pin.", Hint(editor));
+        Assert.Equal("R1 pin 1: tap a +, or press an arrow, then r c q d p b w. G is ground.", Hint(editor));
     }
 
     [Fact]
