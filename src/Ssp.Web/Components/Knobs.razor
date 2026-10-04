@@ -1,6 +1,7 @@
 @using System.Globalization
 @using Ssp.Core.Netlist
 @implements IDisposable
+@inject TimeProvider Time
 
 @if (knobs.Count > 0)
 {
@@ -69,7 +70,7 @@ else
     {
         try
         {
-            await Task.Delay(Debounce, token);
+            await Task.Delay(Debounce, Time, token);
         }
         catch (OperationCanceledException)
         {

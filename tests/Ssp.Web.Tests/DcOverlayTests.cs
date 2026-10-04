@@ -10,6 +10,8 @@ namespace Ssp.Web.Tests;
 
 public class DcOverlayTests : BunitContext
 {
+    public DcOverlayTests() => Services.AddSingleton(TimeProvider.System);
+
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
     // NOTE: divider-basic has nodes in, out, and ground. in = 1 V, out = 667 mV.
