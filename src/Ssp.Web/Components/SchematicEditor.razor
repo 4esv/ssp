@@ -6,6 +6,9 @@
 @using SpiceComponent = SpiceSharp.Components.IComponent
 @using LayoutDoc = Ssp.Core.Layout.Layout
 @using Point = Ssp.Core.Layout.Point
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime Js
 
 <section class="schematic-editor">
     <div class="schematic-tools" role="toolbar" aria-label="Schematic tools">
@@ -23,23 +26,44 @@
         </div>
     </div>
     <p class="schematic-hint" role="status">@Hint()</p>
+    <div class="schematic-body">
+    <div class="palette" role="group" aria-label="Parts palette">
+        @foreach (var kind in SchematicEdits.Kinds.Keys)
+        {
+            <button type="button" class="palette-item" data-kind="@kind" aria-pressed="@(kind == armed ? "true" : "false")" disabled="@hasErrors"
+                    title="Drag onto the canvas, or click and then click the canvas"
+                    @onpointerdown="e => PaletteDown(kind, e)" @onpointermove="PaletteMove" @onpointerup="PaletteUp" @onpointercancel="PaletteCancel"
+                    @onclick="e => PaletteClick(kind, e)">
+                <span class="palette-symbol">@((MarkupString)SymbolOf(kind))</span>
+                <span class="palette-name">@Label(kind)</span>
+            </button>
+        }
+    </div>
     <figure class="schematic" aria-label="Schematic" tabindex="0"
             @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null)">
         @if (svg is null && !hasErrors)
         {
-            <p class="schematic-empty">The schematic is empty. Add a part from the toolbar, then use Wire to join two pins and Ground to mark a pin as 0 V.</p>
+            <div class="schematic-blank" @ref="canvas" @onclick="CanvasClick">
+                <p class="schematic-empty">The schematic is empty. Add a part: drag one from the palette onto the canvas, or use the toolbar. Then use Wire to join two pins and Ground to mark a pin as 0 V.</p>
+            </div>
         }
         @if (svg is not null)
         {
             @((MarkupString)svg)
-            <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox">
+            <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox"
+                 @ref="canvas" @onclick="CanvasClick">
                 @foreach (var part in outlines)
                 {
                     <rect class="@(part.Reference == selected ? "part selected" : "part")" data-ref="@part.Reference"
                           x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
+                          @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartCancel"
                           @onclick="() => selected = part.Reference">
                         <title>@part.Reference</title>
                     </rect>
+                }
+                @if (moving is { } m && ghost is { } g)
+                {
+                    <rect class="part ghost" x="@N(m.Min.X + g.X)" y="@N(m.Min.Y + g.Y)" width="@N(m.Max.X - m.Min.X)" height="@N(m.Max.Y - m.Min.Y)" />
                 }
                 @foreach (var pin in pins)
                 {
@@ -52,6 +76,11 @@
             </svg>
         }
     </figure>
+    </div>
+    @if (carrying is { } carried)
+    {
+        <div class="palette-ghost" style="left: @(N(carryAt.X))px; top: @(N(carryAt.Y))px" aria-hidden="true">@((MarkupString)SymbolOf(carried))</div>
+    }
 </section>
 
 @code {
@@ -88,6 +117,27 @@
     // NOTE: The hit circle is 24 units across or more, the least that a finger can hit.
     const double HitRadius = 12;
     PinRef? pending;
+
+    // NOTE: A drag under this many pixels is a click.
+    const double DragSlop = 4;
+
+    ElementReference canvas;
+    IJSObjectReference? module;
+
+    // The kind that a click on the canvas places. A drag from the palette is the kind that the pointer carries.
+    string? armed;
+    string? carrying;
+    Point carryAt;
+    Point carryFrom;
+    bool carryMoved;
+
+    // A part that the pointer moves: its outline at the start, the pointer at the start, the scale at the start, and the snapped offset.
+    PartView? moving;
+    Point moveFrom;
+    double moveScale = 1;
+    Point? ghost;
+    Point moveDelta;
+    bool moveMoved;
 
     // NOTE: The editor keeps its own copy, so a parent that does not pass the change back still sees each edit.
     protected override void OnParametersSet()
@@ -136,6 +186,114 @@
         if (!outlines.Any(p => p.Reference == selected)) selected = null;
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null) await module.DisposeAsync();
+    }
+
+    // NOTE: The module loads on the first pointer use, so a page with no pointer never loads it.
+    async Task<IJSObjectReference> Module() =>
+        module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/schematic-canvas.js");
+
+    static string SymbolOf(string kind) => Symbols.Find(kind switch
+    {
+        "battery" or "source" => "vsource",
+        "jack-in" or "jack-out" => "resistor",
+        _ => kind,
+    })?.Svg ?? "";
+
+    // The canvas point of a client position, snapped by the edit, and whether the position is on the canvas.
+    async Task<(Point At, bool Inside)> ToCanvas(double x, double y)
+    {
+        var at = await (await Module()).InvokeAsync<double[]>("toSvg", canvas, x, y);
+        return (new Point(at[0], at[1]), at[2] != 0);
+    }
+
+    void PaletteDown(string kind, PointerEventArgs e)
+    {
+        if (hasErrors || e.Button > 0) return;
+        carrying = kind;
+        carryFrom = carryAt = new Point(e.ClientX, e.ClientY);
+        carryMoved = false;
+    }
+
+    void PaletteMove(PointerEventArgs e)
+    {
+        if (carrying is null) return;
+        carryAt = new Point(e.ClientX, e.ClientY);
+        carryMoved |= Math.Abs(carryAt.X - carryFrom.X) > DragSlop || Math.Abs(carryAt.Y - carryFrom.Y) > DragSlop;
+    }
+
+    async Task PaletteUp(PointerEventArgs e)
+    {
+        if (carrying is not { } kind) return;
+        carrying = null;
+        if (!carryMoved)
+        {
+            armed = armed == kind ? null : kind;
+            return;
+        }
+        var (at, inside) = await ToCanvas(e.ClientX, e.ClientY);
+        if (inside) await PlaceAt(kind, at);
+    }
+
+    void PaletteCancel() => carrying = null;
+
+    // NOTE: A key press on a palette entry is a click with no pointer, so it arms the entry like a tap does.
+    void PaletteClick(string kind, MouseEventArgs e)
+    {
+        if (e.Detail == 0 && !hasErrors) armed = armed == kind ? null : kind;
+    }
+
+    async Task CanvasClick(MouseEventArgs e)
+    {
+        if (armed is not { } kind) return;
+        armed = null;
+        var (at, _) = await ToCanvas(e.ClientX, e.ClientY);
+        await PlaceAt(kind, at);
+    }
+
+    async Task PlaceAt(string kind, Point at)
+    {
+        var change = SchematicEdits.PlaceAt(netlist, layout, kind, at);
+        await Apply(change);
+        // NOTE: Place puts the new part last in the layout.
+        selected = change.Layout.Parts[^1].Reference;
+    }
+
+    async Task PartDown(string reference, PointerEventArgs e)
+    {
+        if (armed is not null || e.Button > 0) return;
+        selected = reference;
+        moving = outlines.Single(p => p.Reference == reference);
+        moveFrom = new Point(e.ClientX, e.ClientY);
+        moveScale = await (await Module()).InvokeAsync<double>("unitsPerPixel", canvas);
+        moveDelta = new Point(0, 0);
+        moveMoved = false;
+    }
+
+    void PartMove(PointerEventArgs e)
+    {
+        if (moving is null) return;
+        var (px, py) = (e.ClientX - moveFrom.X, e.ClientY - moveFrom.Y);
+        moveMoved |= Math.Abs(px) > DragSlop || Math.Abs(py) > DragSlop;
+        if (!moveMoved) return;
+        moveDelta = new Point(px * moveScale, py * moveScale);
+        // NOTE: The ghost shows where the part lands. It is the offset of the snapped position, not of the pointer.
+        var at = layout.Parts.FirstOrDefault(p => string.Equals(p.Reference, moving.Reference, StringComparison.OrdinalIgnoreCase) || string.Equals(p.Reference, moving.Reference + "_1", StringComparison.OrdinalIgnoreCase));
+        ghost = at is null ? moveDelta : new Point(SchematicEdits.Snap(at.X + moveDelta.X) - at.X, SchematicEdits.Snap(at.Y + moveDelta.Y) - at.Y);
+    }
+
+    async Task PartUp()
+    {
+        if (moving is not { } part) return;
+        var moved = moveMoved;
+        (moving, ghost) = (null, null);
+        if (moved) await Apply(SchematicEdits.Drag(netlist, layout, parts!, part.Reference, moveDelta.X, moveDelta.Y));
+    }
+
+    void PartCancel() => (moving, ghost) = (null, null);
+
     async Task Place(string kind)
     {
         var change = SchematicEdits.Place(netlist, layout, kind);
@@ -145,7 +303,8 @@
     }
 
     string Hint() =>
-        pending is { } p ? $"Wire: click a second pin to connect it to {p.Reference} pin {p.Pin + 1}"
+        armed is { } a ? $"Click the canvas to place a {Label(a).ToLowerInvariant()}. Click the entry again to cancel."
+        : pending is { } p ? $"Wire: click a second pin to connect it to {p.Reference} pin {p.Pin + 1}"
         : selected is { } s ? $"{s} selected: R rotate, H/V flip, arrows move, Delete remove"
         : tool == Tool.Wire ? "Wire: click a pin"
         : tool == Tool.Ground ? "Ground: click a pin"
@@ -160,7 +319,7 @@
 
     async Task Click(PinRef pin)
     {
-        if (tool is null) return;
+        if (tool is null || armed is not null) return;
         if (tool == Tool.Ground)
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));
@@ -182,6 +341,7 @@
     // NOTE: Escape clears the selection, so that Tab can move the focus out of the schematic again.
     async Task Key(KeyboardEventArgs e)
     {
+        if (e.Key == "Escape") armed = null;
         if (selected is not { } part) return;
         const int Step = Symbols.Grid;
         SchematicChange? change = e.Key switch
@@ -197,7 +357,7 @@
             "d" or "D" when e.MetaKey || e.CtrlKey => SchematicEdits.Duplicate(netlist, layout, part),
             _ => null,
         };
-        if (e.Key == "Escape") selected = null;
+        if (e.Key == "Escape") (selected, armed) = (null, null);
         if (change is null) return;
 
         await Apply(change);
