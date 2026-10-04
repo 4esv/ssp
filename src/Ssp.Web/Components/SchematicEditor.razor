@@ -119,13 +119,13 @@
                     <button type="button" role="menuitem" data-action="connect" @onclick="() => Choose(ConnectChoice)">Connect to a pin</button>
                 </div>
             }
-            @if (BarStyle() is { } barStyle)
+            @if (ActionSpots() is { } spots)
             {
-                <div class="selection-bar" role="toolbar" aria-label="Selection" style="@barStyle">
-                    <button type="button" data-action="delete" @onclick="DeleteSelected">Delete</button>
-                    <button type="button" data-action="rotate" disabled="@(selected is null)" @onclick="RotateSelected">Rotate</button>
-                    <button type="button" data-action="flip" disabled="@(selected is null)" @onclick="FlipSelected">Flip</button>
-                    <button type="button" data-action="duplicate" disabled="@(selected is null)" @onclick="DuplicateSelected">Duplicate</button>
+                <div class="part-actions" role="toolbar" aria-label="Selection">
+                    @foreach (var (action, label, style) in spots)
+                    {
+                        <button type="button" class="part-action" data-action="@action" aria-label="@label" title="@label" style="@style" @onclick="() => Act(action)">@ActionGlyph(action)</button>
+                    }
                 </div>
             }
             <div class="schematic-zoom" role="group" aria-label="Zoom">
@@ -172,6 +172,7 @@
 
     // NOTE: The state before the last delete, kept for UndoSeconds. Any other edit drops it.
     const int UndoSeconds = 8;
+    const double ActionPixels = 44;
     (string Name, SchematicChange Before)? undo;
     CancellationTokenSource? undoTimer;
     Tool? tool = Tool.Wire;
@@ -613,7 +614,7 @@
         }
         if (active is not null && await ActiveKey(e)) return;
         if (e.Key == "Escape") selectedWire = null;
-        if (e.Key is "Delete" or "Backspace" && (selected is not null || selectedWire is not null))
+        if (e.Key is "Delete" or "Backspace" or "x" or "X" && (selected is not null || selectedWire is not null))
         {
             await DeleteSelected();
             return;
@@ -623,13 +624,13 @@
         SchematicChange? change = e.Key switch
         {
             "r" or "R" => SchematicEdits.Rotate(netlist, layout, part),
-            "h" or "H" => SchematicEdits.Flip(netlist, layout, part, leftToRight: true),
+            "h" or "H" or "f" or "F" => SchematicEdits.Flip(netlist, layout, part, leftToRight: true),
             "v" or "V" => SchematicEdits.Flip(netlist, layout, part, leftToRight: false),
             "ArrowLeft" => SchematicEdits.Move(netlist, layout, part, -Step, 0),
             "ArrowRight" => SchematicEdits.Move(netlist, layout, part, Step, 0),
             "ArrowUp" => SchematicEdits.Move(netlist, layout, part, 0, -Step),
             "ArrowDown" => SchematicEdits.Move(netlist, layout, part, 0, Step),
-            "d" or "D" when e.MetaKey || e.CtrlKey => SchematicEdits.Duplicate(netlist, layout, part),
+            "d" or "D" => SchematicEdits.Duplicate(netlist, layout, part),
             _ => null,
         };
         if (e.Key == "Escape") selected = null;
@@ -754,28 +755,66 @@
         selected = change.Layout.Parts[^1].Reference;
     }
 
-    // NOTE: With a view, the bar sits under the selection, or above it at the edge, and stays in the pane. With the
-    // CSS fit there is no pixel position, so the style is empty and the bar sits at the foot of the pane.
-    string? BarStyle()
+    static string ActionGlyph(string action) => action switch
+    {
+        "delete" => "\u2715",
+        "rotate" => "\u21BB",
+        "flip" => "\u21C6",
+        _ => "\u29C9",
+    };
+
+    async Task Act(string action)
+    {
+        await Focus();
+        switch (action)
+        {
+            case "delete": await DeleteSelected(); break;
+            case "rotate": await RotateSelected(); break;
+            case "flip": await FlipSelected(); break;
+            case "duplicate": await DuplicateSelected(); break;
+        }
+    }
+
+    // NOTE: With a view, the round buttons sit around the selection: Delete above, Rotate right, Flip left, Duplicate
+    // below. Each centre is clamped so the whole 44 px button stays in the pane. A wire gets one Delete at its middle.
+    // With the CSS fit there is no pixel position, so the styles are empty and CSS places the buttons.
+    List<(string Action, string Label, string Style)>? ActionSpots()
     {
         Point min, max;
+        var wire = false;
         if (selectedWire is { } w && w < layout.Wires.Count)
         {
             var points = layout.Wires[w].Points;
-            (min, max) = (new Point(points.Min(p => p.X), points.Min(p => p.Y)), new Point(points.Max(p => p.X), points.Max(p => p.Y)));
+            var (p, q) = (points[(points.Count - 1) / 2], points[points.Count / 2]);
+            (min, max) = (new Point((p.X + q.X) / 2, (p.Y + q.Y) / 2), new Point((p.X + q.X) / 2, (p.Y + q.Y) / 2));
+            wire = true;
         }
         else if (selected is { } part && outlines.FirstOrDefault(o => o.Reference == part) is { } outline)
         {
             (min, max) = (outline.Min, outline.Max);
         }
         else return null;
-        if (view is not { } v || paneBox[2] <= 0) return "";
 
-        const double BarWidth = 290, BarHeight = 52, Gap = 8;
-        var (a, b) = (v.WorldToScreen(min), v.WorldToScreen(max));
-        var left = Math.Clamp(a.X, Gap, Math.Max(Gap, paneBox[2] - BarWidth - Gap));
-        var top = b.Y + Gap + BarHeight <= paneBox[3] ? b.Y + Gap : Math.Max(Gap, a.Y - BarHeight - Gap);
-        return FormattableString.Invariant($"left: {left:0.#}px; top: {top:0.#}px; bottom: auto");
+        var sized = view is not null && paneBox[2] > 0;
+        string Place(double x, double y)
+        {
+            if (!sized) return "";
+            const double Half = ActionPixels / 2, Gap = 4;
+            var cx = Math.Clamp(x, Half + Gap, Math.Max(Half + Gap, paneBox[2] - Half - Gap));
+            var cy = Math.Clamp(y, Half + Gap, Math.Max(Half + Gap, paneBox[3] - Half - Gap));
+            return FormattableString.Invariant($"left: {cx:0.#}px; top: {cy:0.#}px");
+        }
+
+        Point a = default, b = default;
+        if (sized) (a, b) = (view!.WorldToScreen(min), view!.WorldToScreen(max));
+        var (mx, my) = ((a.X + b.X) / 2, (a.Y + b.Y) / 2);
+        const double Reach = ActionPixels / 2 + 14;
+        var spots = new List<(string, string, string)> { ("delete", "Delete", Place(mx, wire ? my : a.Y - Reach)) };
+        if (wire) return spots;
+        spots.Add(("rotate", "Rotate", Place(b.X + Reach, my)));
+        spots.Add(("flip", "Flip", Place(a.X - Reach, my)));
+        spots.Add(("duplicate", "Duplicate", Place(mx, b.Y + Reach)));
+        return spots;
     }
 
     async Task Apply(SchematicChange change)
