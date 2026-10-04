@@ -1,9 +1,18 @@
 @using System.Reflection
 @using Ssp.Core.Chains
+@using Ssp.Core.Netlist
 
 <section class="virtual-amp">
     <h2>Virtual amp</h2>
     <p class="panel-hint">Pick a block for each stage, set the knobs, then press Try to hear the chain.</p>
+    <label class="amp-pedal">
+        <input type="checkbox" class="use-pedal" checked="@(pedalOn && pedalUsable)" disabled="@(!pedalUsable)" @onchange="UsePedal" />
+        <span>Use my circuit as the pedal</span>
+    </label>
+    @if (!pedalUsable)
+    {
+        <p class="panel-hint">Add a Jack in and a Jack out to the drawing to use it here.</p>
+    }
     <div class="amp-stack">
     @foreach (var section in Sections)
     {
@@ -52,12 +61,38 @@
             .Order(StringComparer.Ordinal)
             .ToArray());
 
+    /// <summary>The netlist of the editor. With a Jack in and a Jack out it can be the first stage of the chain.</summary>
+    [Parameter] public string? Pedal { get; set; }
+
+    bool pedalOn = true;
+    bool pedalUsable;
+    string? pedalSeen;
+
     readonly Dictionary<string, string> picks = Preset.ToDictionary(p => p.Key, p => p.Value);
     ClipPlayer? player;
     string netlist = "";
     string? error;
 
-    protected override void OnInitialized() => Build();
+    protected override void OnParametersSet()
+    {
+        if (Pedal == pedalSeen && netlist.Length > 0)
+        {
+            return;
+        }
+        pedalSeen = Pedal;
+        var directives = DirectiveParser.Parse(Pedal ?? "").Directives;
+        var usable = directives.Input is not null && directives.Output is not null;
+        // NOTE: A drawing that gets its jacks turns the pedal on. A box that the user cleared stays clear while the jacks stay.
+        if (usable && !pedalUsable) pedalOn = true;
+        pedalUsable = usable;
+        Build();
+    }
+
+    void UsePedal(ChangeEventArgs e)
+    {
+        pedalOn = e.Value is true;
+        Build();
+    }
 
     void Pick(string section, ChangeEventArgs e)
     {
@@ -73,7 +108,9 @@
     {
         try
         {
-            netlist = Chain.Compose([.. Sections.Select(s => new ChainStage(s.Name, Read(picks[s.Name])))]);
+            var stages = Sections.Select(s => new ChainStage(s.Name, Read(picks[s.Name])));
+            if (pedalOn && pedalUsable) stages = stages.Prepend(new ChainStage("pedal", Pedal!));
+            netlist = Chain.Compose([.. stages]);
             error = null;
         }
         catch (ArgumentException e)
