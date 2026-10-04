@@ -3,6 +3,7 @@
 @if (Layout.Body(Id) is { } body)
 {
     <section class="dock-panel" role="tabpanel" data-panel="@Id" aria-label="@Title" style="@body.Style" hidden="@(!body.Shown)">
+        <h2 class="dock-panel-title">@Title</h2>
         @ChildContent
     </section>
 }
