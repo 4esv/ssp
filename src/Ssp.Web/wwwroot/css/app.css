@@ -270,3 +270,12 @@ body {
 .schematic-tools [aria-pressed="true"] {
     font-weight: bold;
 }
+
+.home-links {
+    display: flex;
+    gap: 1rem;
+}
+
+.home-versions {
+    margin-top: 4rem;
+}
