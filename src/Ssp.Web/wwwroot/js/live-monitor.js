@@ -85,7 +85,11 @@ async function pump(reference) {
         let output;
         try {
             output = await reference.invokeMethodAsync('Process', Array.from(chunk.samples));
-        } catch {
+        } catch (error) {
+            // NOTE: Process turns a failed chunk into silence, so this is an interop failure. Say so, then stop.
+            if (running) {
+                await reference.invokeMethodAsync('Fail', String(error?.message ?? error)).catch(() => {});
+            }
             break;
         }
         if (!running) {
