@@ -9,9 +9,6 @@ namespace Ssp.Web.Tests;
 
 public class KnobsTests : BunitContext
 {
-    // HACK: A blocked pool grows slowly, so the debounce timer misses the wait on a loaded runner. Start the threads up front.
-    static KnobsTests() => ThreadPool.SetMinThreads(256, 256);
-
     static string Circuit(string folder, string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", folder, name));
 
     sealed class CountingHost : ISimulationHost
