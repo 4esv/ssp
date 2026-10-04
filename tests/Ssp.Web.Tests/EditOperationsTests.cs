@@ -183,12 +183,12 @@ public class EditOperationsTests : BunitContext
     }
 
     [Fact]
-    public void DWithoutCmdDoesNotDuplicate()
+    public void DWithoutCmdDuplicates()
     {
         var editor = Select(Editor(TwoResistors), "R1");
 
         Press(editor, "d");
 
-        Assert.Empty(changes);
+        Assert.Single(changes);
     }
 }

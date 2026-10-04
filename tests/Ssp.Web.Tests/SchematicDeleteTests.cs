@@ -67,16 +67,16 @@ public class SchematicDeleteTests : BunitContext
     {
         var seen = new List<SchematicChange>();
         var editor = Editor(seen);
-        Assert.Empty(editor.FindAll(".selection-bar"));
+        Assert.Empty(editor.FindAll(".part-actions"));
 
         editor.Find("rect.part[data-ref=\"R3\"]").Click();
-        var bar = editor.Find(".selection-bar");
-        Assert.Equal(["Delete", "Rotate", "Flip", "Duplicate"], bar.QuerySelectorAll("button").Select(b => b.TextContent.Trim()));
+        var bar = editor.Find(".part-actions");
+        Assert.Equal(["delete", "rotate", "flip", "duplicate"], bar.QuerySelectorAll("button").Select(b => b.GetAttribute("data-action")));
 
         bar.QuerySelector("button[data-action=delete]")!.Click();
         Assert.Contains("Deleted R3.", editor.Find(".delete-status").TextContent);
         Assert.Empty(editor.FindAll("rect.part[data-ref=\"R3\"]"));
-        Assert.Empty(editor.FindAll(".selection-bar"));
+        Assert.Empty(editor.FindAll(".part-actions"));
         Assert.DoesNotContain("R3 ", seen[^1].Netlist);
 
         editor.Find(".delete-status button").Click();
@@ -100,7 +100,7 @@ public class SchematicDeleteTests : BunitContext
 
         editor.FindAll("polyline.wire-hit")[^1].Click();
         Assert.Single(editor.FindAll("polyline.wire-hit.selected"));
-        editor.Find(".selection-bar button[data-action=delete]").Click();
+        editor.Find(".part-actions button[data-action=delete]").Click();
 
         Assert.Equal(wires - 1, seen[^1].Layout.Wires.Count);
         Assert.Contains("Deleted wire.", editor.Find(".delete-status").TextContent);
@@ -126,7 +126,7 @@ public class SchematicDeleteTests : BunitContext
         var seen = new List<SchematicChange>();
         var editor = Editor(seen);
         editor.Find("rect.part[data-ref=\"R3\"]").Click();
-        editor.Find(".selection-bar button[data-action=delete]").Click();
+        editor.Find(".part-actions button[data-action=delete]").Click();
 
         editor.Render(p => p.Add(c => c.Netlist, seen[^1].Netlist).Add(c => c.Layout, seen[^1].Layout));
 
