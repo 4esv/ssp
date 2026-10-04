@@ -25,7 +25,10 @@
 @code {
     const string BundledName = "Bundled clip";
     const int MaxUploadBytes = 20 * 1024 * 1024;
-    const int Oversample = 1;
+    static readonly int[] Oversamples = [1, 2, 4, 8];
+
+    // A peak below this level, in dBFS, is silence.
+    const double SilentDb = -80;
 
     static readonly Assembly Resources = typeof(ClipPlayer).Assembly;
 
@@ -58,7 +61,7 @@
         try
         {
             var (samples, rate) = uploaded is null ? Load("audio/clip.wav") : (uploaded, uploadedRate);
-            var rendered = await Host.Render(netlist, samples, rate, Oversample);
+            var (rendered, used) = await RenderWithRetry(netlist, samples, rate);
 
             // NOTE: A sample that is not finite plays as silence.
             double[] wet = [.. rendered.Select(sample => double.IsFinite(sample) ? sample : 0)];
@@ -66,13 +69,19 @@
             if (irRate == rate)
             {
                 wet = Convolution.Convolve(wet, ir);
-                status = "Playing with the cabinet IR.";
-            }
-            else
-            {
-                status = $"Playing without the cabinet IR. The clip is {rate} Hz and the IR is {irRate} Hz.";
             }
 
+            var (peak, rms) = Levels(wet);
+            if (peak < SilentDb)
+            {
+                output = null;
+                status = "The output is silent." + await Bias(netlist);
+                return;
+            }
+
+            var levels = $"Output peak {peak:0.0} dBFS, RMS {rms:0} dBFS.";
+            var how = irRate == rate ? "Playing with the cabinet IR." : $"Playing without the cabinet IR. The clip is {rate} Hz and the IR is {irRate} Hz.";
+            status = (used > 1 ? $"Rendered at {used}x oversample. " : "") + how + " " + levels;
             output = wet;
             outputRate = rate;
             await (await Module()).InvokeVoidAsync("play", ToFloat32Bytes(wet), rate);
@@ -86,6 +95,60 @@
             // NOTE: A parent calls Try from its own event, so the parent draws again and this player does not (#148).
             busy = false;
             StateHasChanged();
+        }
+    }
+
+    // NOTE: A timestep or convergence failure can pass at a higher oversample. Any other failure is final.
+    async Task<(double[] Samples, int Oversample)> RenderWithRetry(string netlist, double[] samples, int rate)
+    {
+        for (var i = 0; ; i++)
+        {
+            try
+            {
+                return (await Host.Render(netlist, samples, rate, Oversamples[i]), Oversamples[i]);
+            }
+            catch (Exception e) when (i < Oversamples.Length - 1 && IsSolverFailure(e))
+            {
+            }
+        }
+    }
+
+    static bool IsSolverFailure(Exception e) =>
+        e.Message.Contains("timestep", StringComparison.OrdinalIgnoreCase)
+        || e.Message.Contains("converge", StringComparison.OrdinalIgnoreCase)
+        || e.Message.Contains("stepping failed", StringComparison.OrdinalIgnoreCase);
+
+    static (double Peak, double Rms) Levels(double[] samples)
+    {
+        var peak = samples.Length == 0 ? 0 : samples.Max(Math.Abs);
+        var rms = samples.Length == 0 ? 0 : Math.Sqrt(samples.Sum(x => x * x) / samples.Length);
+        return (Db(peak), Db(rms));
+    }
+
+    static double Db(double amplitude) => amplitude <= 1e-12 ? -240 : 20 * Math.Log10(amplitude);
+
+    // The first bias warning of the circuit, in words: its first sentence and its advice.
+    async Task<string> Bias(string netlist)
+    {
+        try
+        {
+            var result = await Host.Run(netlist, new RunOptions());
+            var message = result.Diagnostics
+                .Select(d => d.Message)
+                .FirstOrDefault(m => m.Contains(" is cut off.", StringComparison.Ordinal) || m.Contains(" is saturated.", StringComparison.Ordinal));
+            if (message is null)
+            {
+                return "";
+            }
+
+            var sentences = message.Split(". ", StringSplitOptions.RemoveEmptyEntries);
+            var advice = sentences[^1].TrimEnd('.');
+            return sentences.Length > 1 ? $" {sentences[0]}. {advice}." : $" {message}";
+        }
+        catch (Exception)
+        {
+            // NOTE: The diagnostic is a hint. Without it the status still says the output is silent.
+            return "";
         }
     }
 
