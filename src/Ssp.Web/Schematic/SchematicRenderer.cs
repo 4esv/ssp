@@ -175,6 +175,17 @@ public static class SchematicRenderer
             .Select(p => Place(placement, p.X, p.Y)).Select(p => new Point(Math.Round(p.X, 2) + 0.0, Math.Round(p.Y, 2) + 0.0)).ToList();
     }
 
+    /// <summary>The schematic position of each pin of a placed pot: top, wiper, bottom.</summary>
+    public static IReadOnlyList<Point> PotPins(PartPlacement placement) =>
+        Symbols.For("pot").Pins.Select(p => Place(placement, p.X, p.Y)).Select(p => new Point(Math.Round(p.X, 2) + 0.0, Math.Round(p.Y, 2) + 0.0)).ToList();
+
+    /// <summary>The top-left and bottom-right corners of the drawing of a placed pot, in schematic units.</summary>
+    public static (Point Min, Point Max) PotOutline(PartPlacement placement)
+    {
+        var outline = Outline(placement, Drawing(Symbols.For("pot")).Box);
+        return (new Point(outline.MinX, outline.MinY), new Point(outline.MaxX, outline.MaxY));
+    }
+
     /// <summary>The top-left and bottom-right corners of the drawing of a placed component, in schematic units.</summary>
     public static (Point Min, Point Max) Outline(IComponent component, PartPlacement placement, PartRow? row)
     {
