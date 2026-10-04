@@ -24,11 +24,11 @@ public sealed record ViewTransform(double Zoom, double X, double Y)
         return new ViewTransform(zoom, screen.X - world.X * zoom, screen.Y - world.Y * zoom);
     }
 
-    /// <summary>The view that centres a world box in a pane, as large as the margin and the zoom limits allow.</summary>
+    /// <summary>The view that centres a world box in a pane, as large as the margin allows, within the zoom limits and never past 100 percent.</summary>
     public static ViewTransform Fit(double minX, double minY, double width, double height, double paneWidth, double paneHeight, double margin)
     {
         var fit = Math.Min((paneWidth - 2 * margin) / Math.Max(width, 1e-9), (paneHeight - 2 * margin) / Math.Max(height, 1e-9));
-        var zoom = double.IsFinite(fit) ? Math.Clamp(fit, MinZoom, MaxZoom) : 1;
+        var zoom = double.IsFinite(fit) ? Math.Clamp(fit, MinZoom, 1) : 1;
         return new ViewTransform(zoom, (paneWidth - width * zoom) / 2 - minX * zoom, (paneHeight - height * zoom) / 2 - minY * zoom);
     }
 }
