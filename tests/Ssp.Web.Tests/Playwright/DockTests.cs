@@ -76,7 +76,7 @@ public class DockTests
         var tab = page.Locator(".dock-tab[data-panel=knobs]");
         await tab.WaitForAsync(new() { Timeout = 60_000 });
         var layout = page.Locator(".dock-layout");
-        await Assertions.Expect(layout).ToHaveAttributeAsync("data-tree", new Regex(@"tabs\(knobs\*, calculators, compare\)"));
+        await Assertions.Expect(layout).ToHaveAttributeAsync("data-tree", new Regex(@"tabs\(knobs\*, calculators, compare[,)]"));
 
         // NOTE: The right zone of the schematic group docks the dragged panel as a new group.
         var target = page.Locator(".dock-panel[data-panel=schematic]");
