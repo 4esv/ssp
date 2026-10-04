@@ -26,11 +26,18 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
 
         var watch = Stopwatch.StartNew();
         await session.Page.Locator(".virtual-amp button.amp-try").ClickAsync();
-        await session.Page.WaitForFunctionAsync(
-            $"() => {{ const s = ({Status})(); return s !== '' && !s.startsWith('Rendering') && !s.startsWith('Applying'); }}",
-            null,
-            new() { Timeout = LimitMs, PollingInterval = 100 });
-        watch.Stop();
+        try
+        {
+            await session.Page.WaitForFunctionAsync(
+                $"() => {{ const s = ({Status})(); return s !== '' && !s.startsWith('Rendering') && !s.startsWith('Applying'); }}",
+                null,
+                new() { Timeout = LimitMs, PollingInterval = 100 });
+        }
+        finally
+        {
+            watch.Stop();
+            output.WriteLine($"After {watch.Elapsed.TotalSeconds:F1} s: {await session.Page.EvaluateAsync<string>(Status)}");
+        }
 
         var status = await session.Page.EvaluateAsync<string>(Status);
         var buffer = await session.Page.EvaluateAsync<JsonElement>(ClipPlayerTests.Output);

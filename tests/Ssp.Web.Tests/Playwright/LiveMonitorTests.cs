@@ -33,8 +33,17 @@ public class LiveMonitorTests(ITestOutputHelper output)
             var panel = session.Page.Locator(".dock-panel[data-panel=monitor] .live-monitor");
             await Assertions.Expect(panel.Locator(".monitor-note")).ToHaveTextAsync("monitor, not real time");
             await panel.Locator("button.monitor-start").ClickAsync();
-            await session.Page.WaitForFunctionAsync(
-                "() => globalThis.sspMonitorOutput && globalThis.sspMonitorOutput.nonzero > 0", null, new() { Timeout = 180_000 });
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                await session.Page.WaitForFunctionAsync(
+                    "() => globalThis.sspMonitorOutput && globalThis.sspMonitorOutput.nonzero > 0", null, new() { Timeout = 180_000 });
+            }
+            finally
+            {
+                output.WriteLine($"After {watch.Elapsed.TotalSeconds:F1} s: " + await session.Page.EvaluateAsync<string>(
+                    "() => [...document.querySelectorAll('.live-monitor p')].map(p => p.textContent.trim()).join(' | ') + ' | output ' + JSON.stringify(globalThis.sspMonitorOutput)"));
+            }
 
             var state = await session.Page.EvaluateAsync<JsonElement>(
                 "() => ({ length: globalThis.sspMonitorOutput.length, nonzero: globalThis.sspMonitorOutput.nonzero })");
