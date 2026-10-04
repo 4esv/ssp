@@ -683,6 +683,31 @@ h1[tabindex="-1"]:focus-visible {
     min-height: 12rem;
 }
 
+/* NOTE: In the dock the schematic fills its panel, so the bar and the menu at the bottom of the canvas are in view. The narrow layout keeps 60vh. */
+@media (min-width: 48.01rem) {
+    .dock-panel:has(.schematic-editor) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dock-panel:has(.schematic-editor) .schematic-editor {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .dock-panel:has(.schematic-editor) .schematic-body {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .dock-panel:has(.schematic-editor) .schematic-body .schematic {
+        height: auto;
+        min-height: 0;
+    }
+}
+
 @media (max-width: 48rem) {
     .schematic-body {
         flex-direction: column;
