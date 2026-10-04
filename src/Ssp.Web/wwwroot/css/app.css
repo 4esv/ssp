@@ -846,7 +846,9 @@ h1[tabindex="-1"]:focus-visible {
 
 .schematic-pins .pin.problem {
     stroke: var(--error, #b3261e);
-    stroke-width: 3;
+    stroke-width: 3px;
+    vector-effect: non-scaling-stroke;
+    r: 12px;
     fill: var(--error, #b3261e);
     fill-opacity: 0.5;
 }
