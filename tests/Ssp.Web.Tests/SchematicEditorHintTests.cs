@@ -34,7 +34,7 @@ public class SchematicEditorHintTests : BunitContext
     {
         var editor = Editor(TwoResistors);
         editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"0\"]").Click();
-        Assert.Equal("Wire: click a second pin to connect it to R1 pin 1", Hint(editor));
+        Assert.Equal("Connecting from R1 pin 1. Tap another pin.", Hint(editor));
     }
 
     [Fact]
