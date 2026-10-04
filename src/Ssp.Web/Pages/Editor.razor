@@ -15,7 +15,7 @@
 
 <h1>Editor</h1>
 
-<button @onclick="Run" disabled="@running">Run</button>
+<button class="run" @onclick="Run" disabled="@running">Run</button>
 <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
 <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
 <a class="share" href="@ShareHref">Share link</a>
@@ -107,6 +107,10 @@
     <DockPanel Id="compare" Title="Compare">
         <Compare Netlist="@netlist" />
     </DockPanel>
+
+    <DockPanel Id="clip" Title="Clip">
+        <ClipPlayer @ref="clipPlayer" Netlist="@netlist" />
+    </DockPanel>
 </DockLayout>
 
 @code {
@@ -117,13 +121,14 @@
     LayoutDoc? schematicLayout;
     readonly CommandStack history = new();
     bool running;
+    ClipPlayer? clipPlayer;
     RunResult? result;
     Diagnostic? shareError;
 
     // NOTE: The netlist and the schematic are side by side. The panels under them are tabs.
     static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
     [
-        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare"])], [0.55, 0.45]),
+        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare", "clip"])], [0.55, 0.45]),
         new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc"])], [0.55, 0.45]),
     ]));
 
@@ -147,7 +152,17 @@
         }
     }
 
+    // NOTE: Run plays the clip when the analyses finish. The render takes seconds, so the button is free again before it.
     async Task Run()
+    {
+        await Analyse();
+        if (clipPlayer is not null && result is { } run && run.Diagnostics.All(d => d.Severity != Severity.Error))
+        {
+            await clipPlayer.Try(netlist);
+        }
+    }
+
+    async Task Analyse()
     {
         shareError = null;
         running = true;
@@ -160,7 +175,7 @@
     {
         netlist = tuned;
         history.Reset(netlist, schematicLayout);
-        await Run();
+        await Analyse();
     }
 
     // NOTE: A text edit can rename or remove parts, so the schematic goes back to the auto-placement.
