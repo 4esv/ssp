@@ -9,9 +9,10 @@ Rid inp inn 4E+07
 Bgm 0 x I={0.000143239*tanh(0.003*V(inp,inn)/0.000143239)}
 Rp x 0 1E+08
 Cc x 0 4.77465E-10
-Bclamp x 0 I={0.000143239*(V(x)-(0.5*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))+V(vcc)-sqrt(((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))*((0.5*(V(x)+V(vee)+sqrt((V(x)-(V(vee)))*(V(x)-(V(vee)))+0.000001)))-(V(vcc)))+0.000001))))}
+Bclamp x 0 I={7.16197E-05*(sqrt((V(x)-V(vcc))*(V(x)-V(vcc))+0.000001)-sqrt((V(x)-V(vee))*(V(x)-V(vee))+0.000001)+V(x)-V(vcc)+V(x)-V(vee))}
 Bo o 0 V={V(x)}
 Rout o out 100
-Bout out 0 I={100*(V(out)-(0.5*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))+V(vcc)-1-sqrt(((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))*((0.5*(V(out)+V(vee)+1+sqrt((V(out)-(V(vee)+1))*(V(out)-(V(vee)+1))+0.000001)))-(V(vcc)-1))+0.000001))))}
+Blo lo 0 V={V(vee)+1-0.5*(V(vee)-V(vcc)+2+sqrt((V(vee)-V(vcc)+2)*(V(vee)-V(vcc)+2)+0.000001))}
+Bout out 0 I={50*(sqrt((V(out)-V(vcc)+1)*(V(out)-V(vcc)+1)+0.000001)-sqrt((V(out)-V(lo))*(V(out)-V(lo))+0.000001)+V(out)-V(vcc)+1+V(out)-V(lo))}
 .ends LM308
 
