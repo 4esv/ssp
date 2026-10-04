@@ -9,6 +9,9 @@ namespace Ssp.Web.Tests;
 
 public class KnobsTests : BunitContext
 {
+    // HACK: A blocked pool grows slowly, so the debounce timer misses the wait on a loaded runner. Start the threads up front.
+    static KnobsTests() => ThreadPool.SetMinThreads(256, 256);
+
     static string Circuit(string folder, string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", folder, name));
 
     sealed class CountingHost : ISimulationHost
@@ -94,5 +97,18 @@ public class KnobsTests : BunitContext
         Thread.Sleep(Knobs.DefaultDebounce * 3);
         Assert.Equal(2, host.Runs);
         Assert.Contains("* ssp:knob RV1 log 1", page.Find("textarea").GetAttribute("value"));
+    }
+
+    // NOTE: Other tests block pool threads. The pool adds a thread about every half second then, so the debounce timer fires late.
+    [Fact]
+    public void ChangeRunsWhilePoolThreadsAreBlocked()
+    {
+        var (page, _) = Run(Circuit("fixtures", "pot-lowpass.cir"));
+        var before = OutMagnitude(page);
+        var gate = new ManualResetEventSlim();
+        for (var i = 0; i < Environment.ProcessorCount * 4; i++) { Task.Run(() => gate.Wait()); }
+        Task.Run(async () => { await Task.Delay(8000); gate.Set(); });
+        page.Find(".knobs input[type=range]").Input("0.9");
+        page.WaitForAssertion(() => Assert.NotEqual(before, OutMagnitude(page)), TimeSpan.FromSeconds(5));
     }
 }
