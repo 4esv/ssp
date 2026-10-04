@@ -122,6 +122,8 @@ public class SchematicEditorTests : BunitContext
     {
         Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
         var page = Render<Editor>();
+        // NOTE: The editor opens with the starter circuit. This test places parts on an empty netlist.
+        page.Find("textarea").Input("");
 
         page.Find("button.place[data-kind=resistor]").Click();
         page.Find("button.place[data-kind=resistor]").Click();
