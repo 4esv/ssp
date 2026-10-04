@@ -119,6 +119,122 @@ public static partial class SchematicEdits
         return new SchematicChange(Join(lines), new LayoutDoc(parts, layout.Wires));
     }
 
+    /// <summary>Rounds a coordinate to the nearest <see cref="Symbols.Grid"/> step.</summary>
+    public static double Snap(double value) => Math.Round(value / Symbols.Grid, MidpointRounding.AwayFromZero) * Symbols.Grid + 0.0;
+
+    /// <summary>
+    /// <see cref="Place"/> with the part at a point, snapped to the grid. A pin that lands on another pin or on a wire
+    /// joins that net.
+    /// </summary>
+    public static SchematicChange PlaceAt(string netlist, LayoutDoc layout, string kind, Point at)
+    {
+        var placed = Place(netlist, layout, kind);
+        var last = placed.Layout.Parts[^1];
+        var parts = placed.Layout.Parts.SkipLast(1).Append(last with { X = Snap(at.X), Y = Snap(at.Y) }).ToList();
+        var change = placed with { Layout = new LayoutDoc(parts, placed.Layout.Wires) };
+        return Settle(change, last.Reference);
+    }
+
+    /// <summary>
+    /// Moves a part by an offset in schematic units. The new position snaps to the grid. The wires that end on its pins
+    /// follow. A pin that lands on another pin or on a wire joins that net. The reference is the one in the layout.
+    /// </summary>
+    public static SchematicChange Drag(string netlist, LayoutDoc layout, PartMap parts, string reference, double dx, double dy)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var element = ElementOf(circuit, parts, reference);
+        // NOTE: A pot is placed by its first half, P_1.
+        var start = layout.Parts.Single(p => Names.Equals(p.Reference, element.Reference) || Names.Equals(p.Reference, element.Members[0]));
+        var to = start with { X = Snap(start.X + dx), Y = Snap(start.Y + dy) };
+        var before = SchematicRenderer.Pins(element, start).Select(p => p.At).ToList();
+        var after = SchematicRenderer.Pins(element, to).Select(p => p.At).ToList();
+        var all = SchematicRenderer.Elements(circuit, parts)
+            .SelectMany(e => layout.Parts.Where(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])).Take(1)
+                .SelectMany(p => SchematicRenderer.Pins(e, p).Select(x => x.At)))
+            .ToHashSet();
+
+        var wires = layout.Wires.Select(w => Follow(w, before, after, all, (to.X - start.X, to.Y - start.Y))).ToList();
+        var moved = new LayoutDoc(layout.Parts.Select(p => p == start ? to : p).ToList(), wires);
+        return Settle(new SchematicChange(netlist, moved), element.Reference);
+    }
+
+    static SchematicElement ElementOf(LoadedCircuit circuit, PartMap parts, string reference) =>
+        SchematicRenderer.Elements(circuit, parts).Single(e => Names.Equals(e.Reference, reference) || Names.Equals(e.Members[0], reference));
+
+    // NOTE: A wire with a free end is a ground symbol stem. Its bars are the net 0 wires under it, like Ground draws them.
+    static WireRoute Follow(WireRoute w, List<Point> before, List<Point> after, HashSet<Point> pins, (double X, double Y) d)
+    {
+        var points = w.Points.ToList();
+        var first = before.IndexOf(points[0]);
+        var last = before.IndexOf(points[^1]);
+        if (first >= 0 && last >= 0) return w with { Points = points.Select(p => new Point(p.X + d.X, p.Y + d.Y)).ToList() };
+        if (first < 0 && last < 0)
+        {
+            foreach (var pin in before)
+            {
+                if (w.Net == Zero && points.All(p => Math.Abs(p.X - pin.X) <= 10 && p.Y >= pin.Y + 20 && p.Y <= pin.Y + 28))
+                {
+                    return w with { Points = points.Select(p => new Point(p.X + d.X, p.Y + d.Y)).ToList() };
+                }
+            }
+            return w;
+        }
+
+        var free = first >= 0 ? points[^1] : points[0];
+        if (!pins.Contains(free)) return w with { Points = points.Select(p => new Point(p.X + d.X, p.Y + d.Y)).ToList() };
+        if (first >= 0) points[0] = after[first];
+        else points[^1] = after[last];
+        // NOTE: A wire from Wire has at most one corner, at the x of the last point and the y of the first. Keep it that way.
+        if (points.Count > 3) return w with { Points = points };
+        var (a, b) = (points[0], points[^1]);
+        var corner = new Point(b.X, a.Y);
+        return w with { Points = corner == a || corner == b ? [a, b] : [a, corner, b] };
+    }
+
+    // Joins the nets of the pins of one part to the pins and the wires that they sit on.
+    static SchematicChange Settle(SchematicChange change, string reference)
+    {
+        var (netlist, layout) = (change.Netlist, change.Layout);
+        for (var i = 0; ; i++)
+        {
+            var circuit = NetlistLoader.Load(netlist);
+            var parts = PartMap.Resolve(circuit, Ssp.Web.Components.SchematicView.Table);
+            var elements = SchematicRenderer.Elements(circuit, parts);
+            var element = elements.Single(e => Names.Equals(e.Reference, reference) || Names.Equals(e.Members[0], reference));
+            var pins = SchematicRenderer.Pins(element, layout.Parts.Single(p => Names.Equals(p.Reference, reference) || Names.Equals(p.Reference, element.Members[0])));
+            if (i >= pins.Count) return new SchematicChange(netlist, layout);
+            if (pins[i].Hidden) continue;
+
+            var (node, at) = (pins[i].Net, pins[i].At);
+            string? other = null;
+            foreach (var e in elements.Where(e => e != element))
+            {
+                if (layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])) is not { } placement) continue;
+                var hit = SchematicRenderer.Pins(e, placement).FirstOrDefault(p => !p.Hidden && p.At == at);
+                if (hit.Net is not null) { other = hit.Net; break; }
+            }
+            other ??= layout.Wires.FirstOrDefault(w => w.Net != node && OnWire(w, at))?.Net;
+            if (other is null || other == node) continue;
+
+            var (keep, drop) = node == Zero ? (node, other) : (other, node);
+            var merged = Rename(netlist, circuit, layout, drop, keep, []);
+            (netlist, layout) = (merged.Netlist, merged.Layout);
+        }
+    }
+
+    static bool OnWire(WireRoute w, Point p)
+    {
+        for (var i = 1; i < w.Points.Count; i++)
+        {
+            var (a, b) = (w.Points[i - 1], w.Points[i]);
+            var cross = (b.X - a.X) * (p.Y - a.Y) - (b.Y - a.Y) * (p.X - a.X);
+            if (Math.Abs(cross) > 0.01) continue;
+            if (p.X >= Math.Min(a.X, b.X) - 0.01 && p.X <= Math.Max(a.X, b.X) + 0.01 &&
+                p.Y >= Math.Min(a.Y, b.Y) - 0.01 && p.Y <= Math.Max(a.Y, b.Y) + 0.01) return true;
+        }
+        return false;
+    }
+
     static bool HasDirective(string netlist, string name) =>
         Lines(netlist).Any(l => Regex.IsMatch(l, $@"^\s*\*\s*ssp:{name}\b", RegexOptions.IgnoreCase));
 
