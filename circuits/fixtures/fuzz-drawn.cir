@@ -1,0 +1,19 @@
+* schematic
+* ssp:input in
+C1 in n4 100n
+.model QNPN NPN (IS=1e-14 BF=200)
+Q1 n3 n4 n6 0 QNPN
+R2 n3 n10 2.2k
+V2 n10 0 DC 9
+C2 n3 n8 100n
+.model DGEN D (IS=1e-14 N=1.9)
+D1 n8 0 DGEN
+RV1_1 n8 n9 5k
+RV1_2 n9 0 5k
+* ssp:knob RV1 linear 0.5
+R3 n9 out 1m
+* ssp:output out
+R4 n6 0 1k
+C3 n6 0 22u
+R5 n4 0 47k
+R6 n4 n10 100k
