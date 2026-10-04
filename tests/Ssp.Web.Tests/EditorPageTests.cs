@@ -9,6 +9,8 @@ namespace Ssp.Web.Tests;
 
 public class EditorPageTests : BunitContext
 {
+    public EditorPageTests() => Services.AddSingleton(TimeProvider.System);
+
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
     IRenderedComponent<Editor> Run(string netlist)
