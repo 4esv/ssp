@@ -39,11 +39,53 @@ The real-time factors below were measured before `clipper-bjt-si.cir` was writte
 | Native .NET 9, Apple Silicon | Fixed trapezoidal | 176.4 kHz (4x oversample) | 3.2x |
 | Browser (WebAssembly) | - | 44.1 kHz | see [Browser](#browser) |
 | Native .NET 10, Darwin arm64 | Fixed trapezoidal | 44.1 kHz | 7.2x |
+| Native .NET 10, Darwin arm64 | Fixed trapezoidal, one Newton iteration | 44.1 kHz | 10.9x |
 
 ### Row format
 
 Each row has four columns: Platform, Method, Sample rate, Real-time factor.
 `scripts/bench.sh` writes `Native .NET <major>, <OS> <architecture>`, `Fixed trapezoidal`, `44.1 kHz`, and the factor with one decimal and an `x` suffix.
+
+## One Newton iteration per sample
+
+`tests/Ssp.Core.Tests/Spikes/OneIterationTransient.cs` has a custom time-step loop with one Newton iteration for each sample.
+For each sample, the loop loads, factors and solves one time. It accepts the solution without a convergence check.
+It does not use `TransientMaxIterations=1`. That setting only fails the convergence.
+
+After the solve, the loop loads the circuit one more time, but it does not factor or solve again.
+This load sets the charge and current states from the new solution.
+Without it, `Accept` keeps the states of the previous sample. The output then increases by approximately 1.9 times for each sample, and it is NaN after 112 samples.
+
+The row "Fixed trapezoidal, one Newton iteration" in [Results](#results) is from `OneIterationTransient.MeasureRealTimeFactor`, not from `scripts/bench.sh`.
+The test calls the loop in the test process, after the JIT. The wall time does not include the process start.
+
+| Item | Value |
+|---|---|
+| Machine | Apple M3 Pro, macOS |
+| Runtime | Native .NET 10, Release, warm JIT |
+| Input | Sine, 0.3 V peak, 440 Hz, 44.1 kHz, 10 s |
+| Runs | 5. The values are the median, with the range. |
+
+| Loop | Real-time factor |
+|---|---|
+| One Newton iteration | 10.9x (8.7 to 11.7) |
+| `Analyses.Render`, oversample 1, same runs | 6.5x (4.7 to 6.9) |
+
+| Accuracy against `Analyses.Render` (last 100 ms of 200 ms) | Value |
+|---|---|
+| Output peak, one Newton iteration | 0.638715 V |
+| Output peak, `Analyses.Render` | 0.638671 V |
+| Peak error | 0.0069 % |
+| Maximum difference of one sample | 124.5 mV |
+
+The maximum difference occurs when the output changes polarity. The loop is late on these edges.
+
+### Decision: reject
+
+- The loop is 1.7 times faster than `Analyses.Render`. In the browser, `Analyses.Render` has a real-time factor of 0.29x (see [Browser](#browser)). A speed increase of 1.7 times does not make it real time.
+- The difference of one sample is 124.5 mV, which is 19 % of the peak. The peak error is small, but the shape of the edges changes.
+- The loop does not do a convergence check. If a circuit does not converge in one iteration, the output is incorrect and there is no error.
+- The loop must load the circuit again after the solve, because of the order of `Load` and `Accept` in SpiceSharp 3.2.3. The loop depends on internal behavior of SpiceSharp.
 
 ## Browser
 
