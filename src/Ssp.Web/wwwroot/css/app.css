@@ -376,7 +376,7 @@ h1[tabindex="-1"]:focus-visible {
 }
 
 .schematic-pins .pin:hover,
-.schematic-pins .pin.pending {
+.schematic-pins .pin.active {
     fill: currentColor;
 }
 
@@ -634,19 +634,45 @@ h1[tabindex="-1"]:focus-visible {
     cursor: pointer;
 }
 
+/* NOTE: The hit circle is 44 px across at any zoom. The dot inside it is the part that shows. */
 .pin-add-hit {
+    fill: transparent;
+}
+
+.pin-add-dot {
     fill: var(--accent, currentColor);
     stroke: var(--bg, Canvas);
     stroke-width: 1;
+    pointer-events: none;
+}
+
+.pin-add.chosen .pin-add-dot {
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.schematic-pins .pin.target {
+    fill: var(--accent, currentColor);
+    fill-opacity: 0.6;
+    stroke-width: 2;
+}
+
+.schematic-pins .pin.open {
+    fill-opacity: 0;
+    stroke-dasharray: 2 2;
+}
+
+.schematic-pins .pin.open.active {
+    fill-opacity: 1;
 }
 
 .pin-add-sign {
     fill: var(--bg, Canvas);
-    font-size: 20px;
     font-weight: 700;
     pointer-events: none;
 }
 
+/* NOTE: Without a pixel position the picker sits at the top of the pane. With a view the style sets it under its dot. */
 .pin-menu {
     position: absolute;
     left: 0.5rem;
@@ -664,6 +690,7 @@ h1[tabindex="-1"]:focus-visible {
 
 .pin-menu button {
     min-height: 2.75rem;
+    min-width: 2.75rem;
 }
 
 .schematic-pins .part {
