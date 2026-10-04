@@ -62,6 +62,26 @@ public class RenderRobustnessTests
         Assert.True(statistics.VariableSteps);
         Assert.Equal(input.Length, output.Length);
         Assert.True(statistics.Steps <= 3 * input.Length, $"The render took {statistics.Steps} steps for {input.Length} samples.");
+        Assert.True(statistics.Iterations <= 6.4 * input.Length, $"The render took {statistics.Iterations} Newton iterations for {input.Length} samples.");
+    }
+
+    // The fixed steps of this chain stop after 6 ms of the clip, and the render starts again with variable steps (#219).
+    // A caller that knows this can skip the fixed attempt.
+    [Fact]
+    public void ARenderThatStartsOnVariableStepsSkipsTheFixedAttempt()
+    {
+        var (clip, fs) = Clip();
+        var input = clip[..(fs / 20)];
+        var tried = new RenderStatistics();
+        var direct = new RenderStatistics();
+
+        var first = Analyses.Render(Chain(), input, fs, 1, statistics: tried);
+        var second = Analyses.Render(Chain(), input, fs, 1, statistics: direct, variableSteps: true);
+
+        Assert.True(tried.VariableSteps);
+        Assert.True(direct.VariableSteps);
+        Assert.True(direct.Steps < tried.Steps, $"The direct render took {direct.Steps} steps, and the render with the fixed attempt {tried.Steps}.");
+        Assert.Equal(first, second);
     }
 
     // Above 0.1 V in, B1 sinks 2 mA out of 'out' at 0 V and above, and sources 2 mA below 0 V. The 1k load cannot balance
