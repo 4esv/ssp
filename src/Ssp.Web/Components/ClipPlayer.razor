@@ -18,7 +18,8 @@
     <p class="clip-source">@sourceName</p>
 
     <button type="button" class="clip-play" @onclick="() => Try(Netlist)" disabled="@busy">Play clip</button>
-    @if (busy)
+    @* NOTE: A cancel hides the button in the same render as the "Cancelled." status. The render unwinds after it (#225). *@
+    @if (busy && !cancelled)
     {
         <button type="button" class="clip-cancel" @onclick="Cancel">Cancel</button>
     }

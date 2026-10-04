@@ -53,14 +53,41 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
             new() { Timeout = LimitMs, PollingInterval = 100 });
         var running = await session.Page.EvaluateAsync<string>(Status);
 
+        // NOTE: Before #225 the status read "Cancelled." one render before the Cancel button went. A poll saw the gap only
+        // on a slow runner, because the second render often came first. The DOM changes come in order, so the observer
+        // records whether the button was gone at the last change of the status. That order is the same on every machine.
+        await session.Page.EvaluateAsync(
+            $$"""
+            () => {
+                const status = document.querySelector('.virtual-amp .clip-status');
+                let gone = false;
+                let goneAtStatus = false;
+                const observer = new MutationObserver(records => {
+                    for (const record of records) {
+                        if ([...record.removedNodes].some(node => node.classList?.contains('clip-cancel'))) {
+                            gone = true;
+                        }
+                        if (status.contains(record.target)) {
+                            goneAtStatus = gone;
+                        }
+                    }
+                    if (({{Status}})() === 'Cancelled.') {
+                        globalThis.sspCancelButtons = goneAtStatus ? 0 : 1;
+                        observer.disconnect();
+                    }
+                });
+                observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+            }
+            """);
+
         var watch = Stopwatch.StartNew();
         await session.Page.Locator(".virtual-amp button.clip-cancel").ClickAsync();
         await session.Page.WaitForFunctionAsync(
-            $"() => ({Status})() === 'Cancelled.'",
+            "() => globalThis.sspCancelButtons !== undefined",
             null,
             new() { Timeout = 5_000, PollingInterval = 20 });
         watch.Stop();
         output.WriteLine($"While rendering: {running} After Cancel: {await session.Page.EvaluateAsync<string>(Status)} ({watch.ElapsedMilliseconds} ms)");
-        Assert.Equal(0, await session.Page.Locator(".virtual-amp button.clip-cancel").CountAsync());
+        Assert.Equal(0, await session.Page.EvaluateAsync<int>("() => globalThis.sspCancelButtons"));
     }
 }
