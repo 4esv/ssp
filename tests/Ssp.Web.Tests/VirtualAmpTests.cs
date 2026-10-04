@@ -34,6 +34,7 @@ public class VirtualAmpTests : BunitContext
 
     public VirtualAmpTests()
     {
+        Services.AddSingleton(TimeProvider.System);
         Services.AddSingleton<ISimulationHost>(host);
         JSInterop.Mode = JSRuntimeMode.Loose;
     }

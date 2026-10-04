@@ -96,6 +96,13 @@
                         <title>Open end</title>
                     </circle>
                 }
+                @foreach (var jack in jacks)
+                {
+                    <g class="jack" data-jack="@jack.Label.ToLowerInvariant()" transform="translate(@N(jack.At.X) @N(jack.At.Y))">
+                        <circle class="jack-ring" r="9" />
+                        <text class="jack-label" y="-14" text-anchor="middle" font-size="10">@jack.Label</text>
+                    </g>
+                }
                 @if (active is { } from && !connecting)
                 {
                     @foreach (var d in free)
@@ -146,6 +153,7 @@
     enum Tool { Wire, Ground }
 
     sealed record PinView(PinRef Ref, string Node, Point Position);
+    sealed record JackView(Point At, string Label);
 
     sealed record PartView(string Reference, Point Min, Point Max);
 
@@ -169,6 +177,10 @@
     string? svg;
     string viewBox = "";
     List<PinView> pins = [];
+    List<JackView> jacks = [];
+
+    // A message for the status line from the last key or tap. The next tap on a pin, a tool or the canvas clears it.
+    string? status;
     List<PartView> outlines = [];
     string? selected;
     int? selectedWire;
@@ -256,6 +268,7 @@
 
     void Build()
     {
+        status = null;
         selectedWire = null;
         active = null;
         (free, chosen, opens) = ([], null, []);
@@ -263,6 +276,7 @@
         var wasBlank = svg is null;
         svg = null;
         pins = [];
+        jacks = [];
         outlines = [];
         var circuit = NetlistLoader.Load(netlist);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
@@ -293,6 +307,11 @@
             var (min, max) = SchematicRenderer.PotOutline(placement);
             outlines.Add(new PartView(pot.Reference, min, max));
             pins.AddRange(SchematicRenderer.PotPins(placement).Select((p, i) => new PinView(new PinRef(pot.Reference, i), pot.Nodes[i], p)));
+        }
+        // NOTE: A jack is a marker on a node. The symbol sits at the first pin on that node.
+        foreach (var (node, label) in new[] { (circuit.Directives.Input, "IN"), (circuit.Directives.Output, "OUT") })
+        {
+            if (node is not null && pins.FirstOrDefault(p => p.Node == node) is { } jackPin) jacks.Add(new JackView(jackPin.Position, label));
         }
         opens = SchematicEdits.OpenEnds(layout, pins.Select(p => p.Position)).ToList();
         if (!outlines.Any(p => p.Reference == selected)) selected = null;
@@ -434,6 +453,16 @@
     async Task PaletteAdd(string kind)
     {
         if (hasErrors) return;
+        if (kind is "jack-in" or "jack-out")
+        {
+            if (active is { } pin && parts is not null)
+            {
+                await Apply(SchematicEdits.PlaceJack(netlist, layout, parts, kind, pin));
+                Activate(pin);
+            }
+            else status = $"Tap a pin first, then {Label(kind)}.";
+            return;
+        }
         double[]? b = null;
         try { b = await PaneBox(); }
         catch (JSException) { }
@@ -471,6 +500,7 @@
 
     void ClearActive()
     {
+        status = null;
         active = null;
         (free, chosen) = ([], null);
         (menuOpen, connecting) = (false, false);
@@ -534,6 +564,7 @@
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts, from));
             Activate(from);
+            status = $"Grounded {Name(from)}.";
             return;
         }
         if (choice == ConnectChoice)
@@ -542,6 +573,12 @@
             return;
         }
         if (chosen is not { } direction) return;
+        if (choice is "jack-in" or "jack-out")
+        {
+            await Apply(SchematicEdits.PlaceJack(netlist, layout, parts, choice, from));
+            Activate(from);
+            return;
+        }
         if (choice == WireChoice)
         {
             var (wired, open) = SchematicEdits.ExtendWire(netlist, layout, parts, from, direction);
@@ -609,6 +646,7 @@
 
     string Hint() =>
         connecting ? "Tap the pin to join. Esc cancels."
+        : status is not null ? status
         : menuOpen ? "Pick a part, Wire, Ground or Connect."
         : active is { } a ? $"{Name(a)}: tap a +, or press an arrow, then r c q d p b w. G is ground."
         : selectedWire is not null ? "Wire selected: Delete remove"
@@ -705,7 +743,10 @@
         };
         if (arrow is { } d)
         {
-            if (free.Contains(d) && !connecting) OpenMenu(d);
+            status = null;
+            if (connecting) return true;
+            if (free.Contains(d)) OpenMenu(d);
+            else status = Blocked(d);
             return true;
         }
         if (e.Key == "Tab")
@@ -714,9 +755,22 @@
             return true;
         }
         if (e.CtrlKey || e.MetaKey || e.AltKey || !Letters.TryGetValue(e.Key.ToLowerInvariant(), out var choice)) return false;
-        if (connecting || (choice != GroundChoice && chosen is null)) return true;
+        if (connecting) return true;
+        if (choice != GroundChoice && chosen is null)
+        {
+            status = "Pick a direction first, then a letter.";
+            return true;
+        }
+        status = null;
         await Choose(choice);
         return true;
+    }
+
+    string Blocked(Direction d)
+    {
+        var names = free.Select(f => f.ToString().ToLowerInvariant()).ToList();
+        var list = names.Count switch { 0 => "", 1 => names[0], _ => string.Join(", ", names[..^1]) + " or " + names[^1] };
+        return $"{d} is blocked here." + (list.Length > 0 ? $" Try {list}." : "");
     }
 
     // Moves the active pin to the next pin or open end, in the order of the netlist.

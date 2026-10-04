@@ -804,3 +804,16 @@ h1[tabindex="-1"]:focus-visible {
     min-height: 44px;
     min-width: 44px;
 }
+
+.jack-ring {
+    fill: none;
+    stroke: var(--accent, currentColor);
+    stroke-width: 2;
+    pointer-events: none;
+}
+
+.jack-label {
+    fill: var(--accent, currentColor);
+    font-weight: 700;
+    pointer-events: none;
+}

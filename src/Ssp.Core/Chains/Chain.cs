@@ -23,7 +23,8 @@ public static partial class Chain
     /// is a supply. The supply nodes are shared, and the first source for each supply node stays.
     /// A stage whose input source has a DC value that is not 0 is a power stage. If the chain has a stage that is not a power
     /// stage, each power stage keeps its input source as a supply and is not in the signal path.
-    /// The input source of the first stage in the signal path drives the chain.
+    /// The input source of the first stage in the signal path drives the chain. A source behind a series resistor of 10 mohm or less on
+    /// the input node counts as the input source, and the resistor is dropped.
     /// Each <c>knob</c> directive is named <c>&lt;stage&gt;.&lt;part&gt;</c>.
     /// </summary>
     /// <exception cref="ArgumentException">A stage name is bad or not unique, a stage has no input or output,
@@ -71,12 +72,15 @@ public static partial class Chain
 
             var parts = new List<string>();
             var pins = new List<string>();
-            foreach (var line in Statements(stage.Netlist, stage.Name, definitions))
+            var statements = Statements(stage.Netlist, stage.Name, definitions).ToList();
+            var (seriesNode, seriesLine) = SeriesSource(statements, input);
+            foreach (var line in statements)
             {
+                if (line == seriesLine) continue;
                 var words = Words(line);
                 if (IsSourceToGround(words, out var top))
                 {
-                    if (!power && top.Equals(input, StringComparison.OrdinalIgnoreCase))
+                    if (!power && (top.Equals(input, StringComparison.OrdinalIgnoreCase) || top.Equals(seriesNode, StringComparison.OrdinalIgnoreCase)))
                     {
                         if (first)
                             sources.Add(Join([$"V{stage.Name}.{words[0]}", .. words[1..3].Select(w => w == top ? chainInput! : w), .. words[3..]]));
@@ -176,6 +180,41 @@ public static partial class Chain
             current = line;
         }
         if (current is not null) yield return current;
+    }
+
+    // The largest series resistor that still counts as the source impedance of a test source drawn next to the input jack.
+    const double SeriesLimit = 10e6;
+
+    // Finds a source to ground that sits behind a series resistor of 10 mohm or less on the input node, and nothing else is on its node.
+    // The resistor is dropped and the source is the input source. A drawing from before the jacks were markers has this shape (#209).
+    private static (string? Node, string? Line) SeriesSource(List<string> statements, string input)
+    {
+        foreach (var line in statements)
+        {
+            var words = Words(line);
+            if (words.Length < 4 || !words[0].StartsWith('R') && !words[0].StartsWith('r')) continue;
+            var other = words[1].Equals(input, StringComparison.OrdinalIgnoreCase) ? words[2]
+                : words[2].Equals(input, StringComparison.OrdinalIgnoreCase) ? words[1] : null;
+            if (other is null || IsGround(other) || other.Equals(input, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!(Ohms(words[3]) is { } ohms && ohms <= SeriesLimit)) continue;
+
+            var onNode = statements.Where(l => l != line && Words(l).Skip(1).Take(2).Any(w => w.Equals(other, StringComparison.OrdinalIgnoreCase))).ToList();
+            if (onNode.Count == 1 && IsSourceToGround(Words(onNode[0]), out var top) && top.Equals(other, StringComparison.OrdinalIgnoreCase))
+                return (other, line);
+        }
+        return (null, null);
+    }
+
+    // A resistance with a SPICE suffix, or null if the word is not a plain number.
+    private static double? Ohms(string value)
+    {
+        var m = Regex.Match(value, @"^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(meg|g|t|k|m|u|n|p|f)?[a-z]*$", RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+        var scale = m.Groups[2].Value.ToLowerInvariant() switch
+        {
+            "t" => 1e12, "g" => 1e9, "meg" => 1e6, "k" => 1e3, "m" => 1e-3, "u" => 1e-6, "n" => 1e-9, "p" => 1e-12, "f" => 1e-15, _ => 1.0,
+        };
+        return double.Parse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture) * scale;
     }
 
     // A power stage has an input source with a DC value that is not 0, such as the 9 V adapter.
