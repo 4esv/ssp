@@ -181,3 +181,54 @@ The values are the wall time of `ssp render`, with the process start and the JIT
 
 The clipper does not use the fallback. Its output RMS (0.590) and peak (0.641) are the same before and after.
 The chain output after the change has an RMS of 0.117 and a peak of 0.720 of full scale.
+
+## Variable steps in the browser
+
+The chain of [Fallback to variable steps](#fallback-to-variable-steps) renders `clip.wav` (2.0 s, 44.1 kHz, 88200 samples), oversample 1, in the worker of the published site (Chromium, headless, Playwright, Release, not AOT) and natively (.NET 10, Release), on an Apple M-series Mac (#219).
+Before is commit f70d95d3.
+
+### Profile before the change
+
+The values are from `tran.Statistics` of each method, one run.
+
+| Method | Browser | Native | Accepted steps | Newton iterations | Browser Load / Solve |
+|---|---|---|---|---|---|
+| Fixed steps, to the failure at t = 0.540 s | 9.17 s | 0.52 s | 23814 | 69767 | 6.29 s / 1.05 s |
+| Variable steps, all 2.0 s | 144.8 s | 3.71 s | 408988 | 1001553 | 88.4 s / 14.9 s |
+
+The three largest costs:
+
+1. Newton iterations. The browser takes 131 to 147 µs for each iteration with all methods, and native takes 3.3 to 7.5 µs. The browser time is in proportion to the iteration count. Load (the device equations, most of them the behavioral sources of the TL072 model) is 61 % of the time in the browser and natively.
+2. Steps for each sample. The variable method takes 4.63 steps and 11.3 iterations for each sample. The fixed method takes 1 step and 2.9 iterations. The cause is the input `Pwl`: it sets a breakpoint at each sample, and after each breakpoint the engine cuts the next step to a tenth of the sample period and sets the integration order to 1. A larger truncation tolerance (`TrTol` 20 to 100) does not change the count (4.43 to 4.46).
+3. The fixed-step start that does not converge: 9.2 s in the browser before the variable render starts again from 0.
+
+The progress callback is not a cost: 25 calls for 2.0 s.
+
+### Change
+
+If a fixed step does not converge, the input is a line through the samples with no breakpoints, and a trapezoidal method with variable steps of at most half a sample period lands on each sample time.
+A sample time does not cut the step or the order.
+
+| Item | Before | After |
+|---|---|---|
+| Browser, worker `render` of the full chain, call to result, 3 runs | 154 s (sum of the profile above, not measured end to end) | 81.4 s (81.2 to 81.5) |
+| Native, `Analyses.Render`, one run | 4.23 s | 2.42 s |
+| Solver steps, 0.50 s to 0.75 s of the clip (`TheVariableStepRenderTakesFewStepsForEachSample`) | 53497 | 25558 |
+| Browser, variable part only | 144.8 s, 1001553 iterations | 73.3 s, 511198 iterations |
+
+Variable steps of at most one sample period take 52.4 s in the browser (370381 iterations), but the output differs from before by -57.8 dBFS RMS.
+
+Output against before (the 88200 samples of the full chain, native):
+
+| Item | Value |
+|---|---|
+| RMS difference | 0.00079, -62.0 dBFS |
+| Largest difference | 0.061, -24.3 dBFS, at sample 50032 (1.134 s) |
+| Samples that differ by more than -60 dBFS | 5006 of 88200 |
+| Samples that differ by more than -40 dBFS | 48 |
+| Before against a reference with steps of 1/16 sample | -78.4 dBFS RMS, -43.8 dBFS largest |
+| After against the same reference | -61.7 dBFS RMS, -24.1 dBFS largest |
+
+The largest differences are in the fast edges of the gain stage. A change of `TrTol` from 7 to 20 with the old method also moves the largest difference to -40.7 dBFS.
+
+The goal of 30 s in the browser is not met. At 140 µs for each iteration, 30 s is 214000 iterations, 2.4 for each sample. The fixed method alone takes 2.9 for each sample on this chain.
