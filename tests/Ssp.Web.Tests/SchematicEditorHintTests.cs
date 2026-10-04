@@ -87,6 +87,6 @@ public class SchematicEditorHintTests : BunitContext
     public void EmptySchematicSaysWhatToDoFirst()
     {
         var editor = Editor("");
-        Assert.Contains("Add a part", editor.Find("p.schematic-empty").TextContent);
+        Assert.Contains("Tap a part in the palette", editor.Find("p.schematic-empty").TextContent);
     }
 }

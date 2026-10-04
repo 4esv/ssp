@@ -568,12 +568,15 @@ h1[tabindex="-1"]:focus-visible {
     transform: translate(var(--x), var(--y)) scale(var(--z));
 }
 
+/* NOTE: A + dot lies one step beyond a lone part, outside the view box. The pin layer shows and hits it there. */
 .schematic-pins {
     touch-action: none;
+    overflow: visible;
 }
 
 .schematic-zoom {
     position: absolute;
+    z-index: 1;
     top: 0.5rem;
     right: 0.5rem;
     display: flex;
@@ -786,11 +789,11 @@ h1[tabindex="-1"]:focus-visible {
     line-height: 1;
 }
 
-/* NOTE: With the CSS fit there is no pixel position, so the buttons sit in a cross at the pane centre. */
-.part-action[data-action="delete"] { left: 50%; top: 25%; }
-.part-action[data-action="rotate"] { left: calc(50% + 3.5rem); top: 50%; }
-.part-action[data-action="flip"] { left: calc(50% - 3.5rem); top: 50%; }
-.part-action[data-action="duplicate"] { left: 50%; top: 75%; }
+/* NOTE: With the CSS fit there is no pixel position, so the buttons sit in one row near the top of the pane. */
+.part-action[data-action="delete"] { left: calc(50% - 4.5rem); top: 12%; }
+.part-action[data-action="rotate"] { left: calc(50% - 1.5rem); top: 12%; }
+.part-action[data-action="flip"] { left: calc(50% + 1.5rem); top: 12%; }
+.part-action[data-action="duplicate"] { left: calc(50% + 4.5rem); top: 12%; }
 
 .delete-status {
     display: flex;
