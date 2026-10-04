@@ -865,4 +865,42 @@ h1[tabindex="-1"]:focus-visible {
 
 .gallery .preview {
     order: -1;
+/* NOTE: A problem shows in words in the list and as a ring on the part or pin that causes it. */
+.schematic-editor .problems {
+    list-style: none;
+    margin: 0.25rem 0;
+    padding: 0;
+}
+
+.schematic-editor .problem-item {
+    display: block;
+    width: 100%;
+    min-height: 28px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.9em;
+    text-align: left;
+    background: var(--warn-bg);
+    border: 1px solid var(--error, #b3261e);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.schematic-pins .pin.problem {
+    stroke: var(--error, #b3261e);
+    stroke-width: 3px;
+    vector-effect: non-scaling-stroke;
+    fill: var(--error, #b3261e);
+    fill-opacity: 0.5;
+}
+
+.schematic-pins .part.problem {
+    stroke: var(--error, #b3261e);
+    stroke-width: 2;
+    stroke-dasharray: 6 3;
+}
+
+@media (pointer: coarse) {
+    .schematic-editor .problem-item {
+        min-height: 44px;
+    }
 }
