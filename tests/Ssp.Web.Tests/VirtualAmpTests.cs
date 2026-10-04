@@ -69,7 +69,7 @@ public class VirtualAmpTests : BunitContext
 
         var expected = Chain.Compose(
             [Stage("gain", "gain-mid-jrc4558.cir"), Stage("tone", "tone-baxandall-passive.cir"), Stage("power", "power-9v.cir")]);
-        Assert.Equal(expected, panel.Find("textarea.amp-netlist").TextContent.ReplaceLineEndings("\n"));
+        Assert.Equal(expected.ReplaceLineEndings("\n"), panel.Find("textarea.amp-netlist").TextContent.ReplaceLineEndings("\n"));
     }
 
     [Fact]
