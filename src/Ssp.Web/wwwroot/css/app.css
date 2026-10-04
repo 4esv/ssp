@@ -765,24 +765,32 @@ h1[tabindex="-1"]:focus-visible {
     stroke-opacity: 0.35;
 }
 
-.selection-bar {
+.part-actions {
     position: absolute;
-    left: 0.5rem;
-    bottom: 0.5rem;
+    inset: 0;
     z-index: 2;
-    display: flex;
-    gap: 0.25rem;
-    padding: 0.25rem;
-    max-width: calc(100% - 1rem);
-    background: var(--bg, Canvas);
-    border: 1px solid currentColor;
-    border-radius: 0.25rem;
+    pointer-events: none;
 }
 
-.selection-bar button {
-    min-width: 44px;
-    min-height: 44px;
+.part-action {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    background: var(--bg, Canvas);
+    font-size: 1.25rem;
+    line-height: 1;
 }
+
+/* NOTE: With the CSS fit there is no pixel position, so the buttons sit in a cross at the pane centre. */
+.part-action[data-action="delete"] { left: 50%; top: 25%; }
+.part-action[data-action="rotate"] { left: calc(50% + 3.5rem); top: 50%; }
+.part-action[data-action="flip"] { left: calc(50% - 3.5rem); top: 50%; }
+.part-action[data-action="duplicate"] { left: 50%; top: 75%; }
 
 .delete-status {
     display: flex;
