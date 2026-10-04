@@ -1,5 +1,10 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Ssp.Core;
+using Ssp.Core.Chains;
+using Ssp.Core.Netlist;
+using Ssp.Web.Components;
+using Ssp.Web.Library;
 using Ssp.Web.Pages;
 using Ssp.Web.Sharing;
 
@@ -70,5 +75,36 @@ public class GalleryPageTests : BunitContext
 
         Assert.Equal(Directory.GetFiles(Library).Length, page.FindAll("main.home ul.gallery li figure.preview img").Count);
         Assert.Single(page.FindAll("h1"));
+    }
+
+    const string Fuzz = "fuzz-transistor-diode.cir";
+
+    static LibraryCircuit FuzzEntry() => Assert.Single(CircuitLibrary.All, c => c.FileName == Fuzz);
+
+    [Fact]
+    public void TransistorFuzzIsInTheLibrary()
+    {
+        Assert.Equal("Transistor fuzz", FuzzEntry().Title);
+    }
+
+    [Fact]
+    public void TransistorFuzzRunsWithNoError()
+    {
+        var circuit = NetlistLoader.Load(FuzzEntry().Netlist);
+
+        Assert.DoesNotContain(circuit.Diagnostics, d => d.Severity == Severity.Error);
+    }
+
+    [Fact]
+    public void VirtualAmpAcceptsTransistorFuzzAsThePedal()
+    {
+        var stages = VirtualAmp.Preset
+            .Select(p => new ChainStage(p.Key, File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "blocks", p.Value))))
+            .Prepend(new ChainStage("pedal", FuzzEntry().Netlist))
+            .ToArray();
+
+        var netlist = Chain.Compose(stages);
+
+        Assert.DoesNotContain(NetlistLoader.Load(netlist).Diagnostics, d => d.Severity == Severity.Error);
     }
 }
