@@ -183,4 +183,19 @@ public class SchematicMovesTests : BunitContext
         var change = Assert.Single(changes);
         Assert.Equal(PinOf(change, new PinRef("R1", 0)).Node, PinOf(change, new PinRef("R2", 0)).Node);
     }
+
+    [Fact]
+    public void The_chain_goes_on_when_the_parent_passes_the_change_back()
+    {
+        var changes = new List<SchematicChange>();
+        var editor = Editor(changes);
+        editor.Find("circle.pin[data-ref=\"R1\"][data-pin=\"1\"]").Click();
+        editor.Find("g.pin-add[data-dir=right]").Click();
+        editor.Find(".pin-menu button[data-kind=resistor]").Click();
+
+        editor.Render(p => p.Add(c => c.Netlist, changes[0].Netlist).Add(c => c.Layout, changes[0].Layout));
+
+        Assert.NotEmpty(editor.FindAll("g.pin-add"));
+        Assert.Contains("R2 pin 2", editor.Find("p.schematic-hint").TextContent);
+    }
 }

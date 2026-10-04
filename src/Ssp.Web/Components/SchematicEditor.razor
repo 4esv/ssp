@@ -238,10 +238,13 @@
         seenLayout = Layout;
         // NOTE: The parent passes each edit back. That echo keeps the undo, any other netlist drops it.
         if (Netlist != netlist) ClearUndo();
+        // NOTE: The echo of an edit keeps the active pin, so the chain goes on when the parent passes the change back.
+        var keep = Netlist == netlist ? active : null;
         netlist = Netlist;
         given = Layout;
         Build();
         view = null;
+        if (keep is { } again) Activate(again);
     }
 
     void Build()
@@ -439,7 +442,11 @@
     }
 
     // The dot radius in schematic units: 22 px at the zoom of the view.
-    double DotRadius() => Math.Min(MaxDotRadius, DotPixels / (view?.Zoom ?? 1));
+    // NOTE: With the CSS fit there is no view, so the zoom is the fit of the last pane box.
+    double DotRadius() => Math.Min(MaxDotRadius, DotPixels / Zoom());
+
+    double Zoom() =>
+        view?.Zoom ?? (paneBox[2] > 0 && box.W > 0 ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, paneBox[2], paneBox[3], FitMargin).Zoom : 1);
 
     static string Name(Spot spot) => spot.Pin is { } pin ? $"{pin.Reference} pin {pin.Pin + 1}" : "open end";
 
