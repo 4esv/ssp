@@ -79,7 +79,7 @@ public class KnobsTests : BunitContext
     }
 
     [Fact]
-    public void ManyFastChangesGiveOneChange()
+    public async Task ManyFastChangesGiveOneChange()
     {
         // NOTE: The debounce is far longer than any burst, so a slow runner cannot split the burst in two.
         var debounce = TimeSpan.FromSeconds(3);
@@ -91,14 +91,15 @@ public class KnobsTests : BunitContext
 
         foreach (var pos in new[] { "0.1", "0.2", "0.3", "0.4", "0.6", "0.7", "0.8", "0.9", "1" })
         {
-            knobs.Find(".knobs input[type=range]").Input(pos);
+            // NOTE: Find and Input in one dispatch, so a render cannot remove the handler between them.
+            await knobs.InvokeAsync(() => knobs.Find(".knobs input[type=range]").Input(pos));
         }
         lock (changes) Assert.Empty(changes);
 
         // NOTE: The callback does not render the component, so WaitForAssertion would not check again. Poll instead.
         Assert.True(SpinWait.SpinUntil(() => { lock (changes) return changes.Count == 1; }, debounce * 4));
         // NOTE: Wait past another debounce window to show that no late change follows.
-        Thread.Sleep(debounce);
+        await Task.Delay(debounce);
         lock (changes) Assert.Single(changes);
         Assert.Contains("* ssp:knob RV1 log 1", changes[0]);
     }
