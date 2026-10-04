@@ -22,8 +22,6 @@ public class ChainSignalTests
     // TimestepTooSmallException when the op-amp output clips. At oversample 4 they render 0.4 V to 3.0 V. See the PR for #155.
     private static readonly HashSet<string> KnownFailing =
     [
-        // gain-high-lm308 has its own issue.
-        "gain-high-lm308.cir",
         "gain-two-stage-tl072.cir",
         "gain-mid-jrc4558.cir tone-baxandall-active-tl072.cir",
         "gain-mid-jrc4558.cir tone-lowpass-sallenkey-tl072.cir",
@@ -82,4 +80,20 @@ public class ChainSignalTests
         var peak = Peak(gain, tone);
         Assert.True(peak > MinPeak, $"{gain} into {tone}: peak {peak:F4} V");
     }
+
+    public static TheoryData<string> Tones()
+    {
+        var data = new TheoryData<string>();
+        foreach (var tone in Blocks("tone"))
+        {
+            data.Add(tone);
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(Tones))]
+    public void Lm308ChainRenders(string tone) =>
+        Assert.True(double.IsFinite(Peak("gain-high-lm308.cir", tone)));
 }
