@@ -4,16 +4,17 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
-@if (model.Closed.Count > 0)
-{
-    <div class="dock-closed">
-        Closed:
+<div class="dock-closed">
+    <button type="button" class="dock-reset" @onclick="Reset">Reset layout</button>
+    @if (model.Closed.Count > 0)
+    {
+        <span>Closed:</span>
         @foreach (var panel in model.Closed)
         {
             <button type="button" class="dock-open" data-panel="@panel" @onclick="() => Open(panel)">@Title(panel)</button>
         }
-    </div>
-}
+    }
+</div>
 
 <div class="@LayoutClass" @ref="element" data-tree="@model"
      @onpointermove="Drag" @onpointerup="EndResize" @onpointerleave="EndResize">
@@ -102,6 +103,20 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            try
+            {
+                // NOTE: Firefox starts no drag unless dragstart sets data. A Blazor handler runs too late for that.
+                module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/dock.js");
+                await module.InvokeVoidAsync("allowDrag", element);
+            }
+            catch (Exception)
+            {
+                // NOTE: Without the script a drag still works in browsers that need no data.
+            }
+        }
+
         if (focus is { } panel && tabs.TryGetValue(panel, out var tab))
         {
             focus = null;
@@ -143,6 +158,19 @@
     {
         model.Activate(panel);
         await Save();
+    }
+
+    async Task Reset()
+    {
+        model = Default();
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", StorageKey);
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The default layout shows either way.
+        }
     }
 
     async Task Close(string panel)

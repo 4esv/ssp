@@ -114,6 +114,12 @@ body {
     resize: none;
 }
 
+.dock-panel-title {
+    display: none;
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+}
+
 .dock-splitter {
     position: absolute;
     z-index: 2;
@@ -189,6 +195,10 @@ body {
         width: auto !important;
         height: auto !important;
         margin-bottom: 0.5rem;
+    }
+
+    .dock-panel-title {
+        display: block;
     }
 
     .dock-panel > textarea {
