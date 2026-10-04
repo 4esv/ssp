@@ -306,7 +306,7 @@ public static class AutoPlacer
         public double? RouteCost(SchematicElement e, PartPlacement p, Dictionary<string, bool> railNets, bool simple)
         {
             var (_, symbols) = Boxes(e, p, railNets);
-            var solid = Solid.Concat(symbols.Prepend(Plain(e, p))).ToList();
+            var solid = Solid.Concat(symbols.Prepend(Plain(e, p))).Concat(TextBoxes(e, p)).ToList();
             var pins = SchematicRenderer.Pins(e, p).Where(x => !x.Hidden).ToList();
             var total = 0.0;
             foreach (var pin in pins.Where(x => !IsGround(x.Net) && !railNets.ContainsKey(x.Net)))
@@ -326,6 +326,7 @@ public static class AutoPlacer
             room.AddRange(symbols);
             Solid.Add(Plain(e, p));
             Solid.AddRange(symbols);
+            Solid.AddRange(TextBoxes(e, p));
             Placed = true;
             foreach (var box in symbols.Prepend(body))
             {
@@ -342,6 +343,10 @@ public static class AutoPlacer
                 Anchor.TryAdd(pin.Net, pin.At);
             }
         }
+
+        // The rectangles of the text of the part. A wire does not cross them.
+        static IEnumerable<Box> TextBoxes(SchematicElement e, PartPlacement p) =>
+            SchematicRenderer.Labels(e, p).Select(l => l.Extent).Select(x => new Box(x.X0, x.Y0, x.X1, x.Y1));
 
         static Box Plain(SchematicElement e, PartPlacement p)
         {

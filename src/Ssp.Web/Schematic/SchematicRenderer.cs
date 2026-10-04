@@ -88,29 +88,7 @@ public static class SchematicRenderer
             }
 
             bounds.Add(part);
-            if (e.Kind == "rail")
-            {
-                // The value is at the far end of the stem.
-                Label(labels, bounds, (part.MinX + part.MaxX) / 2, p.Flip ? part.MaxY + LabelGap + FontSize : part.MinY - LabelGap, e.Value);
-            }
-            else if (Norm(p.Rotation) is 90 or 270)
-            {
-                // A vertical part has its labels beside it, so a wire at its pins does not cross them.
-                var middle = (part.MinY + part.MaxY) / 2;
-                Label(labels, bounds, part.MaxX + LabelGap, middle - LabelGap / 2, e.Reference, start: true);
-                if (e.Value.Length > 0) Label(labels, bounds, part.MaxX + LabelGap, middle + FontSize, e.Value, start: true);
-            }
-            else
-            {
-                // NOTE: A pin at the top or bottom centre has a lead and a symbol. The label goes beside them.
-                var pinsAt = Pins(e, p).Where(x => !x.Hidden).Select(x => x.At).ToList();
-                var middle = (part.MinX + part.MaxX) / 2;
-                double Beside(double edge) => pinsAt.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - middle) < 15).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
-                var top = Beside(part.MinY);
-                var bottom = Beside(part.MaxY);
-                Label(labels, bounds, double.IsNaN(top) ? middle : top, part.MinY - LabelGap, e.Reference, end: !double.IsNaN(top));
-                if (e.Value.Length > 0) Label(labels, bounds, double.IsNaN(bottom) ? middle : bottom, part.MaxY + LabelGap + FontSize, e.Value, end: !double.IsNaN(bottom));
-            }
+            foreach (var label in Labels(e, p)) Label(labels, bounds, label.X, label.Y, label.Text, label.Start, label.End);
         }
 
         foreach (var w in layout.Wires)
@@ -218,6 +196,49 @@ public static class SchematicRenderer
             var (x, y) = Place(placement, p.X, p.Y);
             return new ElementPin(element.Nodes[i], new Point(Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0), symbol?.Pins[i].Hidden == true);
         }).ToList();
+    }
+
+    /// <summary>A label of a placed element: text at a point, anchored in the middle, at the start or at the end.</summary>
+    public readonly record struct ElementLabel(string Text, double X, double Y, bool Start = false, bool End = false)
+    {
+        /// <summary>The rectangle of the text: left, top, right, bottom.</summary>
+        public (double X0, double Y0, double X1, double Y1) Extent
+        {
+            get
+            {
+                var width = Text.Length * FontSize * 0.6;
+                var x0 = Start ? X : End ? X - width : X - width / 2;
+                return (x0, Y - FontSize, x0 + width, Y);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The labels of a placed element. A rail has its voltage at the end of the stem. A vertical part has its reference and
+    /// value to its right. Other parts have the reference above and the value below, beside a pin at the top or bottom centre.
+    /// </summary>
+    public static IReadOnlyList<ElementLabel> Labels(SchematicElement e, PartPlacement p)
+    {
+        var (min, max) = Outline(e, p);
+        if (e.Kind == "rail") return [new(e.Value, (min.X + max.X) / 2, p.Flip ? max.Y + LabelGap + FontSize : min.Y - LabelGap)];
+
+        var labels = new List<ElementLabel>();
+        if (Norm(p.Rotation) is 90 or 270)
+        {
+            var middle = (min.Y + max.Y) / 2;
+            labels.Add(new(e.Reference, max.X + LabelGap, middle - LabelGap / 2, Start: true));
+            if (e.Value.Length > 0) labels.Add(new(e.Value, max.X + LabelGap, middle + FontSize, Start: true));
+            return labels;
+        }
+
+        // NOTE: A pin at the top or bottom centre has a lead and a symbol. The label goes beside them.
+        var pins = Pins(e, p).Where(x => !x.Hidden).Select(x => x.At).ToList();
+        var center = (min.X + max.X) / 2;
+        double Beside(double edge) => pins.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - center) < 15).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
+        var (top, bottom) = (Beside(min.Y), Beside(max.Y));
+        labels.Add(new(e.Reference, double.IsNaN(top) ? center : top, min.Y - LabelGap, End: !double.IsNaN(top)));
+        if (e.Value.Length > 0) labels.Add(new(e.Value, double.IsNaN(bottom) ? center : bottom, max.Y + LabelGap + FontSize, End: !double.IsNaN(bottom)));
+        return labels;
     }
 
     /// <summary>The top-left and bottom-right corners of the drawing of a placed element, in schematic units.</summary>

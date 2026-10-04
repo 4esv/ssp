@@ -33,7 +33,7 @@
 <polyline data-net="clip" points="240,170 240,160 260,160"/>
 <polyline data-net="clip" points="260,160 300,160"/>
 <polyline data-net="clip" points="240,170 240,80 260,80"/>
-<polyline data-net="clip" points="260,80 260,20 230,20"/>
+<polyline data-net="clip" points="260,80 240,80 240,20 230,20"/>
 <polyline data-net="e2" points="240,230 240,260"/>
 <polyline data-net="e2" points="240,230 240,240 290,240"/>
 <polyline data-net="in" points="40,200 40,240"/>
