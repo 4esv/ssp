@@ -5,6 +5,7 @@
 @using Microsoft.JSInterop
 @inject ISimulationHost Host
 @inject IJSRuntime Js
+@implements IDisposable
 
 <section class="clip-player">
     <h2>Clip</h2>
@@ -17,6 +18,10 @@
     <p class="clip-source">@sourceName</p>
 
     <button type="button" class="clip-play" @onclick="() => Try(Netlist)" disabled="@busy">Play clip</button>
+    @if (busy)
+    {
+        <button type="button" class="clip-cancel" @onclick="Cancel">Cancel</button>
+    }
     <button type="button" class="clip-download" @onclick="Download" disabled="@(output is null)">Download WAV</button>
 
     <p class="clip-status" role="status">@status</p>
@@ -35,6 +40,12 @@
     /// <summary>The netlist that the Play clip button renders the clip through.</summary>
     [Parameter] public string Netlist { get; set; } = "";
 
+    // A render that runs longer than this many seconds asks the user to cancel.
+    const int SlowSeconds = 60;
+
+    /// <summary>The clock for the elapsed time of a render. A test gives a fake clock.</summary>
+    [Parameter] public TimeProvider Clock { get; set; } = TimeProvider.System;
+
     string sourceName = BundledName;
     double[]? uploaded;
     int uploadedRate;
@@ -42,6 +53,12 @@
     int outputRate;
     string status = "";
     bool busy;
+    bool cancelled;
+    long started;
+    double done;
+    double total;
+    int oversample = 1;
+    ITimer? ticker;
     IJSObjectReference? module;
 
     /// <summary>
@@ -56,11 +73,19 @@
         }
 
         busy = true;
+        cancelled = false;
+        started = Clock.GetTimestamp();
+        done = 0;
         status = "Rendering…";
         StateHasChanged();
         try
         {
             var (samples, rate) = uploaded is null ? Load("audio/clip.wav") : (uploaded, uploadedRate);
+            total = (double)samples.Length / rate;
+            ShowProgress();
+
+            // NOTE: The status shows the elapsed time even when the worker reports nothing.
+            ticker = Clock.CreateTimer(_ => _ = InvokeAsync(() => { ShowProgress(); StateHasChanged(); }), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             var (rendered, used) = await RenderWithRetry(netlist, samples, rate);
 
             // NOTE: A sample that is not finite plays as silence.
@@ -68,7 +93,9 @@
             var (ir, irRate) = Load("audio/cab-1x12.wav");
             if (irRate == rate)
             {
-                wet = Convolution.Convolve(wet, ir);
+                status = "Applying the cabinet IR…";
+                StateHasChanged();
+                wet = await Host.Convolve(wet, ir);
             }
 
             var (peak, rms) = Levels(wet);
@@ -86,12 +113,18 @@
             outputRate = rate;
             await (await Module()).InvokeVoidAsync("play", ToFloat32Bytes(wet), rate);
         }
+        catch (OperationCanceledException)
+        {
+            status = "Cancelled.";
+        }
         catch (Exception e)
         {
-            status = "Render failed: " + e.Message;
+            status = cancelled ? "Cancelled." : "Render failed: " + e.Message;
         }
         finally
         {
+            ticker?.Dispose();
+            ticker = null;
             // NOTE: A parent calls Try from its own event, so the parent draws again and this player does not (#148).
             busy = false;
             StateHasChanged();
@@ -105,13 +138,46 @@
         {
             try
             {
-                return (await Host.Render(netlist, samples, rate, Oversamples[i]), Oversamples[i]);
+                oversample = Oversamples[i];
+                done = 0;
+                ShowProgress();
+                return (await Host.Render(netlist, samples, rate, oversample, OnProgress), oversample);
             }
             catch (Exception e) when (i < Oversamples.Length - 1 && IsSolverFailure(e))
             {
             }
         }
     }
+
+    void OnProgress(double seconds) =>
+        _ = InvokeAsync(() =>
+        {
+            done = seconds;
+            ShowProgress();
+            StateHasChanged();
+        });
+
+    // The status of a render that runs: the seconds done, and the question when it is slow.
+    void ShowProgress()
+    {
+        if (!busy || cancelled)
+        {
+            return;
+        }
+
+        var elapsed = Clock.GetElapsedTime(started).TotalSeconds;
+        status = $"Rendering {done:0.0} of {total:0.0} s at {oversample}x oversample."
+            + (elapsed >= SlowSeconds ? $" This is slow. Cancel, or lower the clip length. Elapsed {elapsed:0} s." : "");
+    }
+
+    void Cancel()
+    {
+        cancelled = true;
+        status = "Cancelled.";
+        Host.CancelRender();
+    }
+
+    public void Dispose() => ticker?.Dispose();
 
     static bool IsSolverFailure(Exception e) =>
         e.Message.Contains("timestep", StringComparison.OrdinalIgnoreCase)

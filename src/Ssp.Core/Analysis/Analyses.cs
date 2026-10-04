@@ -233,10 +233,12 @@ public static class Analyses
     /// The solver uses fixed trapezoidal steps of 1 / (fs * oversample). If a fixed step does not converge, the render starts
     /// again with variable trapezoidal steps of at most that size, and the output is interpolated at the sample times.
     /// The circuit is the same afterwards.
+    /// <paramref name="progress"/> gets the number of output samples done, about ten times for each second of audio.
+    /// A render with variable steps starts again from 0.
     /// </summary>
     /// <exception cref="InvalidOperationException">The variable steps also do not converge. The message gives the time
     /// and the node that changes most in the last iteration.</exception>
-    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample)
+    public static double[] Render(LoadedCircuit circuit, double[] input, int fs, int oversample, Action<int>? progress = null)
     {
         if (fs <= 0 || oversample < 1)
         {
@@ -283,13 +285,13 @@ public static class Analyses
 
             try
             {
-                return Sample(circuit, new FixedTrapezoidal { Step = step, StopTime = stop }, outNode, input.Length, fs);
+                return Sample(circuit, new FixedTrapezoidal { Step = step, StopTime = stop }, outNode, input.Length, fs, progress);
             }
             catch (TimestepTooSmallException)
             {
                 // NOTE: A loud transient into a saturating op-amp model needs steps near 1e-10 s for one sample (#210).
                 // The fixed method cannot make the step smaller, so the variable method renders the full input again.
-                return Sample(circuit, new Trapezoidal { StopTime = stop, MaxStep = step, InitialStep = step }, outNode, input.Length, fs);
+                return Sample(circuit, new Trapezoidal { StopTime = stop, MaxStep = step, InitialStep = step }, outNode, input.Length, fs, progress);
             }
         }
         finally
@@ -304,12 +306,14 @@ public static class Analyses
 
     // Streams the accepted time points and keeps the output at each sample time i / fs, interpolated between the two
     // time points around it. A time point within 1e-6 of a sample period from a sample time is that sample.
-    private static double[] Sample(LoadedCircuit circuit, TimeParameters method, string outNode, int count, int fs)
+    private static double[] Sample(LoadedCircuit circuit, TimeParameters method, string outNode, int count, int fs, Action<int>? progress)
     {
         var tran = new Transient("render", method);
         var voltage = new RealVoltageExport(tran, outNode);
         var output = new double[count];
         var written = 0;
+        var reported = 0;
+        var tenth = Math.Max(1, fs / 10);
         double lastTime = 0, lastValue = 0;
         IBiasingSimulationState? state = null;
         try
@@ -336,6 +340,12 @@ public static class Analyses
                     }
                 }
 
+                if (progress is not null && written / tenth != reported / tenth)
+                {
+                    progress(written);
+                }
+
+                reported = written;
                 lastTime = time;
                 lastValue = value;
             }
