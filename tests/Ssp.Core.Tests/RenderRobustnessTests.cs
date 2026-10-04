@@ -48,6 +48,22 @@ public class RenderRobustnessTests
         Assert.True(rms > 0.01, $"The output RMS is {rms} V.");
     }
 
+    // The variable steps took 4.9 solver steps for each sample: the input set a breakpoint at each sample, and the solver
+    // cut the step after each breakpoint to a tenth (#219). The browser is about 60 times slower than native for each step.
+    [Fact]
+    public void TheVariableStepRenderTakesFewStepsForEachSample()
+    {
+        var (clip, fs) = Clip();
+        var input = clip[(fs / 2)..(3 * fs / 4)];
+        var statistics = new RenderStatistics();
+
+        var output = Analyses.Render(Chain(), input, fs, 1, statistics: statistics);
+
+        Assert.True(statistics.VariableSteps);
+        Assert.Equal(input.Length, output.Length);
+        Assert.True(statistics.Steps <= 3 * input.Length, $"The render took {statistics.Steps} steps for {input.Length} samples.");
+    }
+
     // Above 0.1 V in, B1 sinks 2 mA out of 'out' at 0 V and above, and sources 2 mA below 0 V. The 1k load cannot balance
     // a jump across zero, so no voltage at 'out' solves the circuit and no step size helps.
     const string NoSolution = """
