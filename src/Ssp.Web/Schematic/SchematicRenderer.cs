@@ -24,6 +24,7 @@ public static class SchematicRenderer
     const double Margin = 20;
     const double LabelGap = 4;
     const double FontSize = 10;
+    const double SymbolLength = 20;
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
 
@@ -48,8 +49,12 @@ public static class SchematicRenderer
         var bounds = new Bounds();
         var body = new StringBuilder();
         var labels = new StringBuilder();
+        var elements = Elements(circuit, parts);
+        var rails = elements.Where(e => e.Kind == "rail").ToDictionary(e => e.Nodes[0], e => e.Value, Names);
+        var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
+            .Select(p => (p.X, p.Y)).ToHashSet();
 
-        foreach (var e in Elements(circuit, parts))
+        foreach (var e in elements)
         {
             var p = placements.GetValueOrDefault(e.Reference)
                     ?? e.Members.Order(Names).Select(placements.GetValueOrDefault).FirstOrDefault(m => m is not null);
@@ -66,21 +71,24 @@ public static class SchematicRenderer
                 var pins = LocalPins(symbol, e.Nodes.Count);
                 for (var i = 0; i < e.Nodes.Count; i++)
                 {
-                    if (!IsGround(e.Nodes[i]) || symbol?.Pins[i].Hidden == true) continue;
+                    if (symbol?.Pins[i].Hidden == true) continue;
                     var (x, y) = Place(p, pins[i].X, pins[i].Y);
-                    var (groundInner, groundBox) = Drawing(Symbols.For("ground"));
-                    body.Append("<g transform=\"translate(").Append(N(x)).Append(' ').Append(N(y)).Append(")\">").Append(groundInner).Append("</g>\n");
-                    bounds.Add((x + groundBox.X, y + groundBox.Y));
-                    bounds.Add((x + groundBox.X + groundBox.W, y + groundBox.Y + groundBox.H));
+                    // NOTE: A ground net or a supply net has a symbol at each pin, not a wire. A rail element on the pin is that symbol.
+                    if (IsGround(e.Nodes[i]))
+                    {
+                        PinSymbol(body, bounds, "ground", false, x, y);
+                    }
+                    else if (rails.TryGetValue(e.Nodes[i], out var volts) && !railPins.Contains((Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0)))
+                    {
+                        var down = volts.StartsWith('-');
+                        PinSymbol(body, bounds, "rail", down, x, y);
+                        Label(labels, bounds, x, down ? y + SymbolLength + LabelGap + FontSize : y - SymbolLength - LabelGap, volts);
+                    }
                 }
             }
 
             bounds.Add(part);
-            var labelX = (part.MinX + part.MaxX) / 2;
-            var top = e.Kind == "rail" ? e.Value : e.Reference;
-            var bottom = e.Kind == "rail" ? "" : e.Value;
-            Label(labels, bounds, labelX, part.MinY - LabelGap, top);
-            if (bottom.Length > 0) Label(labels, bounds, labelX, part.MaxY + LabelGap + FontSize, bottom);
+            foreach (var label in Labels(e, p)) Label(labels, bounds, label.X, label.Y, label.Text, label.Start, label.End);
         }
 
         foreach (var w in layout.Wires)
@@ -105,7 +113,7 @@ public static class SchematicRenderer
     }
 
     /// <summary>The schematic elements of a circuit, in reference order.</summary>
-    public static IReadOnlyList<SchematicElement> Elements(LoadedCircuit circuit, PartMap parts)
+    public static IReadOnlyList<SchematicElement> Elements(LoadedCircuit circuit, PartMap? parts)
     {
         var components = circuit.Circuit.OfType<IComponent>().ToDictionary(c => c.Name, Names);
         var instances = circuit.Subcircuits.ToDictionary(x => x.Name, Names);
@@ -134,7 +142,7 @@ public static class SchematicRenderer
         foreach (var c in components.Values)
         {
             if (done.Contains(c.Name)) continue;
-            var row = parts.Parts.GetValueOrDefault(c.Name);
+            var row = parts?.Parts.GetValueOrDefault(c.Name);
             if (Rail(c) is { } rail)
             {
                 elements.Add(new SchematicElement(c.Name, "rail", [rail.Node], rail.Volts, [c.Name]));
@@ -173,6 +181,72 @@ public static class SchematicRenderer
         var count = component.Nodes.Count;
         return LocalPins(Fits(Symbols.Find(Kind(component, row, null)), count), count)
             .Select(p => Place(placement, p.X, p.Y)).Select(p => new Point(Math.Round(p.X, 2) + 0.0, Math.Round(p.Y, 2) + 0.0)).ToList();
+    }
+
+    /// <summary>A pin of a placed element: its net, its schematic position, and whether it is hidden (no lead, no ground symbol).</summary>
+    public readonly record struct ElementPin(string Net, Point At, bool Hidden);
+
+    /// <summary>The pins of a placed element, in node order. They are the symbol pins, or the pins of the fallback box.</summary>
+    public static IReadOnlyList<ElementPin> Pins(SchematicElement element, PartPlacement placement)
+    {
+        var symbol = Fits(Symbols.Find(element.Kind), element.Nodes.Count);
+        var local = LocalPins(symbol, element.Nodes.Count);
+        return local.Select((p, i) =>
+        {
+            var (x, y) = Place(placement, p.X, p.Y);
+            return new ElementPin(element.Nodes[i], new Point(Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0), symbol?.Pins[i].Hidden == true);
+        }).ToList();
+    }
+
+    /// <summary>A label of a placed element: text at a point, anchored in the middle, at the start or at the end.</summary>
+    public readonly record struct ElementLabel(string Text, double X, double Y, bool Start = false, bool End = false)
+    {
+        /// <summary>The rectangle of the text: left, top, right, bottom.</summary>
+        public (double X0, double Y0, double X1, double Y1) Extent
+        {
+            get
+            {
+                var width = Text.Length * FontSize * 0.6;
+                var x0 = Start ? X : End ? X - width : X - width / 2;
+                return (x0, Y - FontSize, x0 + width, Y);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The labels of a placed element. A rail has its voltage at the end of the stem. A vertical part has its reference and
+    /// value to its right. Other parts have the reference above and the value below, beside a pin at the top or bottom centre.
+    /// </summary>
+    public static IReadOnlyList<ElementLabel> Labels(SchematicElement e, PartPlacement p)
+    {
+        var (min, max) = Outline(e, p);
+        if (e.Kind == "rail") return [new(e.Value, (min.X + max.X) / 2, p.Flip ? max.Y + LabelGap + FontSize : min.Y - LabelGap)];
+
+        var labels = new List<ElementLabel>();
+        if (Norm(p.Rotation) is 90 or 270)
+        {
+            var middle = (min.Y + max.Y) / 2;
+            labels.Add(new(e.Reference, max.X + LabelGap, middle - LabelGap / 2, Start: true));
+            if (e.Value.Length > 0) labels.Add(new(e.Value, max.X + LabelGap, middle + FontSize, Start: true));
+            return labels;
+        }
+
+        // NOTE: A pin at the top or bottom centre has a lead and a symbol. The label goes beside them.
+        var pins = Pins(e, p).Where(x => !x.Hidden).Select(x => x.At).ToList();
+        var center = (min.X + max.X) / 2;
+        double Beside(double edge) => pins.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - center) < 15).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
+        var (top, bottom) = (Beside(min.Y), Beside(max.Y));
+        labels.Add(new(e.Reference, double.IsNaN(top) ? center : top, min.Y - LabelGap, End: !double.IsNaN(top)));
+        if (e.Value.Length > 0) labels.Add(new(e.Value, double.IsNaN(bottom) ? center : bottom, max.Y + LabelGap + FontSize, End: !double.IsNaN(bottom)));
+        return labels;
+    }
+
+    /// <summary>The top-left and bottom-right corners of the drawing of a placed element, in schematic units.</summary>
+    public static (Point Min, Point Max) Outline(SchematicElement element, PartPlacement placement)
+    {
+        var symbol = Fits(Symbols.Find(element.Kind), element.Nodes.Count);
+        var outline = Outline(placement, symbol is null ? Fallback(element.Nodes.Count).Box : Drawing(symbol).Box);
+        return (new Point(outline.MinX, outline.MinY), new Point(outline.MaxX, outline.MaxY));
     }
 
     /// <summary>The schematic position of each pin of a placed pot: top, wiper, bottom.</summary>
@@ -282,11 +356,21 @@ public static class SchematicRenderer
         return transform;
     }
 
-    static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text)
+    static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text, bool start = false, bool end = false)
     {
-        bounds.Add((x, y - FontSize));
-        bounds.Add((x, y));
-        labels.Append("<text x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append("\">").Append(Escape(text)).Append("</text>\n");
+        bounds.Add((x - (end ? text.Length * FontSize * 0.6 : 0), y - FontSize));
+        bounds.Add((x + (start ? text.Length * FontSize * 0.6 : 0), y));
+        labels.Append("<text x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"').Append(start ? " text-anchor=\"start\"" : end ? " text-anchor=\"end\"" : "").Append('>').Append(Escape(text)).Append("</text>\n");
+    }
+
+    // A ground symbol hangs below a pin. A rail symbol stands above it, or hangs below it when down.
+    static void PinSymbol(StringBuilder body, Bounds bounds, string kind, bool down, double x, double y)
+    {
+        var (inner, box) = Drawing(Symbols.For(kind));
+        body.Append("<g transform=\"translate(").Append(N(x)).Append(' ').Append(N(y)).Append(')').Append(down ? " scale(1 -1)" : "").Append("\">").Append(inner).Append("</g>\n");
+        var (y0, y1) = (down ? y - box.Y - box.H : y + box.Y, down ? y - box.Y : y + box.Y + box.H);
+        bounds.Add((x + box.X, y0));
+        bounds.Add((x + box.X + box.W, y1));
     }
 
     static string Document(Bounds bounds, StringBuilder body, StringBuilder labels)
