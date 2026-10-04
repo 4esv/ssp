@@ -30,10 +30,9 @@
     <div class="palette" role="group" aria-label="Parts palette">
         @foreach (var kind in SchematicEdits.Kinds.Keys)
         {
-            <button type="button" class="palette-item" data-kind="@kind" aria-pressed="@(kind == armed ? "true" : "false")" disabled="@hasErrors"
-                    title="Drag onto the canvas, or click and then click the canvas"
-                    @onpointerdown="e => PaletteDown(kind, e)" @onpointermove="PaletteMove" @onpointerup="PaletteUp" @onpointercancel="PaletteCancel"
-                    @onclick="e => PaletteClick(kind, e)">
+            <button type="button" class="palette-item" data-kind="@kind" disabled="@hasErrors"
+                    title="Add a @Label(kind).ToLowerInvariant() at the centre of the canvas"
+                    @onclick="() => PaletteAdd(kind)">
                 <span class="palette-symbol">@((MarkupString)SymbolOf(kind))</span>
                 <span class="palette-name">@Label(kind)</span>
             </button>
@@ -45,7 +44,7 @@
         @if (svg is null && !hasErrors)
         {
             <div class="schematic-blank" @onclick="CanvasClick">
-                <p class="schematic-empty">The schematic is empty. Add a part: drag one from the palette onto the canvas, or use the toolbar. Then use Wire to join two pins and Ground to mark a pin as 0 V.</p>
+                <p class="schematic-empty">The schematic is empty. Add a part: click one in the palette, or use the toolbar. Then tap a pin and tap a second pin to join them, or use Ground to mark a pin as 0 V.</p>
             </div>
         }
         @if (svg is not null)
@@ -58,7 +57,7 @@
                     <rect class="@(part.Reference == selected ? "part selected" : "part")" data-ref="@part.Reference"
                           x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
                           @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartCancel"
-                          @onclick="() => selected = part.Reference">
+                          @onclick="() => selected = part.Reference" @onclick:stopPropagation>
                         <title>@part.Reference</title>
                     </rect>
                 }
@@ -68,13 +67,29 @@
                 }
                 @foreach (var pin in pins)
                 {
-                    <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" />
+                    <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
                     <circle class="@(pin.Ref == pending ? "pin pending" : "pin")" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
-                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="5" @onclick="() => Click(pin.Ref)">
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="5" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
                         <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), node @pin.Node</title>
                     </circle>
                 }
+                @if (pending is { } from && pins.FirstOrDefault(p => p.Ref == from) is { } source)
+                {
+                    <g class="pin-add" role="button" aria-label="Add a part to @from.Reference pin @(from.Pin + 1)" @onclick="ToggleMenu" @onclick:stopPropagation>
+                        <circle class="pin-add-hit" cx="@N(source.Position.X + HitRadius * 2)" cy="@N(source.Position.Y - HitRadius * 2)" r="@N(HitRadius)" />
+                        <text class="pin-add-sign" x="@N(source.Position.X + HitRadius * 2)" y="@N(source.Position.Y - HitRadius * 2)" text-anchor="middle" dominant-baseline="central">+</text>
+                    </g>
+                }
             </svg>
+            @if (menuOpen && pending is { } origin)
+            {
+                <div class="pin-menu" role="menu" aria-label="Add a part to @origin.Reference pin @(origin.Pin + 1)">
+                    @foreach (var kind in SchematicEdits.Kinds.Keys)
+                    {
+                        <button type="button" role="menuitem" data-kind="@kind" @onclick="() => AddFromPin(kind)">@Label(kind)</button>
+                    }
+                </div>
+            }
             <div class="schematic-zoom" role="group" aria-label="Zoom">
                 <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
                 <output class="zoom-level" aria-label="Zoom level">@(view is { } v ? $"{(int)Math.Round(v.Zoom * 100)}%" : "Fit")</output>
@@ -84,10 +99,6 @@
         }
     </figure>
     </div>
-    @if (carrying is { } carried)
-    {
-        <div class="palette-ghost" style="left: @(N(carryAt.X))px; top: @(N(carryAt.Y))px" aria-hidden="true">@((MarkupString)SymbolOf(carried))</div>
-    }
 </section>
 
 @code {
@@ -145,12 +156,8 @@
     bool panMoved;
     Point panFrom;
 
-    // The kind that a click on the canvas places. A drag from the palette is the kind that the pointer carries.
-    string? armed;
-    string? carrying;
-    Point carryAt;
-    Point carryFrom;
-    bool carryMoved;
+    // Whether the menu of kinds for the selected pin is open.
+    bool menuOpen;
 
     // A part that the pointer moves: its outline at the start, the pointer at the start, the scale at the start, and the snapped offset.
     PartView? moving;
@@ -175,6 +182,7 @@
     void Build()
     {
         pending = null;
+        menuOpen = false;
         var wasBlank = svg is null;
         svg = null;
         pins = [];
@@ -276,7 +284,7 @@
 
     async Task PanDown(PointerEventArgs e)
     {
-        if (e.Button > 0 || moving is not null || carrying is not null) return;
+        if (e.Button > 0 || moving is not null) return;
         if (touches.Count == 0)
         {
             panMoved = false;
@@ -316,49 +324,37 @@
 
     static double Distance(Point a, Point b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 
-    void PaletteDown(string kind, PointerEventArgs e)
+    // NOTE: The part lands at the centre of the visible canvas. With no pane box, as in a test, it lands in the next column.
+    async Task PaletteAdd(string kind)
     {
-        if (hasErrors || e.Button > 0) return;
-        carrying = kind;
-        carryFrom = carryAt = new Point(e.ClientX, e.ClientY);
-        carryMoved = false;
-    }
-
-    void PaletteMove(PointerEventArgs e)
-    {
-        if (carrying is null) return;
-        carryAt = new Point(e.ClientX, e.ClientY);
-        carryMoved |= Math.Abs(carryAt.X - carryFrom.X) > DragSlop || Math.Abs(carryAt.Y - carryFrom.Y) > DragSlop;
-    }
-
-    async Task PaletteUp(PointerEventArgs e)
-    {
-        if (carrying is not { } kind) return;
-        carrying = null;
-        if (!carryMoved)
+        if (hasErrors) return;
+        double[]? b = null;
+        try { b = await PaneBox(); }
+        catch (JSException) { }
+        if (b is not { Length: >= 4 })
         {
-            armed = armed == kind ? null : kind;
+            await Place(kind);
             return;
         }
-        var (at, inside) = await ToCanvas(e.ClientX, e.ClientY);
-        if (inside) await PlaceAt(kind, at);
+        var (at, _) = await ToCanvas(b[0] + b[2] / 2, b[1] + b[3] / 2);
+        await PlaceAt(kind, at);
     }
 
-    void PaletteCancel() => carrying = null;
-
-    // NOTE: A key press on a palette entry is a click with no pointer, so it arms the entry like a tap does.
-    void PaletteClick(string kind, MouseEventArgs e)
-    {
-        if (e.Detail == 0 && !hasErrors) armed = armed == kind ? null : kind;
-    }
-
-    async Task CanvasClick(MouseEventArgs e)
+    // NOTE: A tap on the empty canvas cancels the connection.
+    void CanvasClick(MouseEventArgs e)
     {
         if (panMoved) return;
-        if (armed is not { } kind) return;
-        armed = null;
-        var (at, _) = await ToCanvas(e.ClientX, e.ClientY);
-        await PlaceAt(kind, at);
+        (pending, menuOpen) = (null, false);
+    }
+
+    void ToggleMenu() => menuOpen = !menuOpen;
+
+    async Task AddFromPin(string kind)
+    {
+        if (pending is not { } pin || parts is null) return;
+        var change = SchematicEdits.PlaceFrom(netlist, layout, parts, kind, pin);
+        await Apply(change);
+        selected = change.Layout.Parts[^1].Reference;
     }
 
     async Task PlaceAt(string kind, Point at)
@@ -371,7 +367,7 @@
 
     async Task PartDown(string reference, PointerEventArgs e)
     {
-        if (armed is not null || e.Button > 0) return;
+        if (e.Button > 0) return;
         selected = reference;
         moving = outlines.Single(p => p.Reference == reference);
         moveFrom = new Point(e.ClientX, e.ClientY);
@@ -411,8 +407,7 @@
     }
 
     string Hint() =>
-        armed is { } a ? $"Click the canvas to place a {Label(a).ToLowerInvariant()}. Click the entry again to cancel."
-        : pending is { } p ? $"Wire: click a second pin to connect it to {p.Reference} pin {p.Pin + 1}"
+        pending is { } p ? $"Connecting from {p.Reference} pin {p.Pin + 1}. Tap another pin."
         : selected is { } s ? $"{s} selected: R rotate, H/V flip, arrows move, Delete remove"
         : tool == Tool.Wire ? "Wire: click a pin"
         : tool == Tool.Ground ? "Ground: click a pin"
@@ -427,7 +422,7 @@
 
     async Task Click(PinRef pin)
     {
-        if (tool is null || armed is not null || panMoved) return;
+        if (panMoved) return;
         if (tool == Tool.Ground)
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));
@@ -438,7 +433,7 @@
         }
         else if (pending == pin)
         {
-            pending = null;
+            (pending, menuOpen) = (null, false);
         }
         else
         {
@@ -449,7 +444,7 @@
     // NOTE: Escape clears the selection, so that Tab can move the focus out of the schematic again.
     async Task Key(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape") armed = null;
+        if (e.Key == "Escape") (pending, menuOpen) = (null, false);
         switch (e.Key)
         {
             case "+" or "=":
@@ -477,7 +472,7 @@
             "d" or "D" when e.MetaKey || e.CtrlKey => SchematicEdits.Duplicate(netlist, layout, part),
             _ => null,
         };
-        if (e.Key == "Escape") (selected, armed) = (null, null);
+        if (e.Key == "Escape") selected = null;
         if (change is null) return;
 
         await Apply(change);

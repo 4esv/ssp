@@ -136,6 +136,24 @@ public static partial class SchematicEdits
     }
 
     /// <summary>
+    /// <see cref="PlaceAt"/> with the part to the right of a pin, one column away and on the row of the pin. Its first
+    /// pin is wired to the pin, so it joins the net of that pin. The pin is in the netlist before the edit.
+    /// </summary>
+    public static SchematicChange PlaceFrom(string netlist, LayoutDoc layout, PartMap parts, string kind, PinRef pin)
+    {
+        var (_, at) = Pin(NetlistLoader.Load(netlist), layout, parts, pin);
+        var placed = PlaceAt(netlist, layout, kind, new Point(at.X + ColumnStep / 2, at.Y));
+        var circuit = NetlistLoader.Load(placed.Netlist);
+        // NOTE: A pot is placed as P_1 and its pins are those of P.
+        var reference = Pair().Replace(placed.Layout.Parts[^1].Reference, "");
+        var added = new PinRef(reference, 0);
+        var resolved = PartMap.Resolve(circuit, Ssp.Web.Components.SchematicView.Table);
+        // NOTE: A pin that Settle has already joined to the pin needs no wire.
+        if (Pin(circuit, placed.Layout, resolved, added).Node == Pin(circuit, placed.Layout, resolved, pin).Node) return placed;
+        return Wire(placed.Netlist, placed.Layout, resolved, pin, added);
+    }
+
+    /// <summary>
     /// Moves a part by an offset in schematic units. The new position snaps to the grid. The wires that end on its pins
     /// follow. A pin that lands on another pin or on a wire joins that net. The reference is the one in the layout.
     /// </summary>
