@@ -29,6 +29,19 @@
         </div>
     </div>
     <p class="schematic-hint" role="status">@Hint()</p>
+    @if (ValueBox())
+    {
+        <div class="value-edit-box">
+            <input class="value-edit" type="text" inputmode="text" autocomplete="off" spellcheck="false" aria-label="Value of @selected"
+                   aria-invalid="@(valueError is null ? null : "true")" value="@valueText"
+                   @oninput="TypeValue"
+                   @onkeydown="ValueKey" @onkeydown:stopPropagation />
+        </div>
+    }
+    @if (valueError is not null && ValueBox())
+    {
+        <p class="value-error" role="alert">@valueError</p>
+    }
     @if (undo is { } undoable)
     {
         <p class="delete-status" role="status">Deleted @undoable.Name. <button type="button" @onclick="Undo">Undo</button></p>
@@ -868,6 +881,63 @@
         "flip" => "\u21C6",
         _ => "\u29C9",
     };
+
+    string valueText = "";
+    string? valueError;
+    string? valueFor;
+
+    // NOTE: Only a resistor, capacitor or inductor with a plain number has a value to type. A diode has a model name there.
+    bool Editable(string reference) =>
+        reference.Length > 0 && char.ToUpperInvariant(reference[0]) is 'R' or 'C' or 'L'
+        && SchematicEdits.ValueOf(netlist, reference) is { } text && SchematicEdits.TryParseValue(text, out _, out _);
+
+    // True when the selected part has a value to edit. The box is docked at the bottom left of the canvas, clear of the part's actions.
+    bool ValueBox()
+    {
+        if (hasErrors || selected is not { } part || !Editable(part)) return false;
+        if (valueFor != part)
+        {
+            (valueFor, valueError) = (part, null);
+            valueText = SchematicEdits.ValueOf(netlist, part)!;
+        }
+        return true;
+    }
+
+    void TypeValue(ChangeEventArgs e) => (valueText, valueError) = (e.Value?.ToString() ?? "", null);
+
+    async Task ValueKey(KeyboardEventArgs e)
+    {
+        if (selected is not { } part) return;
+        switch (e.Key)
+        {
+            case "Enter":
+                await CommitValue(part, null);
+                break;
+            case "ArrowUp" or "ArrowDown":
+                await CommitValue(part, e.Key == "ArrowUp" ? 1 : -1);
+                break;
+            case "Escape":
+                valueFor = null;
+                await Focus();
+                break;
+        }
+    }
+
+    // NOTE: A step starts from what is in the box, or from the netlist when the box holds bad text.
+    async Task CommitValue(string part, int? step)
+    {
+        var ok = SchematicEdits.TryParseValue(valueText, out var value, out var error);
+        if (!ok && step is not null && SchematicEdits.TryParseValue(SchematicEdits.ValueOf(netlist, part), out value, out _)) (ok, error) = (true, "");
+        if (!ok)
+        {
+            valueError = error;
+            return;
+        }
+        if (step is { } s) value = SchematicEdits.StepE12(value, s);
+        var text = SchematicEdits.FormatValue(value);
+        (valueText, valueError) = (text, null);
+        if (text != SchematicEdits.ValueOf(netlist, part)) await Apply(SchematicEdits.SetValue(netlist, layout, part, text));
+    }
 
     async Task Act(string action)
     {
