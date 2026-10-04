@@ -824,3 +824,35 @@ h1[tabindex="-1"]:focus-visible {
 .value-edit { width: 7rem; min-height: 44px; box-sizing: border-box; padding: 0 0.5rem; font: inherit; text-align: center; }
 .value-edit[aria-invalid="true"] { border-color: #b00020; }
 .value-error { position: absolute; left: 8rem; bottom: 3.5rem; z-index: 3; margin: 0; padding: 0.25rem 0.5rem; font-size: 0.85rem; color: #fff; background: #b00020; border-radius: 4px; }
+
+/* NOTE: A problem shows in words in the list and as a ring on the part or pin that causes it. */
+.schematic-editor .problems {
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+}
+
+.schematic-editor .problem-item {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    background: var(--warn-bg);
+    border: 1px solid var(--error, #b3261e);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.schematic-pins .pin.problem {
+    stroke: var(--error, #b3261e);
+    stroke-width: 3;
+    fill: var(--error, #b3261e);
+    fill-opacity: 0.5;
+}
+
+.schematic-pins .part.problem {
+    stroke: var(--error, #b3261e);
+    stroke-width: 2;
+    stroke-dasharray: 6 3;
+}
