@@ -68,6 +68,19 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
         await session.Page.Locator(".dock-tab[data-panel=amp]").ClickAsync();
         Assert.Contains("Xpedal", await session.Page.Locator("textarea.amp-netlist").InputValueAsync());
 
+        // NOTE: The samples that the page hands to the audio output are what a user hears. Record them at start().
+        await session.Page.EvaluateAsync(@"() => {
+            window.__played = [];
+            const start = AudioBufferSourceNode.prototype.start;
+            AudioBufferSourceNode.prototype.start = function (...args) {
+                const d = this.buffer.getChannelData(0);
+                let peak = 0, sum = 0, flips = 0;
+                for (let i = 0; i < d.length; i++) { const v = d[i]; peak = Math.max(peak, Math.abs(v)); sum += v * v; if (i && (d[i - 1] < 0) !== (v < 0)) flips++; }
+                window.__played.push({ length: d.length, rate: this.buffer.sampleRate, peak, rms: Math.sqrt(sum / d.length), zeroCrossings: flips, state: this.context.state });
+                return start.apply(this, args);
+            };
+        }");
+
         var watch = Stopwatch.StartNew();
         await session.Page.Locator(".virtual-amp button.amp-try").ClickAsync();
         await session.Page.WaitForFunctionAsync(
@@ -78,6 +91,15 @@ public class VirtualAmpLiveChainTests(ITestOutputHelper output)
 
         var status = await session.Page.EvaluateAsync<string>(Status);
         output.WriteLine($"Drawn fuzz Try wall time: {watch.Elapsed.TotalSeconds:F1} s. Status: {status}");
+        var played = await session.Page.EvaluateAsync<JsonElement>("() => window.__played");
+        output.WriteLine($"Handed to the audio output: {played}");
+        Assert.Equal(1, played.GetArrayLength());
+        var buffer = played[0];
+        Assert.True(buffer.GetProperty("length").GetInt32() >= 44_100);
+        // NOTE: A peak of 0.05 is -26 dBFS. The drawn fuzz gives about -6.5 dBFS. A guitar-like signal crosses zero often.
+        Assert.InRange(buffer.GetProperty("peak").GetDouble(), 0.1, 1.0);
+        Assert.True(buffer.GetProperty("rms").GetDouble() > 0.02);
+        Assert.True(buffer.GetProperty("zeroCrossings").GetInt32() > 100);
         Assert.DoesNotContain("failed", status);
         Assert.StartsWith("Playing", status.Replace("Rendered at", "Playing").Replace("x oversample.", ""));
     }
