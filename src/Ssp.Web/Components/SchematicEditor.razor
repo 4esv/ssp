@@ -99,10 +99,10 @@
                     {
                         var (dot, dir) = (SchematicEdits.Toward(from.At, d), d);
                         <g class="@(chosen == d ? "pin-add chosen" : "pin-add")" data-dir="@dir.ToString().ToLowerInvariant()" role="button"
-                           aria-label="Go @dir.ToString().ToLowerInvariant() from @Name(from)" @onclick="() => OpenMenu(dir)" @onclick:stopPropagation>
+                           aria-label="Go @dir.ToString().ToLowerInvariant() from @Name(from)" @onclick="() => TapDot(dir)" @onclick:stopPropagation>
                             <circle class="pin-add-hit" cx="@N(dot.X)" cy="@N(dot.Y)" r="@N(DotRadius())" />
                             <circle class="pin-add-dot" cx="@N(dot.X)" cy="@N(dot.Y)" r="@N(Math.Min(DotRadius() * 0.55, VisibleDot))" />
-                            <text class="pin-add-sign" x="@N(dot.X)" y="@N(dot.Y)" text-anchor="middle" dominant-baseline="central">+</text>
+                            <text class="pin-add-sign" x="@N(dot.X)" y="@N(dot.Y)" font-size="@N(Math.Min(DotRadius() * 0.55, VisibleDot) * 1.7)" text-anchor="middle" dominant-baseline="central">+</text>
                         </g>
                     }
                 }
@@ -441,6 +441,19 @@
         (chosen, menuOpen) = (direction, true);
     }
 
+    async Task TapDot(Direction direction)
+    {
+        OpenMenu(direction);
+        await Focus();
+    }
+
+    // NOTE: A tap on an SVG pin or a menu button leaves the focus off the canvas, so the keys would do nothing.
+    async Task Focus()
+    {
+        try { await pane.FocusAsync(); }
+        catch (InvalidOperationException) { }
+    }
+
     // The dot radius in schematic units: 22 px at the zoom of the view.
     // NOTE: With the CSS fit there is no view, so the zoom is the fit of the last pane box.
     double DotRadius() => DotPixels / Zoom();
@@ -467,6 +480,7 @@
     // A kind, Wire or Ground from the picker or a key goes in the chosen direction from the active pin. Connect lights the other pins.
     async Task Choose(string choice)
     {
+        await Focus();
         if (active is not { } from || parts is null) return;
         if (choice == GroundChoice)
         {
@@ -562,6 +576,7 @@
     async Task Click(PinRef pin)
     {
         if (panMoved) return;
+        await Focus();
         if (tool == Tool.Ground)
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));

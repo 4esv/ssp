@@ -668,7 +668,6 @@ h1[tabindex="-1"]:focus-visible {
 
 .pin-add-sign {
     fill: var(--bg, Canvas);
-    font-size: 20px;
     font-weight: 700;
     pointer-events: none;
 }
