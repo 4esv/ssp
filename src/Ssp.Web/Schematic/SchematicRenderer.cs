@@ -105,7 +105,7 @@ public static class SchematicRenderer
     }
 
     /// <summary>The schematic elements of a circuit, in reference order.</summary>
-    public static IReadOnlyList<SchematicElement> Elements(LoadedCircuit circuit, PartMap parts)
+    public static IReadOnlyList<SchematicElement> Elements(LoadedCircuit circuit, PartMap? parts)
     {
         var components = circuit.Circuit.OfType<IComponent>().ToDictionary(c => c.Name, Names);
         var instances = circuit.Subcircuits.ToDictionary(x => x.Name, Names);
@@ -134,7 +134,7 @@ public static class SchematicRenderer
         foreach (var c in components.Values)
         {
             if (done.Contains(c.Name)) continue;
-            var row = parts.Parts.GetValueOrDefault(c.Name);
+            var row = parts?.Parts.GetValueOrDefault(c.Name);
             if (Rail(c) is { } rail)
             {
                 elements.Add(new SchematicElement(c.Name, "rail", [rail.Node], rail.Volts, [c.Name]));
@@ -173,6 +173,29 @@ public static class SchematicRenderer
         var count = component.Nodes.Count;
         return LocalPins(Fits(Symbols.Find(Kind(component, row, null)), count), count)
             .Select(p => Place(placement, p.X, p.Y)).Select(p => new Point(Math.Round(p.X, 2) + 0.0, Math.Round(p.Y, 2) + 0.0)).ToList();
+    }
+
+    /// <summary>A pin of a placed element: its net, its schematic position, and whether it is hidden (no lead, no ground symbol).</summary>
+    public readonly record struct ElementPin(string Net, Point At, bool Hidden);
+
+    /// <summary>The pins of a placed element, in node order. They are the symbol pins, or the pins of the fallback box.</summary>
+    public static IReadOnlyList<ElementPin> Pins(SchematicElement element, PartPlacement placement)
+    {
+        var symbol = Fits(Symbols.Find(element.Kind), element.Nodes.Count);
+        var local = LocalPins(symbol, element.Nodes.Count);
+        return local.Select((p, i) =>
+        {
+            var (x, y) = Place(placement, p.X, p.Y);
+            return new ElementPin(element.Nodes[i], new Point(Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0), symbol?.Pins[i].Hidden == true);
+        }).ToList();
+    }
+
+    /// <summary>The top-left and bottom-right corners of the drawing of a placed element, in schematic units.</summary>
+    public static (Point Min, Point Max) Outline(SchematicElement element, PartPlacement placement)
+    {
+        var symbol = Fits(Symbols.Find(element.Kind), element.Nodes.Count);
+        var outline = Outline(placement, symbol is null ? Fallback(element.Nodes.Count).Box : Drawing(symbol).Box);
+        return (new Point(outline.MinX, outline.MinY), new Point(outline.MaxX, outline.MaxY));
     }
 
     /// <summary>The top-left and bottom-right corners of the drawing of a placed component, in schematic units.</summary>

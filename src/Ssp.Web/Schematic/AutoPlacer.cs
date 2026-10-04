@@ -1,5 +1,6 @@
 using Ssp.Core.Layout;
 using Ssp.Core.Netlist;
+using Ssp.Core.Parts;
 using SpiceSharp.Components;
 using LayoutDoc = Ssp.Core.Layout.Layout;
 using Point = Ssp.Core.Layout.Point;
@@ -27,7 +28,7 @@ public static class AutoPlacer
     /// reach go in one more column. Parts in a column are in name order. Each net is a set of wires with orthogonal
     /// segments. The layout is the same for the same netlist.
     /// </summary>
-    public static LayoutDoc Place(LoadedCircuit circuit, Directives directives)
+    public static LayoutDoc Place(LoadedCircuit circuit, Directives directives, PartMap? partMap = null)
     {
         var parts = circuit.Circuit.OfType<IComponent>()
             .OrderBy(c => c.Name, Names).ThenBy(c => c.Name, StringComparer.Ordinal)
