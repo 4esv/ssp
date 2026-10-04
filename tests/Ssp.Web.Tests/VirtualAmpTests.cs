@@ -16,10 +16,14 @@ public class VirtualAmpTests : BunitContext
 
         public Task<RunResult> Run(string netlist, RunOptions options) => throw new NotSupportedException();
 
-        public Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample)
+        /// <summary>The time that a render takes. A render of zero time ends before the page draws again.</summary>
+        public TimeSpan Delay { get; set; }
+
+        public async Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample)
         {
             Renders.Add(netlist);
-            return Task.FromResult(new double[input.Length]);
+            await Task.Delay(Delay);
+            return new double[input.Length];
         }
 
         public Task<SweepResult> Sweep(string netlist, string reference, IReadOnlyList<double> values, RunOptions options) => throw new NotSupportedException();
@@ -86,6 +90,20 @@ public class VirtualAmpTests : BunitContext
         var expected = Chain.Compose(
             [Stage("gain", "gain-mid-jrc4558.cir"), Stage("tone", "tone-baxandall-passive.cir"), Stage("power", "power-9v.cir")]);
         Assert.Equal(expected, host.Renders[0]);
+    }
+
+    // NOTE: Try calls the clip player from the panel. The status must change without an event in the clip player (#148).
+    [Fact]
+    public async Task TryStatusDoesNotStayRendering()
+    {
+        host.Delay = TimeSpan.FromMilliseconds(100);
+        var panel = Render<VirtualAmp>();
+
+        panel.Find("button.amp-try").Click();
+
+        await panel.WaitForAssertionAsync(() => Assert.Single(host.Renders));
+        await panel.WaitForAssertionAsync(() => Assert.NotEqual("Rendering…", panel.Find(".clip-status").TextContent), TimeSpan.FromSeconds(5));
+        Assert.False(panel.Find("button.clip-play").HasAttribute("disabled"));
     }
 
     [Fact]
