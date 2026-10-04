@@ -71,6 +71,20 @@ The workflow reads each host detail from repository secrets:
 When `SSP_DEPLOY_HOST` or `SSP_DEPLOY_KEY` is absent, the workflow skips the deploy step.
 The workflow copies into the root of the remote target. The host maps that root to the site folder.
 
+## Smoke check
+
+After the copy, the workflow runs `scripts/smoke-live.sh "$SSP_LIVE_URL"`. `SSP_LIVE_URL` is a repository variable, for example `https://ssp.aesv.io`.
+When the variable is unset, the workflow skips the check and prints a notice. The check runs only when the deploy ran.
+The script uses curl. It checks these items and prints each failing URL:
+
+- `/` returns 200 and contains `<title>ssp</title>`.
+- `/editor` and `/gallery` return 200.
+- The first fingerprinted `_framework/dotnet.*.js` named in the page returns 200.
+- The `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers are present.
+
+The host must serve `index.html` for each path that is not a file (SPA fallback). Without it, `/editor` returns 404.
+`scripts/test-smoke-live.sh` proves the check: it must fail on a server with no fallback and pass on a server with one.
+
 ## Headers
 
 The host must send these headers with each response:
