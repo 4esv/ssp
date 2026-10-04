@@ -326,3 +326,16 @@ In the app worker, runs 2 and 3 start on variable steps from the cache.
 The goal of 30 s in the app worker is not met. The trimmed publish adds about 5 s. The cost that is left is the time of each Newton iteration in the browser (about 107 µs, against 4.5 µs natively). In the profile of #221, 61 % of it is Load, most of it the behavioral sources of the op-amp model.
 
 The 154 s of the issue comment came from the Try button. The app worker takes 36 s for the same chain and clip, so most of the 154 s is not in the worker render. It is not measured here.
+
+## Untrimmed web build (#231)
+
+The web app is published with `PublishTrimmed` set to `false`.
+Measured on 2026-10-04 in Chromium with Playwright, through `scripts/playwright.sh`-style serving of the published `wwwroot` (python `http.server`). The runs are one after the other, never at the same time. The two builds differ only in `PublishTrimmed`.
+
+| Item | Trimmed | Untrimmed |
+|---|---|---|
+| Drawn fuzz Try wall time, 3 runs | 32.4 s, 32.7 s, 32.7 s (mean 32.6 s) | 29.1 s, 29.1 s, 29.0 s (mean 29.1 s) |
+| Preset chain Try wall time, 3 runs | 9.8 s, 9.8 s, 9.7 s (mean 9.8 s) | 9.1 s, 9.0 s, 9.0 s (mean 9.0 s) |
+| Brotli download (sum of the `.br` files in `wwwroot`) | 8,618,412 bytes (8.6 MB) | 10,643,988 bytes (10.6 MB) |
+
+The drawn fuzz time drops by 10.8 %. The limit of the issue is 10 %. The preset chain drops by 7.8 %. The download grows by 2.0 MB (23.5 %).
