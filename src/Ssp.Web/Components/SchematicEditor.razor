@@ -95,7 +95,7 @@
         {
             @((MarkupString)svg)
             <svg class="schematic-pins" xmlns="http://www.w3.org/2000/svg" viewBox="@viewBox"
-                 @onpointerdown="PanDown" @onpointermove="PanMove" @onpointerup="PanUp" @onpointercancel="PanUp">
+                 @onpointerdown="PanDown" @onpointermove="PanMove" @onpointerup="PanUp" @onpointercancel="PanUp" @oncontextmenu:preventDefault>
                 @for (var i = 0; i < layout.Wires.Count; i++)
                 {
                     var wireIndex = i;
@@ -106,7 +106,7 @@
                 {
                     <rect class="@PartClass(part.Reference)" data-ref="@part.Reference"
                           x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
-                          @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartCancel"
+                          @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartUp"
                           @onclick="() => SelectPart(part.Reference)" @onclick:stopPropagation
                           @onpointerenter="() => PointAt(part.Reference, null)" @onpointerleave="PointAway">
                         <title>@PartText(part.Reference)</title>
@@ -119,7 +119,7 @@
                 @foreach (var pin in pins)
                 {
                     var target = connecting && pin.Ref != active?.Pin;
-                    <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
+                    <circle class="pin-hit" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(PinHit())" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
                     <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
                             cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation
                             @onpointerenter="() => PointAt(pin.Ref.Reference, pin.Node)" @onpointerleave="PointAway">
@@ -129,7 +129,7 @@
                 @foreach (var open in opens)
                 {
                     var spot = new Spot(open);
-                    <circle class="pin-hit" cx="@N(open.X)" cy="@N(open.Y)" r="@N(HitRadius)" @onclick="() => Activate(spot)" @onclick:stopPropagation />
+                    <circle class="pin-hit" cx="@N(open.X)" cy="@N(open.Y)" r="@N(PinHit())" @onclick="() => Activate(spot)" @onclick:stopPropagation />
                     <circle class="@(spot == active ? "pin open active" : "pin open")" data-open="@($"{N(open.X)},{N(open.Y)}")"
                             cx="@N(open.X)" cy="@N(open.Y)" r="5" @onclick="() => Activate(spot)" @onclick:stopPropagation>
                         <title>Open end</title>
@@ -270,6 +270,9 @@
     /// <summary>Controls of the page, such as Run, Undo and Redo. They sit at the start of the tool row, next to the canvas.</summary>
     [Parameter] public RenderFragment? Actions { get; set; }
 
+    /// <summary>The clock of the long press. Tests set a fake one.</summary>
+    [Parameter] public TimeProvider? Clock { get; set; }
+
     /// <summary>Gets the nodes of the part or pin under the pointer, and no nodes when the pointer leaves it.</summary>
     [Parameter] public EventCallback<IReadOnlyCollection<string>> Pointed { get; set; }
 
@@ -305,7 +308,7 @@
     CancellationTokenSource? undoTimer;
     Tool? tool = Tool.Wire;
 
-    // NOTE: The hit circle is 24 units across or more, the least that a finger can hit.
+    // NOTE: The hit circle of a pin is 24 units across or more, and 44 px or more on screen, the least that a finger can hit.
     const double HitRadius = 12;
 
     // The active pin, or the open end of a wire. Its + dots show where a move can go. The chosen direction has the picker open.
@@ -329,8 +332,11 @@
         ["g"] = GroundChoice, ["w"] = WireChoice,
     };
 
-    // NOTE: A drag under this many pixels is a click.
+    // NOTE: A drag under this many pixels is a click. A finger drifts more than a mouse, so a touch has the slop of a long press.
     const double DragSlop = 4;
+
+    // A press on a part or the empty canvas. Held, it opens the part actions on a part and does nothing on the canvas.
+    LongPress? press;
 
     ElementReference pane;
     IJSObjectReference? module;
@@ -364,7 +370,11 @@
     bool moveMoved;
 
     // NOTE: The editor keeps its own copy, so a parent that does not pass the change back still sees each edit.
-    protected override async Task OnInitializedAsync() => await LoadHints();
+    protected override async Task OnInitializedAsync()
+    {
+        press = new LongPress(Clock ?? TimeProvider.System, () => _ = InvokeAsync(Held));
+        await LoadHints();
+    }
 
     protected override void OnParametersSet()
     {
@@ -453,6 +463,7 @@
     public async ValueTask DisposeAsync()
     {
         undoTimer?.Cancel();
+        press?.Dispose();
         if (module is not null) await module.DisposeAsync();
     }
 
@@ -543,6 +554,7 @@
     async Task PanDown(PointerEventArgs e)
     {
         if (e.Button > 0 || moving is not null) return;
+        press?.Down(e.PointerId, e.ClientX, e.ClientY);
         if (touches.Count == 0)
         {
             panMoved = false;
@@ -557,30 +569,44 @@
     {
         // NOTE: Until PanDown has made the view, the moves are lost.
         if (view is null || !touches.TryGetValue(e.PointerId, out var last) || moving is not null) return;
+        press?.Move(e.PointerId, e.ClientX, e.ClientY);
         var now = new Point(e.ClientX, e.ClientY);
         var others = touches.Where(t => t.Key != e.PointerId).Select(t => t.Value).ToList();
         if (others.Count == 1)
         {
-            var o = others[0];
-            var before = Math.Max(Distance(last, o), 1);
-            var mid = new Point((now.X + o.X) / 2 - paneBox[0], (now.Y + o.Y) / 2 - paneBox[1]);
-            var midBefore = new Point((last.X + o.X) / 2, (last.Y + o.Y) / 2);
-            view = view!.ZoomAbout(mid, Distance(now, o) / before).Pan((now.X + o.X) / 2 - midBefore.X, (now.Y + o.Y) / 2 - midBefore.Y);
+            Point Pane(Point p) => new(p.X - paneBox[0], p.Y - paneBox[1]);
+            view = view!.Pinch(Pane(last), Pane(now), Pane(others[0]));
             panMoved = true;
         }
         else if (others.Count == 0)
         {
             // NOTE: A drag under the slop is a click, so the canvas does not move for it.
-            if (!panMoved && Math.Abs(now.X - panFrom.X) <= DragSlop && Math.Abs(now.Y - panFrom.Y) <= DragSlop) return;
+            var slop = Slop(e);
+            if (!panMoved && Math.Abs(now.X - panFrom.X) <= slop && Math.Abs(now.Y - panFrom.Y) <= slop) return;
             panMoved = true;
             view = view!.Pan(now.X - last.X, now.Y - last.Y);
         }
         touches[e.PointerId] = now;
     }
 
-    void PanUp(PointerEventArgs e) => touches.Remove(e.PointerId);
+    void PanUp(PointerEventArgs e)
+    {
+        press?.Up(e.PointerId);
+        touches.Remove(e.PointerId);
+    }
 
-    static double Distance(Point a, Point b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
+    static double Slop(PointerEventArgs e) => e.PointerType == "touch" ? LongPress.Slop : DragSlop;
+
+    // NOTE: A long press on a part keeps it selected with its actions open and drops the drag, so the drift of the finger moves nothing.
+    // On the empty canvas it does nothing, and the tap that ends it clears nothing.
+    void Held()
+    {
+        // NOTE: A mouse drag starts at 4 px, under the slop of a long press. A drag that has started stays a drag.
+        if (moving is not { } part || moveMoved) return;
+        (moving, ghost) = (null, null);
+        (selected, selectedWire) = (part.Reference, null);
+        StateHasChanged();
+    }
 
     // NOTE: The part lands at the centre of the visible canvas. With no pane box, as in a test, it lands in the next column.
     async Task PaletteAdd(string kind)
@@ -612,6 +638,7 @@
     // NOTE: A tap on the empty canvas clears the selected part, the selected wire, the active pin and the picker.
     void CanvasClick(MouseEventArgs e)
     {
+        if (press?.Fired == true) return;
         if (panMoved)
         {
             panMoved = false;
@@ -671,6 +698,9 @@
 
     // The dot radius in schematic units: 22 px at the zoom of the view.
     double DotRadius() => DotPixels / Zoom();
+
+    // The hit radius of a pin in schematic units: 12 units, or 22 px at a low zoom.
+    double PinHit() => Math.Max(HitRadius, DotPixels / Zoom());
 
     double Zoom() => view?.Zoom ?? 1;
 
@@ -750,6 +780,7 @@
     {
         if (e.Button > 0) return;
         SelectPart(reference);
+        press?.Down(e.PointerId, e.ClientX, e.ClientY);
         moving = outlines.Single(p => p.Reference == reference);
         moveFrom = new Point(e.ClientX, e.ClientY);
         moveScale = 1 / (await Current()).Zoom;
@@ -760,8 +791,9 @@
     void PartMove(PointerEventArgs e)
     {
         if (moving is null) return;
+        press?.Move(e.PointerId, e.ClientX, e.ClientY);
         var (px, py) = (e.ClientX - moveFrom.X, e.ClientY - moveFrom.Y);
-        moveMoved |= Math.Abs(px) > DragSlop || Math.Abs(py) > DragSlop;
+        moveMoved |= Math.Abs(px) > Slop(e) || Math.Abs(py) > Slop(e);
         if (!moveMoved) return;
         moveDelta = new Point(px * moveScale, py * moveScale);
         // NOTE: The ghost shows where the part lands. It is the offset of the snapped position, not of the pointer.
@@ -769,15 +801,14 @@
         ghost = at is null ? moveDelta : new Point(SchematicEdits.Snap(at.X + moveDelta.X) - at.X, SchematicEdits.Snap(at.Y + moveDelta.Y) - at.Y);
     }
 
-    async Task PartUp()
+    async Task PartUp(PointerEventArgs e)
     {
+        press?.Up(e.PointerId);
         if (moving is not { } part) return;
         var moved = moveMoved;
         (moving, ghost) = (null, null);
         if (moved) await Apply(SchematicEdits.Drag(netlist, layout, parts!, part.Reference, moveDelta.X, moveDelta.Y));
     }
-
-    void PartCancel() => (moving, ghost) = (null, null);
 
     async Task Place(string kind)
     {
@@ -1123,7 +1154,7 @@
 
         // The row clears the hit circle of a pin, the labels above the outline, and a gap.
         const double Space = ActionGap, Clear = ActionPixels / 2 + LabelPixels + 4;
-        var reach = HitRadius * (view?.Zoom ?? 1) + Clear;
+        var reach = PinHit() * (view?.Zoom ?? 1) + Clear;
         var y = a.Y - reach;
         if (sized && y < ActionPixels / 2 + 4) y = b.Y + reach;
         var first = mx - (names.Length * ActionPixels + (names.Length - 1) * Space) / 2 + ActionPixels / 2;
