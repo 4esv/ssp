@@ -178,8 +178,40 @@ h1[tabindex="-1"]:focus-visible {
     fill: none;
 }
 
+.line-chart path.series.frozen {
+    stroke-dasharray: 4 3;
+    opacity: 0.8;
+}
+
+.compare table.series {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    margin: var(--space-2) 0;
+}
+
+.compare table.series th,
+.compare table.series td {
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.compare table.series th[scope="row"],
+.compare table.series thead th:first-child {
+    text-align: left;
+}
+
+.compare table.series tr.frozen {
+    color: var(--text-muted);
+}
+
+/* NOTE: A halo in the panel color keeps the legend readable where it crosses a curve. */
 .line-chart .legend text {
-    stroke: none;
+    paint-order: stroke;
+    stroke: var(--bg);
+    stroke-width: 3px;
+    stroke-linejoin: round;
 }
 
 /* NOTE: The dock tree gives each tab strip, panel and splitter a place in percent of the layout. */
