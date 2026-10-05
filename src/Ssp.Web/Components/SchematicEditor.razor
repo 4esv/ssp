@@ -132,7 +132,7 @@
     }
     <figure class="schematic" aria-label="Schematic" tabindex="0" @ref="pane" data-view="@(view is null ? null : "")" style="@StageStyle()"
             @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null || active is not null || group.Count > 0)"
-            @onwheel="Wheel" @onwheel:preventDefault @onclick="CanvasClick">
+            @onwheel="Wheel" @onwheel:preventDefault @onclick="CanvasClick" @ondblclick="CanvasDoubleClick">
         @if (svg is null && !hasErrors)
         {
             <div class="schematic-blank">
@@ -148,7 +148,7 @@
                 {
                     var wireIndex = i;
                     <polyline class="@(wireIndex == selectedWire ? "wire-hit selected" : "wire-hit")" data-wire="@wireIndex"
-                              points="@WirePoints(layout.Wires[wireIndex])" @onclick="e => WireClick(wireIndex, e)" @onclick:stopPropagation />
+                              points="@WirePoints(layout.Wires[wireIndex])" @onclick="e => WireClick(wireIndex, e)" @onclick:stopPropagation @ondblclick:stopPropagation />
                 }
                 @foreach (var part in outlines)
                 {
@@ -284,11 +284,21 @@
                     }
                 </ul>
             }
-            <div class="schematic-zoom" role="group" aria-label="Zoom" @onclick:stopPropagation>
+            <div class="schematic-zoom" role="group" aria-label="Zoom" @onclick:stopPropagation @ondblclick:stopPropagation>
                 <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
-                <output class="zoom-level" aria-label="Zoom level">@($"{(int)Math.Round(Zoom() * 100)}%")</output>
+                <input class="zoom-level" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="Zoom level" value="@($"{(int)Math.Round(Zoom() * 100)}%")"
+                       @onchange="ZoomTyped" @onkeydown:stopPropagation @onfocus="() => zoomMenu = false" />
                 <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)" disabled="@(view is { Zoom: >= ViewTransform.MaxZoom })" @onclick="() => ZoomStep(ZoomStepFactor)">+</button>
                 <button type="button" data-zoom="fit" title="Fit the circuit (0)" @onclick="FitView">Fit</button>
+                <button type="button" data-zoom="menu" aria-label="Zoom menu" aria-haspopup="menu" aria-expanded="@(zoomMenu ? "true" : "false")" @onclick="() => zoomMenu = !zoomMenu">&#9662;</button>
+                @if (zoomMenu)
+                {
+                    <div class="zoom-menu" role="menu">
+                        <button type="button" role="menuitem" data-zoom-item="fit" @onclick="FitView">Fit</button>
+                        <button type="button" role="menuitem" data-zoom-item="100" @onclick="() => ZoomLevel(1)">100%</button>
+                        <button type="button" role="menuitem" data-zoom-item="selection" title="Fit selection (F)" @onclick="FitSelection">Fit selection</button>
+                    </div>
+                }
             </div>
         }
     </figure>
@@ -370,6 +380,12 @@
 
     /// <summary>Where My Blocks are kept. With none it is the browser <c>localStorage</c>.</summary>
     [Parameter] public IKeyValueStore? BlockStorage { get; set; }
+
+    /// <summary>The saved view of the project, as <see cref="ViewTransform.Format"/>. A circuit from outside the editor opens with it, or with a fit if it is null.</summary>
+    [Parameter] public string? View { get; set; }
+
+    /// <summary>Gets the view after the user zooms or pans.</summary>
+    [Parameter] public EventCallback<string> ViewChanged { get; set; }
 
     /// <summary>The loads of the editor page. With none the editor loads the netlist itself.</summary>
     [CascadingParameter] public NetlistCache? Loads { get; set; }
@@ -470,6 +486,9 @@
     // NOTE: The zoom control sits in the bottom right corner. Fit keeps the circuit above this band, so the control covers no part.
     const double ZoomBand = 56;
     ViewTransform? view;
+    ViewTransform? savedView;
+    bool viewTouched;
+    bool zoomMenu;
     (double X, double Y, double W, double H) box;
 
     // The pointers that are down on the empty canvas, by id, in client pixels. One pans, two pan and pinch.
@@ -510,7 +529,7 @@
         netlist = Netlist;
         given = Layout;
         Build();
-        if (external) view = null;
+        if (external) (view, savedView) = (null, ViewTransform.Parse(View));
         if (keep is { } again) Activate(again);
     }
 
@@ -622,6 +641,11 @@
     {
         if (view is not null) return view;
         var b = await PaneBox();
+        if (savedView is { } kept)
+        {
+            savedView = null;
+            return view = kept;
+        }
         return view = b is { Length: >= 4 } && b[2] > 0
             ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], Math.Max(b[3] - ZoomBand, b[3] / 2), FitMargin)
             : ViewTransform.Identity;
@@ -631,6 +655,11 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         still = false;
+        if (viewTouched && view is not null)
+        {
+            viewTouched = false;
+            await ViewChanged.InvokeAsync(view.Format());
+        }
         if (svg is null || view is not null) return;
         try { await Current(); }
         catch (Exception) { return; }
@@ -660,27 +689,77 @@
     string StageStyle() => view is not { } v ? "" : FormattableString.Invariant(
         $"--w: {box.W}px; --h: {box.H}px; --x: {v.X + box.X * v.Zoom}px; --y: {v.Y + box.Y * v.Zoom}px; --z: {v.Zoom}");
 
+    void SetView(ViewTransform next)
+    {
+        view = next;
+        viewTouched = true;
+    }
+
     async Task FitView()
     {
         if (svg is null) return;
         view = null;
+        savedView = null;
+        zoomMenu = false;
         await Current();
+        viewTouched = true;
+    }
+
+    // NOTE: The selected parts fill the pane, as far as 400 percent. With no selection it is a fit of the whole circuit.
+    async Task FitSelection()
+    {
+        zoomMenu = false;
+        var chosen = outlines.Where(o => Selection().Contains(o.Reference)).ToList();
+        if (chosen.Count == 0)
+        {
+            await FitView();
+            return;
+        }
+        var b = await PaneBox();
+        if (b[2] <= 0) return;
+        var (min, max) = (new Point(chosen.Min(o => o.Min.X), chosen.Min(o => o.Min.Y)), new Point(chosen.Max(o => o.Max.X), chosen.Max(o => o.Max.Y)));
+        SetView(ViewTransform.Fit(min.X, min.Y, max.X - min.X, max.Y - min.Y, b[2], Math.Max(b[3] - ZoomBand, b[3] / 2), FitMargin, maxZoom: 4));
     }
 
     async Task ZoomStep(double factor)
     {
         var b = await PaneBox();
-        view = (await Current()).ZoomAbout(new Point(b[2] / 2, b[3] / 2), factor);
+        SetView((await Current()).ZoomAbout(new Point(b[2] / 2, b[3] / 2), factor));
     }
 
-    // NOTE: A pinch on a trackpad is a wheel with Ctrl held, so it zooms with a finer step than the wheel.
+    // NOTE: The zoom field takes 150 or 150%. Text that is not a number puts the old level back.
+    async Task ZoomTyped(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString()?.Trim().TrimEnd('%').Trim();
+        if (!double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var percent) || !double.IsFinite(percent) || percent <= 0) return;
+        await ZoomLevel(percent / 100);
+    }
+
+    async Task ZoomLevel(double zoom)
+    {
+        zoomMenu = false;
+        var b = await PaneBox();
+        SetView((await Current()).ZoomTo(new Point(b[2] / 2, b[3] / 2), zoom));
+    }
+
+    // NOTE: A double click or double tap on the empty canvas zooms in at that point. A part or a wire under it keeps its own double click.
+    async Task CanvasDoubleClick(MouseEventArgs e)
+    {
+        if (svg is null || pick is not null) return;
+        var b = await PaneBox();
+        var at = new Point(e.ClientX - b[0], e.ClientY - b[1]);
+        var current = await Current();
+        var world = current.ScreenToWorld(at);
+        if (outlines.Any(o => o.Min.X <= world.X && world.X <= o.Max.X && o.Min.Y <= world.Y && world.Y <= o.Max.Y)) return;
+        SetView(current.ZoomAbout(at, ZoomStepFactor));
+    }
+
+    // NOTE: A pinch on a trackpad is a wheel with Ctrl held, so it follows the fingers with a finer step. A tick of a mouse wheel is 1.15x.
     async Task Wheel(WheelEventArgs e)
     {
         if (svg is null) return;
         var b = await PaneBox();
-        var lines = e.DeltaMode == 1 ? 16 : 1;
-        var factor = Math.Exp(-e.DeltaY * lines * (e.CtrlKey ? 0.01 : 0.0015));
-        view = (await Current()).ZoomAbout(new Point(e.ClientX - b[0], e.ClientY - b[1]), factor);
+        SetView((await Current()).ZoomAbout(new Point(e.ClientX - b[0], e.ClientY - b[1]), ViewTransform.WheelFactor(e.DeltaY, e.DeltaMode == 1 ? 1 : 0, e.CtrlKey)));
     }
 
     async Task PanDown(PointerEventArgs e)
@@ -729,7 +808,7 @@
         if (others.Count == 1)
         {
             Point Pane(Point p) => new(p.X - paneBox[0], p.Y - paneBox[1]);
-            view = view!.Pinch(Pane(last), Pane(now), Pane(others[0]));
+            SetView(view!.Pinch(Pane(last), Pane(now), Pane(others[0])));
             panMoved = true;
         }
         else if (others.Count == 0)
@@ -738,7 +817,7 @@
             var slop = Slop(e);
             if (!panMoved && Math.Abs(now.X - panFrom.X) <= slop && Math.Abs(now.Y - panFrom.Y) <= slop) return;
             panMoved = true;
-            view = view!.Pan(now.X - last.X, now.Y - last.Y);
+            SetView(view!.Pan(now.X - last.X, now.Y - last.Y));
         }
         touches[e.PointerId] = now;
     }
@@ -1086,6 +1165,10 @@
                 return;
             case "0":
                 await FitView();
+                return;
+            // NOTE: F fits the selection when two or more parts are selected. With one part selected F still flips it (H does too).
+            case "f" or "F" when group.Count > 0 && !e.CtrlKey && !e.MetaKey && !e.AltKey:
+                await FitSelection();
                 return;
         }
         if ((e.CtrlKey || e.MetaKey) && !e.AltKey && !e.ShiftKey && e.Key.ToLowerInvariant() is "a" or "c" or "x" or "v")

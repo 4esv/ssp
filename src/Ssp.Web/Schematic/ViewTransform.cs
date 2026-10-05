@@ -5,8 +5,14 @@ namespace Ssp.Web.Schematic;
 /// <summary>The view of the schematic canvas: screen = world * Zoom + (X, Y). World is in view box units, screen is in pixels of the pane.</summary>
 public sealed record ViewTransform(double Zoom, double X, double Y)
 {
-    public const double MinZoom = 0.25;
-    public const double MaxZoom = 4;
+    public const double MinZoom = 0.1;
+    public const double MaxZoom = 8;
+
+    /// <summary>The most that Fit zooms in on a small circuit.</summary>
+    public const double MaxFitZoom = 2;
+
+    /// <summary>The zoom of one tick of a mouse wheel.</summary>
+    public const double WheelTick = 1.15;
 
     public static ViewTransform Identity { get; } = new(1, 0, 0);
 
@@ -22,6 +28,38 @@ public sealed record ViewTransform(double Zoom, double X, double Y)
         var zoom = Math.Clamp(Zoom * factor, MinZoom, MaxZoom);
         var world = ScreenToWorld(screen);
         return new ViewTransform(zoom, screen.X - world.X * zoom, screen.Y - world.Y * zoom);
+    }
+
+    /// <summary>
+    /// The factor for one wheel event. A mouse wheel moves in ticks, 100 px or a few lines each: a tick is <see cref="WheelTick"/>, and a fast spin counts up to 3 ticks.
+    /// A pinch on a trackpad is a wheel with Ctrl held and small deltas: it follows the fingers, smooth. A small delta without Ctrl is smooth too.
+    /// </summary>
+    public static double WheelFactor(double deltaY, long deltaMode, bool ctrl)
+    {
+        var pixels = deltaY * (deltaMode == 1 ? 16 : 1);
+        if (ctrl) return Math.Exp(-pixels * 0.01);
+        if (deltaMode != 1 && Math.Abs(pixels) < 50) return Math.Exp(-pixels * 0.0015);
+        var ticks = deltaMode == 1 ? 1 : Math.Clamp(Math.Round(Math.Abs(pixels) / 100), 1, 3);
+        return Math.Pow(WheelTick, -Math.Sign(pixels) * ticks);
+    }
+
+    /// <summary>Sets the zoom, within the limits, so that the world point under <paramref name="screen"/> stays under it.</summary>
+    public ViewTransform ZoomTo(Point screen, double zoom) => ZoomAbout(screen, zoom / Zoom);
+
+    /// <summary>The view as text: zoom, x and y.</summary>
+    public string Format() => FormattableString.Invariant($"{Zoom:0.####} {X:0.##} {Y:0.##}");
+
+    /// <summary>The view from <see cref="Format"/>, or null if the text is not one.</summary>
+    public static ViewTransform? Parse(string? text)
+    {
+        var parts = text?.Split(' ');
+        if (parts is not { Length: 3 }) return null;
+        var n = new double[3];
+        for (var i = 0; i < 3; i++)
+        {
+            if (!double.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out n[i]) || !double.IsFinite(n[i])) return null;
+        }
+        return n[0] is >= MinZoom and <= MaxZoom ? new ViewTransform(n[0], n[1], n[2]) : null;
     }
 
     /// <summary>
@@ -49,11 +87,11 @@ public sealed record ViewTransform(double Zoom, double X, double Y)
             lo < margin ? margin - lo : hi > size - margin ? Math.Max(size - margin - hi, margin - lo) : 0;
     }
 
-    /// <summary>The view that centres a world box in a pane, as large as the margin allows, within the zoom limits and never past 100 percent.</summary>
-    public static ViewTransform Fit(double minX, double minY, double width, double height, double paneWidth, double paneHeight, double margin)
+    /// <summary>The view that centres a world box in a pane, as large as the margin allows, within the zoom limits and never past <paramref name="maxZoom"/> (200 percent unless given).</summary>
+    public static ViewTransform Fit(double minX, double minY, double width, double height, double paneWidth, double paneHeight, double margin, double maxZoom = MaxFitZoom)
     {
         var fit = Math.Min((paneWidth - 2 * margin) / Math.Max(width, 1e-9), (paneHeight - 2 * margin) / Math.Max(height, 1e-9));
-        var zoom = double.IsFinite(fit) ? Math.Clamp(fit, MinZoom, 1) : 1;
+        var zoom = double.IsFinite(fit) ? Math.Clamp(fit, MinZoom, maxZoom) : 1;
         return new ViewTransform(zoom, (paneWidth - width * zoom) / 2 - minX * zoom, (paneHeight - height * zoom) / 2 - minY * zoom);
     }
 }
