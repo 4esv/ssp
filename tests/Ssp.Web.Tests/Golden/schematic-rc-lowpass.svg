@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="5 8 155 182" fill="none" stroke="currentColor" stroke-width="2">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 8 154 182" fill="none" stroke="currentColor" stroke-width="2">
 <g data-ref="C1" transform="translate(100 90) rotate(-270)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
 <g transform="translate(100 150)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="R1" transform="translate(40 50)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
-<g data-ref="V1" transform="translate(40 90) rotate(-270)"><path d="M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41"/><circle cx="30" cy="0" r="14"/></g>
+<g data-ref="V1" transform="translate(40 90) rotate(-270)"><path d="M0 0H27M33 0H60M27 -12V12M33 -6V6M16 -10H22M19 -13V-7"/></g>
 <g transform="translate(40 150)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <polyline data-net="in" points="40,50 40,90"/>
 <polyline data-net="out" points="100,50 100,90"/>
@@ -11,7 +11,7 @@
 <text x="116" y="130" text-anchor="start">100n</text>
 <text x="70" y="38">R1</text>
 <text x="70" y="72">1k</text>
-<text x="59" y="118" text-anchor="start">V1</text>
-<text x="59" y="130" text-anchor="start">1V</text>
+<text x="58" y="118" text-anchor="start">V1</text>
+<text x="58" y="130" text-anchor="start">1V</text>
 </g>
 </svg>

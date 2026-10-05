@@ -138,7 +138,7 @@ public static class AutoPlacer
 
         var columns = new Dictionary<string, int>(Names);
         var seen = new HashSet<string>(Names);
-        var source = parts.FirstOrDefault(e => e.Kind == "vsource" && e.Nodes.Count == 2 && IsGround(e.Nodes[1]) != IsGround(e.Nodes[0]));
+        var source = parts.FirstOrDefault(e => e.Kind is "source" or "battery" && e.Nodes.Count == 2 && IsGround(e.Nodes[1]) != IsGround(e.Nodes[0]));
         var input = directives.Input
                     ?? (source is null ? null : IsGround(source.Nodes[0]) ? source.Nodes[1] : source.Nodes[0])
                     ?? onNet.Keys.Where(n => !Crossed(n)).Order(StringComparer.Ordinal).FirstOrDefault();

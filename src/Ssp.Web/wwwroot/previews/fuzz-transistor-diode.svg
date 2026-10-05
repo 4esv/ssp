@@ -16,9 +16,9 @@
 <g data-ref="R6" transform="translate(140 260)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
 <g data-ref="RV1" transform="translate(310 100) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
 <g transform="translate(310 160)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
-<g data-ref="V1" transform="translate(40 260) rotate(-270)"><path d="M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41"/><circle cx="30" cy="0" r="14"/></g>
+<g data-ref="V1" transform="translate(40 260) rotate(-270)"><path d="M0 0H16M44 0H60M22 0Q26 -10 30 0T38 0"/><circle cx="30" cy="0" r="14"/></g>
 <g transform="translate(40 320)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
-<g data-ref="V2" transform="translate(200 290) rotate(-270)"><path d="M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41"/><circle cx="30" cy="0" r="14"/></g>
+<g data-ref="V2" transform="translate(200 290) rotate(-270)"><path d="M0 0H27M33 0H60M27 -12V12M33 -6V6M16 -10H22M19 -13V-7"/></g>
 <g transform="translate(200 350)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <polyline data-net="in" points="40,220 40,260"/>
 <polyline data-net="n10" points="200,260 200,290"/>
@@ -57,7 +57,7 @@
 <text x="344" y="140" text-anchor="start">10k</text>
 <text x="59" y="288" text-anchor="start">V1</text>
 <text x="59" y="300" text-anchor="start">sine AC 1V</text>
-<text x="219" y="318" text-anchor="start">V2</text>
-<text x="219" y="330" text-anchor="start">9V</text>
+<text x="218" y="318" text-anchor="start">V2</text>
+<text x="218" y="330" text-anchor="start">9V</text>
 </g>
 </svg>
