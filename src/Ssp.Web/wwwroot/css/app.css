@@ -865,6 +865,8 @@ h1[tabindex="-1"]:focus-visible {
 
 .gallery .preview {
     order: -1;
+}
+
 /* NOTE: A problem shows in words in the list and as a ring on the part or pin that causes it. */
 .schematic-editor .problems {
     list-style: none;
@@ -903,4 +905,64 @@ h1[tabindex="-1"]:focus-visible {
     .schematic-editor .problem-item {
         min-height: 44px;
     }
+}
+
+/* NOTE: Command palette and shortcut sheet (#172). Plain, on the page, no overlay art. */
+.command-palette,
+.shortcut-sheet {
+    position: fixed;
+    top: 4rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(32rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 6rem);
+    overflow: auto;
+    z-index: 20;
+    padding: var(--space-1);
+    background: var(--bg, Canvas);
+    color: var(--text, CanvasText);
+    border: 1px solid var(--text-muted, currentColor);
+}
+
+.command-palette input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.command-palette ul {
+    list-style: none;
+    margin: var(--space-1) 0 0;
+    padding: 0;
+}
+
+.command-palette li button {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem var(--space-1);
+    width: 100%;
+    text-align: left;
+}
+
+.command-palette kbd {
+    font-size: 0.8em;
+}
+
+.command-palette li.active button {
+    outline: 2px solid currentColor;
+}
+
+.shortcut-sheet table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.shortcut-sheet th,
+.shortcut-sheet td {
+    text-align: left;
+    padding: 0.25rem 0.5rem;
+}
+
+.editor:focus {
+    outline: none;
 }

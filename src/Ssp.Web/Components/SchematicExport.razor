@@ -11,6 +11,15 @@
 @code {
     [Parameter] public string Netlist { get; set; } = "";
 
+    /// <summary>Saves the file, as the button does. Nothing happens when there is no schematic.</summary>
+    public async Task Save()
+    {
+        if (SchematicView.Svg(Netlist) is { } svg)
+        {
+            await Download(svg);
+        }
+    }
+
     async Task Download(string svg)
     {
         await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
