@@ -285,7 +285,9 @@ public partial class TouchPlaywrightTests(ITestOutputHelper output)
             // NOTE: The test server sometimes drops a connection on the first load, so a page with no editor loads again.
             for (var attempt = 0; ; attempt++)
             {
-                await phone.Page.GotoAsync(baseUrl + "editor" + hash);
+                // NOTE: A second GotoAsync to the same address with a hash does not load the page again, so a retry reloads.
+                if (attempt == 0) await phone.Page.GotoAsync(baseUrl + "editor" + hash);
+                else await phone.Page.ReloadAsync();
                 try
                 {
                     await phone.Page.Locator("button[data-action=new]").WaitForAsync(new() { Timeout = 30_000 });
