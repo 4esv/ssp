@@ -126,6 +126,7 @@ public class SchematicExportTests : BunitContext
         await page.EvaluateAsync("Blazor.navigateTo('editor')");
         await page.Locator("textarea").FillAsync(Fixture("divider-basic.cir"));
 
+        await page.Locator("button.export-toggle").ClickAsync();
         var download = await page.RunAndWaitForDownloadAsync(() => page.Locator("button.svg-download").ClickAsync());
         Assert.Equal("schematic.svg", download.SuggestedFilename);
         // NOTE: The browser picks the content type from the file extension.
