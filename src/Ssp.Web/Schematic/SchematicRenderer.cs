@@ -168,6 +168,9 @@ public static class SchematicRenderer
         return Document(bounds, body, new StringBuilder());
     }
 
+    /// <summary>The drawing of a kind without its outer svg element, in symbol units.</summary>
+    public static string Inner(string kind) => Drawing(Symbols.For(kind)).Inner;
+
     /// <summary>The schematic elements of a circuit, in reference order.</summary>
     public static IReadOnlyList<SchematicElement> Elements(LoadedCircuit circuit, PartMap? parts)
     {
@@ -374,7 +377,7 @@ public static class SchematicRenderer
                 circuit is not null && q.Model is not null && circuit.TryGetEntity(q.Model, out var m) && m is BipolarJunctionTransistorModel bm && bm.Parameters.BipolarType < 0 ? "pnp" : "npn",
             JFET j =>
                 circuit is not null && j.Model is not null && circuit.TryGetEntity(j.Model, out var m) && m is JFETModel jm && jm.Parameters.JFETType < 0 ? "pjf" : "njf",
-            VoltageSource => "vsource",
+            VoltageSource v => v.Parameters.Waveform is not null || v.Parameters.AcMagnitude != 0 ? "source" : "battery",
             CurrentSource => "isource",
             _ => null,
         };
