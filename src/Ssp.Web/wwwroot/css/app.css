@@ -509,6 +509,60 @@ h1[tabindex="-1"]:focus-visible {
     }
 }
 
+/* NOTE: The Export menu holds the rarely used actions. Closed, it shows its button only. The parts list is a fixed sheet, so it shows either way. */
+.schematic-tools .export-menu {
+    position: relative;
+    flex: none;
+}
+
+.schematic-tools .export-items {
+    display: none;
+}
+
+.schematic-tools .export-menu.open .export-items {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--bg, Canvas);
+    border: 1px solid currentColor;
+}
+
+.schematic-tools .export-menu:not(.open) .export-items {
+    display: contents;
+}
+
+.schematic-tools .export-menu:not(.open) .export-items > button {
+    display: none;
+}
+
+/* NOTE: A phone row scrolls, so the menu is a sheet fixed to the bottom of the window, and New comes first beside Run. */
+@media (max-width: 48rem) {
+    .schematic-tools .export-menu.open .export-items {
+        position: fixed;
+        top: auto;
+        left: 0.5rem;
+        right: 0.5rem;
+        bottom: 0.5rem;
+    }
+
+    .schematic-tools .tool-group[aria-label="Circuit"] {
+        order: -1;
+        padding-right: 0;
+    }
+}
+
+@media (min-width: 48.01rem) {
+    .schematic-tools {
+        overflow-x: visible;
+    }
+}
+
 .schematic-tools [aria-pressed="true"] {
     font-weight: 600;
     border-color: var(--accent);
@@ -1006,10 +1060,18 @@ h1[tabindex="-1"]:focus-visible {
     order: -1;
 }
 
-/* NOTE: A problem shows in words in the list and as a ring on the part or pin that causes it. */
+/* NOTE: A problem shows in words in the list and as a ring on the part or pin that causes it.
+   The list floats over the top left of the canvas, under the part actions, and scrolls inside a fixed height, so a new problem moves nothing. */
 .schematic-editor .problems {
+    position: absolute;
+    z-index: 1;
+    left: 0.25rem;
+    top: 0.25rem;
+    max-width: min(32rem, calc(100% - 0.5rem));
+    max-height: 6rem;
+    overflow-y: auto;
     list-style: none;
-    margin: 0.25rem 0;
+    margin: 0;
     padding: 0;
 }
 

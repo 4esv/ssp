@@ -52,15 +52,6 @@
             </ul>
         }
     </div>
-    @if (problems.Count > 0)
-    {
-        <ul class="problems" aria-label="Problems">
-            @foreach (var problem in problems)
-            {
-                <li><button type="button" class="@($"problem-item {problem.Severity.ToString().ToLowerInvariant()}")" @onclick="() => SelectPart(problem.Reference)">@problem.Message</button></li>
-            }
-        </ul>
-    }
     @if (ValueBox())
     {
         <div class="value-edit-box">
@@ -217,6 +208,15 @@
                         <button type="button" class="part-action" data-action="@action" aria-label="@label" title="@label" style="@style" @onclick="() => Act(action)">@ActionGlyph(action)</button>
                     }
                 </div>
+            }
+            @if (problems.Count > 0)
+            {
+                <ul class="problems" aria-label="Problems">
+                    @foreach (var problem in problems)
+                    {
+                        <li><button type="button" class="@($"problem-item {problem.Severity.ToString().ToLowerInvariant()}")" @onclick="() => SelectPart(problem.Reference)" @onclick:stopPropagation>@problem.Message</button></li>
+                    }
+                </ul>
             }
             <div class="schematic-zoom" role="group" aria-label="Zoom" @onclick:stopPropagation>
                 <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
@@ -1341,12 +1341,16 @@
         else return null;
 
         var sized = view is not null && paneBox[2] > 0;
+        (double X, double Y) Clamped(double x, double y)
+        {
+            const double Half = ActionPixels / 2, Gap = 4;
+            return (Math.Clamp(x, Half + Gap, Math.Max(Half + Gap, paneBox[2] - Half - Gap)),
+                Math.Clamp(y, Half + Gap, Math.Max(Half + Gap, paneBox[3] - Half - Gap)));
+        }
         string Place(double x, double y)
         {
             if (!sized) return "";
-            const double Half = ActionPixels / 2, Gap = 4;
-            var cx = Math.Clamp(x, Half + Gap, Math.Max(Half + Gap, paneBox[2] - Half - Gap));
-            var cy = Math.Clamp(y, Half + Gap, Math.Max(Half + Gap, paneBox[3] - Half - Gap));
+            var (cx, cy) = Clamped(x, y);
             return FormattableString.Invariant($"left: {cx:0.#}px; top: {cy:0.#}px");
         }
 
@@ -1364,7 +1368,28 @@
         var y = a.Y - reach;
         if (sized && y < ActionPixels / 2 + 4) y = b.Y + reach;
         var first = mx - (names.Length * ActionPixels + (names.Length - 1) * Space) / 2 + ActionPixels / 2;
-        return names.Select((n, i) => (n.Item1, n.Item2, Place(first + i * (ActionPixels + Space), y))).ToList();
+        var spots = names.Select((n, i) => (n.Item1, n.Item2, Place(first + i * (ActionPixels + Space), y))).ToList();
+        if (!sized || group.Count == 0) return spots;
+
+        // NOTE: A group row that would cover a part outside the group moves to the next side: above, below, right, left.
+        // The first side that covers none wins. With none free, the row stays where it was.
+        var others = outlines.Where(o => !group.Contains(o.Reference))
+            .Select(o => (A: view!.WorldToScreen(o.Min), B: view!.WorldToScreen(o.Max))).ToList();
+        bool Covers(IEnumerable<(double X, double Y)> centres) => centres.Any(c =>
+            others.Any(o => c.X + ActionPixels / 2 > Math.Min(o.A.X, o.B.X) && c.X - ActionPixels / 2 < Math.Max(o.A.X, o.B.X)
+                && c.Y + ActionPixels / 2 > Math.Min(o.A.Y, o.B.Y) && c.Y - ActionPixels / 2 < Math.Max(o.A.Y, o.B.Y)));
+        var step = ActionPixels + Space;
+        var my = (a.Y + b.Y) / 2;
+        var row = (double Y) => Enumerable.Range(0, names.Length).Select(i => Clamped(first + i * step, Y)).ToList();
+        var column = (double X) => Enumerable.Range(0, names.Length).Select(i => Clamped(X, my - (names.Length - 1) * step / 2 + i * step)).ToList();
+        var sides = new[] { row(a.Y - reach), row(b.Y + reach), column(b.X + reach), column(a.X - reach) };
+        if (!Covers(Enumerable.Range(0, names.Length).Select(i => Clamped(first + i * step, y)))) return spots;
+        foreach (var centres in sides)
+        {
+            if (Covers(centres)) continue;
+            return names.Select((n, i) => (n.Item1, n.Item2, FormattableString.Invariant($"left: {centres[i].X:0.#}px; top: {centres[i].Y:0.#}px"))).ToList();
+        }
+        return spots;
     }
 
     async Task Apply(SchematicChange change)

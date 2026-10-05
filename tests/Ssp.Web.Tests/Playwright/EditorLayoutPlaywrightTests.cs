@@ -18,6 +18,72 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
     [PlaywrightFact]
     public Task SchematicIsTheWholeScreenOnAPhone() => SchematicIsTheWholeScreenOnAPhoneCore().WaitAsync(Limit);
 
+    [PlaywrightFact]
+    public Task ToolRowFitsAndGroupRowAndPasteMoveNothing() => ToolRowCore().WaitAsync(Limit);
+
+    async Task ToolRowCore()
+    {
+        await using var session = await Session.Open();
+        var failures = new List<string>();
+        foreach (var (width, height) in new[] { (1456, 797), (1280, 800) })
+        {
+            var page = await session.Editor(width, height);
+            var row = await page.EvaluateAsync<double[]>(RowScript);
+            var outside = await page.EvaluateAsync<string[]>(OutsideScript);
+            output.WriteLine($"{width}x{height}: tool row scrollWidth {row[0]} clientWidth {row[1]}, outside the viewport [{string.Join(", ", outside)}]");
+            if (row[0] > row[1]) failures.Add($"{width}x{height}: the tool row scrolls ({row[0]} > {row[1]}).");
+            if (outside.Length > 0) failures.Add($"{width}x{height}: controls outside the viewport: {string.Join(", ", outside)}.");
+
+            // NOTE: The group action row covers no unselected part, whatever the group is.
+            foreach (var group in new[] { new[] { "R2", "R3", "R4" }, ["R2", "D2"], ["D1", "R3"] })
+            {
+                await page.Locator(".schematic-pins rect.part[data-ref=" + group[0] + "]").ClickAsync(new() { Force = true });
+                foreach (var r in group.Skip(1))
+                {
+                    await page.Locator($".schematic-pins rect.part[data-ref={r}]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
+                }
+                await Assertions.Expect(page.Locator(".part-action[data-action=copy]")).ToBeVisibleAsync();
+                var covered = await page.EvaluateAsync<string[]>(ActionOverlapScript);
+                output.WriteLine($"{width}x{height}: group {string.Join("+", group)}: action row covers [{string.Join(", ", covered)}]");
+                if (covered.Length > 0) failures.Add($"{width}x{height}: the action row of {string.Join("+", group)} covers {string.Join(", ", covered)}.");
+                await page.Keyboard.PressAsync("Escape");
+            }
+
+            // NOTE: A paste makes warnings for the unconnected copies. They float, so the canvas stays where it was.
+            await page.Locator(".schematic-pins rect.part[data-ref=R2]").ClickAsync(new() { Force = true });
+            await page.Locator(".schematic-pins rect.part[data-ref=R3]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
+            var before = (await page.Locator(".schematic-editor .schematic").BoundingBoxAsync())!;
+            var problemsBefore = await page.Locator(".problems li").CountAsync();
+            await page.Keyboard.PressAsync("ControlOrMeta+c");
+            await page.Keyboard.PressAsync("ControlOrMeta+v");
+            await Assertions.Expect(page.Locator(".schematic-pins rect.part[data-ref=R7]")).ToBeAttachedAsync();
+            await page.WaitForTimeoutAsync(300);
+            var after = (await page.Locator(".schematic-editor .schematic").BoundingBoxAsync())!;
+            var problemsAfter = await page.Locator(".problems li").CountAsync();
+            output.WriteLine($"{width}x{height}: canvas top/height {before.Y:0.#}/{before.Height:0.#} before, {after.Y:0.#}/{after.Height:0.#} after a paste; problems {problemsBefore} then {problemsAfter}");
+            if (Math.Abs(before.Y - after.Y) > 0.5 || Math.Abs(before.Height - after.Height) > 0.5 || Math.Abs(before.X - after.X) > 0.5 || Math.Abs(before.Width - after.Width) > 0.5)
+            {
+                failures.Add($"{width}x{height}: the paste moved the canvas ({before.Y:0.#}/{before.Height:0.#} to {after.Y:0.#}/{after.Height:0.#}).");
+            }
+            await page.CloseAsync();
+        }
+        Assert.Empty(failures);
+    }
+
+    [PlaywrightFact]
+    public Task RunAndNewStayInViewOnAPhone() => PhoneRowCore().WaitAsync(Limit);
+
+    async Task PhoneRowCore()
+    {
+        await using var session = await Session.Open();
+        var page = await session.Editor(390, 844);
+        var row = await page.EvaluateAsync<double[]>(RowScript);
+        var outside = await page.EvaluateAsync<string[]>(OutsideScript);
+        output.WriteLine($"390x844: tool row scrollWidth {row[0]} clientWidth {row[1]}, outside the viewport [{string.Join(", ", outside)}]");
+        Assert.DoesNotContain("run", outside);
+        Assert.DoesNotContain("new", outside);
+    }
+
     async Task FuzzStarterHasRoomAtLaptopSizesCore()
     {
         await using var session = await Session.Open();
@@ -62,6 +128,23 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
         await page.Locator(".panel-bar button[data-panel=results]").ClickAsync();
         await Assertions.Expect(page.Locator(".dock-panel[data-panel=results]")).ToBeHiddenAsync();
     }
+
+    const string RowScript = "() => { const r = document.querySelector('.schematic-tools'); return [r.scrollWidth, r.clientWidth]; }";
+
+    // NOTE: A control of the tool row that shows but is not wholly in the viewport.
+    const string OutsideScript = """
+        () => [...document.querySelectorAll('.schematic-tools button, .schematic-tools summary')].filter(b => b.offsetParent)
+            .filter(b => { const r = b.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth || r.top < 0 || r.bottom > innerHeight; })
+            .map(b => b.dataset.action || b.dataset.tool || b.className)
+        """;
+
+    const string ActionOverlapScript = """
+        () => {
+            const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+            const parts = [...document.querySelectorAll('.schematic-pins rect.part[data-ref]:not(.selected)')];
+            return [...document.querySelectorAll('.part-action')].flatMap(a => parts.filter(p => hit(a.getBoundingClientRect(), p.getBoundingClientRect())).map(p => p.dataset.ref));
+        }
+        """;
 
     // NOTE: A control is a button, input or toolbar in the schematic editor that is not on the canvas layer.
     const string OverlapScript = """
