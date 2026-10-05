@@ -85,7 +85,7 @@ static class RunResultJson
         foreach (var d in diagnostics)
         {
             w.WriteStartObject();
-            w.WriteString("severity", d.Severity == Severity.Error ? "error" : "warning");
+            w.WriteString("severity", d.Severity.ToString().ToLowerInvariant());
             w.WriteString("message", d.Message);
             if (d.Line is { } line)
             {

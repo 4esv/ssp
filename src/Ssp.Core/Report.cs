@@ -131,7 +131,7 @@ public static class Report
         }
 
         return diagnostics.Select(d =>
-            (d.Severity == Severity.Error ? "Error" : "Warning") + (d.Line is { } line ? $", line {line}" : "") + ": " + d.Message);
+            d.Severity.ToString() + (d.Line is { } line ? $", line {line}" : "") + ": " + d.Message);
     }
 
     /// <summary>For each node, the frequency where the magnitude first falls 3 dB below the first point. Log interpolation between points.</summary>

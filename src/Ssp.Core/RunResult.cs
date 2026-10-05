@@ -19,7 +19,7 @@ public sealed record RunResult(
     IReadOnlyDictionary<string, double> TimingsMs)
 {
     /// <summary>The version of docs/schema/run-result.schema.json that <see cref="ToJson"/> writes.</summary>
-    public const string SchemaVersion = "1.0.0";
+    public const string SchemaVersion = "1.1.0";
 
     /// <summary>The <c>$id</c> of the schema. It ends with <see cref="SchemaVersion"/>.</summary>
     public const string SchemaId = "urn:ssp:schema:run-result:" + SchemaVersion;
