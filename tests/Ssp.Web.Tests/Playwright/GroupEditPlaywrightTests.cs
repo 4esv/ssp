@@ -40,6 +40,14 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         // NOTE: The tool row scrolls. At this size New was out of view before #169, so the test prints the tools out of view and does not fail on them.
         output.WriteLine($"1456x797: tools out of view [{string.Join(", ", await page.EvaluateAsync<string[]>(HiddenTools))}]");
 
+        output.WriteLine("what is at each target: " + await page.EvaluateAsync<string>("""
+            () => ['R2', 'R4', 'R6'].map(ref => {
+                const e = document.querySelector(`.schematic-pins rect.part[data-ref=${ref}]`);
+                const r = e.getBoundingClientRect();
+                const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+                return `${ref}@${Math.round(r.x + r.width / 2)},${Math.round(r.y + r.height / 2)} -> ${at.tagName}.${at.getAttribute('class')}.${at.dataset.ref ?? ''}.${at.textContent?.slice(0, 12) ?? ''}`;
+            }).join(' | ')
+            """));
         await page.Locator(".schematic-pins rect.part[data-ref=R2]").ClickAsync(new() { Force = true });
         await page.Locator(".schematic-pins rect.part[data-ref=R4]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
         await page.Locator(".schematic-pins rect.part[data-ref=R6]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.ControlOrMeta] });
