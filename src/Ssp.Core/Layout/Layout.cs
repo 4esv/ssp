@@ -34,12 +34,15 @@ public sealed class Layout : IEquatable<Layout>
     public IReadOnlyList<WireRoute> Wires { get; }
 
     /// <summary>Reads a layout file. Throws <see cref="InvalidDataException"/> if the file is not a valid layout.</summary>
-    public static Layout Read(string path)
+    public static Layout Read(string path) => Parse(File.ReadAllText(path), path);
+
+    /// <summary>Reads the text of a layout file. <paramref name="path"/> names the source in an error. Throws <see cref="InvalidDataException"/> if the text is not a valid layout.</summary>
+    public static Layout Parse(string text, string path = "layout")
     {
         TomlTable doc;
         try
         {
-            doc = TomlSerializer.Deserialize<TomlTable>(File.ReadAllText(path)) ?? new TomlTable();
+            doc = TomlSerializer.Deserialize<TomlTable>(text) ?? new TomlTable();
         }
         catch (TomlException ex)
         {
@@ -76,7 +79,10 @@ public sealed class Layout : IEquatable<Layout>
     }
 
     /// <summary>Writes a layout file. The output is the same for the same layout.</summary>
-    public static void Write(string path, Layout layout)
+    public static void Write(string path, Layout layout) => File.WriteAllText(path, Format(layout));
+
+    /// <summary>Gives the text of a layout file. The text is the same for the same layout.</summary>
+    public static string Format(Layout layout)
     {
         var sb = new StringBuilder();
         foreach (var p in layout.Parts)
@@ -94,7 +100,7 @@ public sealed class Layout : IEquatable<Layout>
               .Append("net = ").Append(Quote(w.Net)).Append('\n')
               .Append("points = [").Append(string.Join(", ", w.Points.Select(pt => $"[{Fmt(pt.X)}, {Fmt(pt.Y)}]"))).Append("]\n\n");
         }
-        File.WriteAllText(path, sb.ToString());
+        return sb.ToString();
     }
 
     /// <summary>
