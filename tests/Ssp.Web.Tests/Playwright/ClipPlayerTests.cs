@@ -38,8 +38,9 @@ public class ClipPlayerTests(ITestOutputHelper output)
     public async Task UploadedWavIsRenderedAndPlayed()
     {
         await using var session = await Session.Start(output);
-        await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
+        // NOTE: The netlist and the clip are tabs of one strip, so fill the netlist before the clip tab hides it.
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
+        await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
 
         await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
         {
@@ -59,8 +60,9 @@ public class ClipPlayerTests(ITestOutputHelper output)
     public async Task DownloadIsAWavFileThatWavReadAccepts()
     {
         await using var session = await Session.Start(output);
-        await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
+        // NOTE: The netlist and the clip are tabs of one strip, so fill the netlist before the clip tab hides it.
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
+        await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
         await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
         {
             Name = "sine.wav",

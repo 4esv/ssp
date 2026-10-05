@@ -61,7 +61,9 @@ public class LiveRunTimingTests(ITestOutputHelper output)
         output.WriteLine($"Value edit on the Transistor fuzz: edit gap {times[0]:F0} ms, solve gap {times[1]:F0} ms, edit to result {times[2]:F0} ms");
 
         Assert.Empty(await page.Locator(".live-failed").AllAsync());
-        Assert.True(times[0] < 100, $"The page did not answer for {times[0]:F0} ms in the render of the edit or the redraw.");
+        // NOTE: The goal is 100 ms: an Apple M3 Pro measures 57 to 69 ms, a GitHub Ubuntu runner 111 ms. Before #245 the gap was
+        // about 600 ms. The limit sits between the two with room for a slow runner, so a return of the old cost fails it.
+        Assert.True(times[0] < 250, $"The page did not answer for {times[0]:F0} ms in the render of the edit or the redraw (goal 100 ms, limit 250 ms).");
         // TODO: The live solve runs on the main thread and takes about 100 ms (#245, docs/benchmarks.md). It is not in the
         // limit: moving it to the worker did not pay (#244).
     }

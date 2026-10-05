@@ -16,20 +16,10 @@
 
 <PageTitle>ssp editor</PageTitle>
 
-<h1>Editor</h1>
+<h1 class="editor-title">Editor</h1>
 
-<div class="editor" tabindex="-1" @ref="root" @onkeydown="Hotkey">
+<div class="editor" tabindex="-1" @ref="root" @onkeydown="Hotkey" data-sheet="@sheet">
 <CascadingValue Value="loads" IsFixed="true">
-<div class="toolbar" role="toolbar" aria-label="Editor actions">
-    <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
-    <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
-    <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
-    <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
-    <SchematicExport @ref="export" Netlist="@drawn" />
-    <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
-    <span class="toolbar-status" role="status">@toolbarStatus</span>
-</div>
-
 @if (RunErrors().ToList() is { Count: > 0 } errors)
 {
     <ul class="run-errors" role="alert">
@@ -40,24 +30,35 @@
     </ul>
 }
 
-@* NOTE: The line has a fixed height, so the marker and the failure text move nothing below it. *@
-<div class="live-line">
-    <span class="live-state@(stale ? " stale" : "")" role="status">@LiveText()</span>
-    @if (liveFailure is not null)
-    {
-        <span class="live-failed" role="alert">The last edit does not solve. @liveFailure The results are from the last good run.</span>
-    }
-</div>
-
 <CommandPalette Mode="mode" Chosen="Choose" />
 
-<DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor">
+<DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor.v2">
     <DockPanel Id="text" Title="Netlist">
         <textarea @bind="netlist" @bind:event="oninput" @bind:after="Typed" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">
-        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" />
+        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point">
+            <Actions>
+                <div class="toolbar" role="toolbar" aria-label="Editor actions">
+                    <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
+                    <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
+                    <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
+                    <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
+                    <SchematicExport @ref="export" Netlist="@drawn" />
+                    @* NOTE: The line has a fixed width, so the marker and the failure text move nothing beside it. *@
+                    <span class="live-line">
+                        <span class="live-state@(stale ? " stale" : "")" role="status">@LiveText()</span>
+                        @if (liveFailure is not null)
+                        {
+                            <span class="live-failed" role="alert" title="@liveFailure">The last edit does not solve. @liveFailure The results are from the last good run.</span>
+                        }
+                    </span>
+                    <span class="toolbar-status" role="status">@toolbarStatus</span>
+                    <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
+                </div>
+            </Actions>
+        </SchematicEditor>
     </DockPanel>
 
     <DockPanel Id="dc" Title="DC overlay">
@@ -106,7 +107,7 @@
                     <tbody>
                         @foreach (var (node, volts) in op.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal))
                         {
-                            <tr><td>@node</td><td>@Volts(volts)</td></tr>
+                            <tr data-node="@node" class="@(pointed.Contains(node) ? "pointed" : null)"><td>@node</td><td>@Volts(volts)</td></tr>
                         }
                     </tbody>
                 </table>
@@ -169,6 +170,14 @@
         <VirtualAmp Pedal="@netlist" />
     </DockPanel>
 </DockLayout>
+
+@* NOTE: On a narrow screen the schematic is the whole screen. This bar opens one other panel over it. *@
+<nav class="panel-bar" aria-label="Panels">
+    @foreach (var (id, title) in SheetPanels)
+    {
+        <button type="button" data-panel="@id" aria-pressed="@(sheet == id ? "true" : "false")" @onclick="() => Sheet(id)">@title</button>
+    }
+</nav>
 </CascadingValue>
 </div>
 
@@ -204,12 +213,28 @@
     bool stale;
     string? liveFailure;
 
-    // NOTE: The netlist and the schematic are side by side. The panels under them are tabs.
-    static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
+    // NOTE: The schematic is the largest cell. The other panels are tabs in one strip at the side and one strip under it.
+    public static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
     [
-        new DockSplit(SplitDirection.Column, [new DockTabs(["text"]), new DockTabs(["knobs", "calculators", "compare", "clip"])], [0.55, 0.45]),
-        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc", "monitor", "amp"])], [0.55, 0.45]),
-    ]));
+        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc", "monitor", "amp"])], [0.8, 0.2]),
+        new DockTabs(["text", "knobs", "calculators", "compare", "clip"]),
+    ], [0.72, 0.28]));
+
+    static readonly (string Id, string Title)[] SheetPanels =
+    [
+        ("text", "Netlist"), ("knobs", "Knobs"), ("results", "Results"), ("plots", "Plots"), ("calculators", "Calculators"),
+        ("dc", "DC"), ("compare", "Compare"), ("clip", "Clip"), ("monitor", "Monitor"), ("amp", "Amp"),
+    ];
+
+    // The panel that the narrow bar has open, or null.
+    string? sheet;
+
+    void Sheet(string id) => sheet = sheet == id ? null : id;
+
+    // The nodes under the pointer on the schematic. Their rows in Results are marked.
+    IReadOnlyCollection<string> pointed = [];
+
+    void Point(IReadOnlyCollection<string> nodes) => pointed = nodes;
 
     IEnumerable<Diagnostic> RunErrors() => result?.Diagnostics.Where(d => d.Severity == Severity.Error) ?? [];
 
