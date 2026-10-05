@@ -11,6 +11,8 @@
 @inject ISimulationHost Host
 @inject NavigationManager Nav
 @inject IJSRuntime Js
+@inject TimeProvider Time
+@implements IDisposable
 
 <PageTitle>ssp editor</PageTitle>
 
@@ -37,17 +39,26 @@
     </ul>
 }
 
+@* NOTE: The line has a fixed height, so the marker and the failure text move nothing below it. *@
+<div class="live-line">
+    <span class="live-state@(stale ? " stale" : "")" role="status">@LiveText()</span>
+    @if (liveFailure is not null)
+    {
+        <span class="live-failed" role="alert">The last edit does not solve. @liveFailure The results are from the last good run.</span>
+    }
+</div>
+
 <DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor">
     <DockPanel Id="text" Title="Netlist">
         <textarea @bind="netlist" @bind:event="oninput" @bind:after="ResetLayout" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">
-        <SchematicEditor Netlist="@netlist" Layout="schematicLayout" Changed="Edit" />
+        <SchematicEditor Netlist="@netlist" Layout="schematicLayout" Changed="Edit" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" />
     </DockPanel>
 
     <DockPanel Id="dc" Title="DC overlay">
-        <DcOverlay OperatingPoint="@result?.OperatingPoint" />
+        <DcOverlay OperatingPoint="@result?.OperatingPoint" Stale="@stale" />
     </DockPanel>
 
     <DockPanel Id="knobs" Title="Knobs">
@@ -170,6 +181,13 @@
     Diagnostic? shareError;
     string toolbarStatus = "";
 
+    // NOTE: A run follows each edit after this wait. Stale is true from the edit until a solve ends, and after a solve that failed.
+    static readonly TimeSpan LiveDebounce = TimeSpan.FromMilliseconds(250);
+    CancellationTokenSource? live;
+    ITimer? liveTimer;
+    bool stale;
+    string? liveFailure;
+
     // NOTE: The netlist and the schematic are side by side. The panels under them are tabs.
     static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
     [
@@ -247,7 +265,64 @@
         running = true;
         result = await Host.Run(netlist, new RunOptions());
         running = false;
+        stale = false;
+        liveFailure = null;
     }
+
+    string LiveText() => stale ? (liveFailure is null ? "Solving…" : "Stale") : "";
+
+    void CancelLive()
+    {
+        liveTimer?.Dispose();
+        liveTimer = null;
+        live?.Cancel();
+        live?.Dispose();
+        live = null;
+    }
+
+    // NOTE: The run goes through the same host as the Run button. A failed solve keeps the last good result and marks it stale.
+    void ScheduleLive()
+    {
+        CancelLive();
+        stale = true;
+        live = new CancellationTokenSource();
+        var (text, token) = (netlist, live.Token);
+        liveTimer = Time.CreateTimer(_ => _ = InvokeAsync(() => LiveRun(text, token)), null, LiveDebounce, Timeout.InfiniteTimeSpan);
+    }
+
+    async Task LiveRun(string text, CancellationToken token)
+    {
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var next = await Host.Run(text, new RunOptions());
+            token.ThrowIfCancellationRequested();
+            await InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+                var error = next.Diagnostics.FirstOrDefault(d => d.Severity == Severity.Error);
+                if (error is null)
+                {
+                    result = next;
+                    stale = false;
+                    liveFailure = null;
+                }
+                else
+                {
+                    liveFailure = error.Message;
+                }
+                StateHasChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void Dispose() => CancelLive();
 
     // NOTE: A knob change runs the operating point and the frequency response again.
     async Task Retune(string tuned)
@@ -263,6 +338,7 @@
     {
         schematicLayout = null;
         history.Reset(netlist, null);
+        ScheduleLive();
     }
 
     // NOTE: Each edit from the schematic editor and the calculator panel goes on the one history.
@@ -288,6 +364,7 @@
     {
         netlist = history.Netlist;
         schematicLayout = history.Layout;
+        ScheduleLive();
     }
 
     static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
