@@ -907,6 +907,50 @@ h1[tabindex="-1"]:focus-visible {
     }
 }
 
+/* NOTE: Node voltages sit in the pin layer and the stale marker has a fixed place, so the live run moves no layout. */
+.schematic-pins .net-voltage {
+    fill: var(--fg, currentColor);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--bg, #fff);
+    stroke-width: 3px;
+    font-variant-numeric: tabular-nums;
+}
+
+.schematic-pins .net-voltage.stale,
+.dc-overlay.stale .dc-label {
+    opacity: 0.45;
+}
+
+.live-state {
+    flex: none;
+    min-width: 5.5em;
+    font-size: 0.9em;
+}
+
+.live-state.stale,
+.stale-mark {
+    font-style: italic;
+    color: var(--muted, #666);
+}
+
+.live-line {
+    display: flex;
+    gap: 0.5rem;
+    flex: none;
+    height: 1.5rem;
+    min-height: 1.5rem;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.live-failed {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--error, #b3261e);
+
 /* NOTE: Command palette and shortcut sheet (#172). Plain, on the page, no overlay art. */
 .command-palette,
 .shortcut-sheet {

@@ -11,7 +11,7 @@ namespace Ssp.Web.Tests;
 
 public class SchematicExportTests : BunitContext
 {
-    public SchematicExportTests() => Services.AddSingleton(TimeProvider.System);
+    public SchematicExportTests() => Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
 
     const string DataPrefix = "data:image/svg+xml;base64,";
 

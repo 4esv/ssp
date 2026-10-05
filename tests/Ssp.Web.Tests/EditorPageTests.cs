@@ -9,7 +9,7 @@ namespace Ssp.Web.Tests;
 
 public class EditorPageTests : BunitContext
 {
-    public EditorPageTests() => Services.AddSingleton(TimeProvider.System);
+    public EditorPageTests() => Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
 
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
