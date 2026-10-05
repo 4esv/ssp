@@ -45,6 +45,16 @@ public class ProjectStoreTests
     }
 
     [Fact]
+    public async Task TheViewIsSavedWithTheProject()
+    {
+        var project = ProjectStore.New("Fuzz", "R1 a 0 1k\n", Layout) with { View = "1.5 10 -20" };
+        await Store().Save(project);
+
+        Assert.Equal("1.5 10 -20", (await Store().Load(project.Id))!.View);
+        Assert.Null((await Store().Load(ProjectStore.New("x", "", null).Id)));
+    }
+
+    [Fact]
     public async Task RenameChangesTheNameOnly()
     {
         var store = Store();

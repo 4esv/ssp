@@ -41,12 +41,12 @@ public class SchematicViewTests
     }
 
     [Fact]
-    public void Zoom_stops_at_25_and_400_percent()
+    public void Zoom_stops_at_10_and_800_percent()
     {
         var at = new Point(10, 10);
 
-        Assert.Equal(0.25, new ViewTransform(1, 0, 0).ZoomAbout(at, 0.001).Zoom);
-        Assert.Equal(4, new ViewTransform(1, 0, 0).ZoomAbout(at, 1000).Zoom);
+        Assert.Equal(0.1, new ViewTransform(1, 0, 0).ZoomAbout(at, 0.001).Zoom);
+        Assert.Equal(8, new ViewTransform(1, 0, 0).ZoomAbout(at, 1000).Zoom);
     }
 
     [Fact]
@@ -76,7 +76,60 @@ public class SchematicViewTests
     [Fact]
     public void Fit_stays_inside_the_zoom_limits()
     {
-        Assert.Equal(1, ViewTransform.Fit(0, 0, 10, 10, 1000, 1000, 0).Zoom);
-        Assert.Equal(0.25, ViewTransform.Fit(0, 0, 100000, 100000, 1000, 1000, 0).Zoom);
+        Assert.Equal(2, ViewTransform.Fit(0, 0, 10, 10, 1000, 1000, 0).Zoom);
+        Assert.Equal(4, ViewTransform.Fit(0, 0, 10, 10, 1000, 1000, 0, maxZoom: 4).Zoom);
+        Assert.Equal(0.1, ViewTransform.Fit(0, 0, 100000, 100000, 1000, 1000, 0).Zoom);
+    }
+
+    [Theory]
+    [InlineData(100, 0, false)]
+    [InlineData(-100, 0, false)]
+    [InlineData(3, 1, false)]
+    [InlineData(-3, 1, false)]
+    public void A_mouse_wheel_tick_is_between_1_1_and_1_25(double deltaY, long mode, bool ctrl)
+    {
+        var factor = ViewTransform.WheelFactor(deltaY, mode, ctrl);
+
+        Assert.InRange(Math.Max(factor, 1 / factor), 1.1, 1.25);
+        Assert.Equal(deltaY < 0, factor > 1);
+    }
+
+    [Fact]
+    public void A_pinch_is_smooth_and_a_fast_spin_is_capped()
+    {
+        Assert.InRange(ViewTransform.WheelFactor(-2, 0, true), 1.01, 1.05);
+        Assert.InRange(ViewTransform.WheelFactor(-10, 0, false), 1.01, 1.05);
+        Assert.Equal(Math.Pow(ViewTransform.WheelTick, 3), ViewTransform.WheelFactor(-900, 0, false), 9);
+    }
+
+    [Theory]
+    [InlineData(200, 200, true)]
+    [InlineData(700, 400, true)]
+    [InlineData(200, 200, false)]
+    [InlineData(700, 400, false)]
+    public void Ten_wheel_ticks_keep_the_point_under_the_pointer_within_a_pixel(double x, double y, bool pinch)
+    {
+        var view = new ViewTransform(1.3, -40, 25);
+        var at = new Point(x, y);
+        var world = view.ScreenToWorld(at);
+
+        for (var i = 0; i < 10; i++)
+        {
+            view = view.ZoomAbout(at, ViewTransform.WheelFactor(pinch ? -10 : -100, 0, pinch));
+            var back = view.WorldToScreen(world);
+            Assert.True(Math.Abs(back.X - x) < 1 && Math.Abs(back.Y - y) < 1);
+        }
+    }
+
+    [Fact]
+    public void Zoom_to_a_level_keeps_the_point_and_the_view_round_trips_as_text()
+    {
+        var view = new ViewTransform(0.8, 12.5, -7.25).ZoomTo(new Point(300, 200), 1.5);
+
+        Assert.Equal(1.5, view.Zoom, 9);
+        Assert.Equal(new Point(300, 200).X, view.WorldToScreen(new ViewTransform(0.8, 12.5, -7.25).ScreenToWorld(new Point(300, 200))).X, 9);
+        Assert.Equal(view.Format(), ViewTransform.Parse(view.Format())!.Format());
+        Assert.Null(ViewTransform.Parse("nonsense"));
+        Assert.Null(ViewTransform.Parse("99 0 0"));
     }
 }

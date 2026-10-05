@@ -180,6 +180,8 @@ public class DrawAFuzzAndPlayItTests(ITestOutputHelper output)
         await Tap(page.Locator($"svg.schematic-pins circle.pin[data-ref=\"{battery.Reference}\"][data-pin=\"{battery.Index}\"]"), $"rail pin ({battery.Reference} pin {battery.Index + 1})");
         await page.WaitForFunctionAsync("b => document.querySelector('textarea[aria-label=Netlist]').value !== b", joined, new() { Timeout = 10_000, PollingInterval = 50 });
         output.WriteLine($"{++steps,3} joined: {await Hint()}");
+        // NOTE: The circuit is wider than the pane at the zoom of the build (200 percent), so the user taps Fit to see the source again.
+        await Tap(page.Locator("button[data-zoom=fit]"), "Fit");
         await TapPin((await Pins()).Where(p => p.Reference == "V1").OrderBy(p => p.X).First(), "source left pin");
         await Press("g", true);
 

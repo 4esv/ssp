@@ -1158,14 +1158,15 @@ public static partial class SchematicEdits
     public static SchematicChange Delete(string netlist, LayoutDoc layout, string reference)
     {
         var lines = Lines(netlist);
-        var members = Members(lines, reference);
+        // NOTE: A reference that the netlist no longer has (the text was edited) has no lines to remove. Its placement still goes.
+        var members = Found(lines, reference);
         foreach (var member in members)
         {
             var (at, count) = Element(lines, member);
             lines.RemoveRange(at, count);
         }
         lines.RemoveAll(l => KnobOf(l) is { } k && Names.Equals(k, reference));
-        var result = Join(lines);
+        var result = members.Count > 0 ? Join(lines) : netlist;
 
         var nets = new HashSet<string>(NetlistLoader.Load(result).NodeNames, StringComparer.Ordinal);
         var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, reference) && !members.Contains(p.Reference, Names)).ToList();
@@ -1295,7 +1296,9 @@ public static partial class SchematicEdits
     {
         var circuit = NetlistLoader.Load(netlist);
         var lines = Lines(netlist);
-        var members = Members(lines, reference);
+        var members = Found(lines, reference);
+        // NOTE: A part that the netlist has no line for, or that the loader did not read, has nothing to copy (the text was edited, #278).
+        if (members.Count == 0 || members.Any(m => !circuit.Circuit.OfType<IComponent>().Any(c => Names.Equals(c.Name, m)))) return new SchematicChange(netlist, layout);
         var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).SelectMany(n => new[] { n, Pair().Replace(n, "") }).ToHashSet(Names);
         var copy = Fresh(Prefix().Match(reference).Value, references);
         var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
@@ -1345,9 +1348,15 @@ public static partial class SchematicEdits
     // The element lines of a part: the part itself, or the lines P_1 to P_3 of a pot or a switch P.
     static List<string> Members(List<string> lines, string reference)
     {
-        if (Has(lines, reference)) return [reference];
-        var members = Enumerable.Range(1, 3).Select(i => $"{reference}_{i}").Where(m => Has(lines, m)).ToList();
+        var members = Found(lines, reference);
         return members.Count > 0 ? members : throw new KeyNotFoundException($"The netlist has no element '{reference}'.");
+    }
+
+    // The same as Members, but empty for a reference that the netlist does not have.
+    static List<string> Found(List<string> lines, string reference)
+    {
+        if (Has(lines, reference)) return [reference];
+        return Enumerable.Range(1, 3).Select(i => $"{reference}_{i}").Where(m => Has(lines, m)).ToList();
     }
 
     static bool Has(List<string> lines, string reference)
