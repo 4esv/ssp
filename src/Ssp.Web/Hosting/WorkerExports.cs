@@ -59,6 +59,7 @@ public static partial class WorkerExports
         monitor?.Dispose();
         var circuit = NetlistLoader.Load(netlist);
         Pot.Apply(circuit);
+        Switch.Apply(circuit);
         monitor = new MonitorSession(circuit, sampleRate);
         return "true";
     }
@@ -103,8 +104,9 @@ public static partial class WorkerExports
             w.WriteStartArray();
             var circuit = NetlistLoader.Load(netlist);
 
-            // NOTE: The knob directives set the pot parts, as in Runner.Run. A knob change then changes the output.
+            // NOTE: The knob and switch directives set the pot and switch parts, as in Runner.Run. A knob change then changes the output.
             Pot.Apply(circuit);
+            Switch.Apply(circuit);
             var statistics = new RenderStatistics();
             var output = Analyses.Render(circuit, input, sampleRate, oversample, progress, statistics, StartsOnVariableSteps(netlist));
             if (statistics.VariableSteps)

@@ -41,6 +41,9 @@ public static partial class SchematicEdits
         ["diode"] = ("D", "DGEN"),
         ["led"] = ("D", "LED_RED"),
         ["pot"] = ("RV", "10k"),
+        ["switch-1"] = ("RSW", ""),
+        ["switch-2"] = ("RSW", ""),
+        ["switch-3"] = ("RSW", ""),
         ["battery"] = ("V", "9"),
         ["source"] = ("V", ""),
         ["jack-in"] = ("", ""),
@@ -60,7 +63,7 @@ public static partial class SchematicEdits
 
     /// <summary>
     /// Adds a part with a new reference and a new node for each pin. A battery has its minus pin on node 0 and a
-    /// transistor has its substrate on node 0. A pot adds a <c>ssp:knob</c> line, a diode,
+    /// transistor has its substrate on node 0. A pot adds a <c>ssp:knob</c> line, a switch a <c>ssp:switch</c> line, a diode,
     /// LED or transistor adds its <c>.model</c> line if missing. The layout places the part one column to the right of
     /// the other parts. With no value the part gets the default value of its kind.
     /// </summary>
@@ -98,6 +101,14 @@ public static partial class SchematicEdits
                 added.Add($"{reference}_2 {wiper} {bottom} 5k");
                 added.Add($"* ssp:knob {reference} linear 0.5");
                 break;
+            case "switch-1" or "switch-2" or "switch-3":
+                // NOTE: A switch S is the resistors S_1 to S_n from the common to each throw. Its reference is S.
+                var throws = Throws(kind);
+                var (common, position) = (Node(), Switch.Positions(throws)[0]);
+                var ohms = Switch.Resistances(throws, position);
+                for (var t = 0; t < throws; t++) added.Add($"{reference}_{t + 1} {common} {Node()} {Ohms(ohms[t])}");
+                added.Add($"* ssp:switch {reference} {position}");
+                break;
             case "battery":
                 added.Add($"{reference} {Node()} {Zero} DC {value}");
                 break;
@@ -117,8 +128,52 @@ public static partial class SchematicEdits
         lines.InsertRange(end < 0 ? lines.Count : end, added);
 
         var x = layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep;
-        var parts = layout.Parts.Append(new PartPlacement(kind == "pot" ? reference + "_1" : reference, x, Row, 0, false)).ToList();
+        var parts = layout.Parts.Append(new PartPlacement(kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference, x, Row, 0, false)).ToList();
         return new SchematicChange(Join(lines), new LayoutDoc(parts, layout.Wires));
+    }
+
+    /// <summary>True for the kinds switch-1, switch-2 and switch-3.</summary>
+    public static bool IsSwitch(string? kind) => kind is "switch-1" or "switch-2" or "switch-3";
+
+    /// <summary>The count of throws of a switch kind.</summary>
+    public static int Throws(string kind) => kind[^1] - '0';
+
+    // The value of a switch resistor: 1m closed, 1G open.
+    static string Ohms(double ohms) => ohms == Switch.Closed ? "1m" : "1G";
+
+    /// <summary>
+    /// Moves a switch to a position: its <c>ssp:switch</c> line and the value of each of its resistors. Other lines do
+    /// not change. A netlist with no such switch, or a position that the switch does not have, does not change.
+    /// </summary>
+    public static string SetSwitch(string netlist, string reference, int position)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var throws = Switch.Throws(circuit, reference);
+        if (throws == 0 || !Switch.Positions(throws).Contains(position)) return netlist;
+        var lines = Lines(netlist);
+        var at = lines.FindIndex(l => SwitchLine().Match(l) is { Success: true } m && Names.Equals(m.Groups[2].Value, reference));
+        if (at < 0) return netlist;
+        lines[at] = SwitchLine().Replace(lines[at], m => m.Groups[1].Value + m.Groups[2].Value + m.Groups[3].Value + position.ToString(CultureInfo.InvariantCulture), 1);
+        var ohms = Switch.Resistances(throws, position);
+        for (var t = 0; t < throws; t++)
+        {
+            var (line, _) = Element(lines, $"{reference}_{t + 1}");
+            var words = Words().Split(lines[line]);
+            var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+            // NOTE: Words has the separators at odd indices. The value follows the name and two nodes.
+            if (first + 6 < words.Length) words[first + 6] = Ohms(ohms[t]);
+            lines[line] = string.Concat(words);
+        }
+        return Join(lines);
+    }
+
+    /// <summary>Moves a switch to its next position, as a tap on it does. See <see cref="Switch.Next"/>.</summary>
+    public static string Flip(string netlist, string reference)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var line = circuit.Directives.Switches.FirstOrDefault(s => Names.Equals(s.Part, reference));
+        var throws = Switch.Throws(circuit, reference);
+        return line is null || throws == 0 ? netlist : SetSwitch(netlist, reference, Switch.Next(throws, line.Position));
     }
 
     /// <summary>
@@ -826,10 +881,11 @@ public static partial class SchematicEdits
     public static (string Node, Point Position) Pin(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, PinRef pin)
     {
         // NOTE: A pot P is the resistors P_1 and P_2. The layout places it as P_1. Its pins are the top, the wiper and the bottom.
-        if (SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => e.Kind == "pot" && Names.Equals(e.Reference, pin.Reference)) is { } pot)
+        // NOTE: A switch S is S_1 to S_n and is placed as S_1 in the same way.
+        if (SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => (e.Kind == "pot" || IsSwitch(e.Kind)) && Names.Equals(e.Reference, pin.Reference)) is { } pot)
         {
             var at = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference) || Names.Equals(p.Reference, pot.Members[0]));
-            return (pot.Nodes[pin.Pin], SchematicRenderer.PotPins(at)[pin.Pin]);
+            return (pot.Nodes[pin.Pin], SchematicRenderer.Pins(pot, at)[pin.Pin].At);
         }
         var placement = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference));
         var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, pin.Reference));
@@ -936,6 +992,12 @@ public static partial class SchematicEdits
                 {
                     if (pin < 2) SetNode(lines, element.Members[0], pin, node);
                     if (pin > 0) SetNode(lines, element.Members[1], pin - 1, node);
+                }
+                // NOTE: A switch S is S_1 to S_n. The common is the first node of each, throw n the second node of S_n.
+                else if (IsSwitch(element.Kind))
+                {
+                    if (pin == 0) foreach (var member in element.Members) SetNode(lines, member, 0, node);
+                    else SetNode(lines, element.Members[pin - 1], 1, node);
                 }
                 else SetNode(lines, element.Members[0], pin, node);
             }
@@ -1090,7 +1152,7 @@ public static partial class SchematicEdits
     [GeneratedRegex(@"(\s+)")]
     private static partial Regex Words();
 
-    [GeneratedRegex(@"_[12]$")]
+    [GeneratedRegex(@"_[123]$")]
     private static partial Regex Pair();
 
     [GeneratedRegex(@"^[A-Za-z]+")]
@@ -1102,8 +1164,12 @@ public static partial class SchematicEdits
     [GeneratedRegex(@"^\s*\.subckt\s+(\S+)", RegexOptions.IgnoreCase)]
     private static partial Regex SubcircuitName();
 
-    [GeneratedRegex(@"^(\s*\*\s*ssp:knob\s+)(\S+)", RegexOptions.IgnoreCase)]
+    // NOTE: A switch line goes with its part like a knob line.
+    [GeneratedRegex(@"^(\s*\*\s*ssp:(?:knob|switch)\s+)(\S+)", RegexOptions.IgnoreCase)]
     private static partial Regex KnobWord();
+
+    [GeneratedRegex(@"^(\s*\*\s*ssp:switch\s+)(\S+)(\s+)(\S+)", RegexOptions.IgnoreCase)]
+    private static partial Regex SwitchLine();
 }
 
 /// <summary>One netlist line of a copied part: the component name, the text with its continuation lines, and the count of nodes.</summary>

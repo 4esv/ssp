@@ -78,6 +78,9 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .schematic-pins .knob-face { fill: var(--bg); stroke: currentColor; stroke-width: 1.5; }
 .schematic-pins .knob-pointer { stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .schematic-pins .knob:hover .knob-face, .schematic-pins .knob.turning .knob-face { stroke-width: 2.5; }
+.schematic-pins .switch { cursor: pointer; touch-action: manipulation; }
+.schematic-pins .switch-hit { fill: transparent; stroke: none; }
+.schematic-pins .switch:focus-visible .switch-hit, .schematic-pins .switch:hover .switch-hit { stroke: currentColor; stroke-opacity: 0.35; }
 .pin-add { cursor: pointer; }
 .pin-add-hit { fill: transparent; }
 .pin-add-dot { fill: currentColor; stroke: var(--bg); stroke-width: 1; pointer-events: none; }
@@ -117,6 +120,8 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .amp-stage { display: flex; flex-direction: column; gap: 0.125rem; }
 .amp-stage select { width: 100%; }
 .knob { display: grid; grid-template-columns: 4rem 1fr auto auto; gap: 0.5rem; align-items: center; }
+.switch { display: flex; gap: 0.5rem; align-items: center; }
+.switch .part { width: 4rem; }
 .knob .position { min-width: 3rem; text-align: right; font-variant-numeric: tabular-nums; }
 .calculator-panel .input { display: flex; flex-direction: column; gap: 0.125rem; margin-bottom: 0.5rem; }
 .home-links { display: flex; gap: 1rem; }
