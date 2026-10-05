@@ -5,6 +5,7 @@
 @using Ssp.Core.Netlist
 @using Ssp.Web.Docking
 @using Ssp.Web.Editing
+@using Ssp.Web.Projects
 @using Ssp.Web.Schematic
 @using Ssp.Web.Sharing
 @using LayoutDoc = Ssp.Core.Layout.Layout
@@ -31,6 +32,8 @@
 }
 
 <CommandPalette Mode="mode" Chosen="Choose" />
+
+<ProjectBar Store="store" Current="project" State="@saveState" Starter="@Starter()" Open="OpenProject" Rename="Rename" Export="Export" />
 
 <DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor.v2">
     <DockPanel Id="text" Title="Netlist">
@@ -321,8 +324,11 @@
 
     protected override void OnInitialized()
     {
+        store = new ProjectStore(new LocalStorage(Js), Time);
         var hash = new Uri(Nav.Uri).Fragment.TrimStart('#');
-        if (hash.Length == 0)
+        fromLink = hash.Length > 0;
+        project = ProjectStore.New(fromLink ? "Shared circuit" : "Untitled", "", null);
+        if (!fromLink)
         {
             netlist = drawn = Starter();
             history.Reset(netlist, null);
@@ -339,10 +345,37 @@
         }
     }
 
+    // NOTE: Without a shared link the editor opens the project that was open last. A shared link opens as a new
+    // project. It is saved at its first edit, so it does not overwrite the open project.
+    protected override async Task OnInitializedAsync()
+    {
+        if (fromLink)
+        {
+            return;
+        }
+        try
+        {
+            if (await store.OpenId() is { } id && await store.Load(id) is { } saved)
+            {
+                Apply(saved);
+            }
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The starter circuit is then correct, so this is not an error.
+        }
+    }
+
+    static string? starter;
+
     static string Starter()
     {
-        using var reader = new StreamReader(typeof(Editor).Assembly.GetManifestResourceStream("starter.cir")!);
-        return reader.ReadToEnd();
+        if (starter is null)
+        {
+            using var reader = new StreamReader(typeof(Editor).Assembly.GetManifestResourceStream("starter.cir")!);
+            starter = reader.ReadToEnd();
+        }
+        return starter;
     }
 
     // NOTE: Run plays the clip when the analyses finish. The render takes seconds, so the button is free again before it.
@@ -440,6 +473,134 @@
     {
         CancelLive();
         drawTimer?.Dispose();
+        if (saveTimer is not null)
+        {
+            _ = SaveNow();
+        }
+    }
+
+    // NOTE: Each edit saves the project after this wait, so a burst of edits is one write.
+    static readonly TimeSpan SaveDebounce = TimeSpan.FromMilliseconds(500);
+    ProjectStore store = default!;
+    Project project = default!;
+    // The name, the netlist and the layout text of the last save, or null before the first save.
+    (string Name, string Netlist, string? Layout)? lastSaved;
+    ITimer? saveTimer;
+    bool fromLink;
+    string saveState = "";
+
+    void ScheduleSave()
+    {
+        saveState = "";
+        saveTimer?.Dispose();
+        saveTimer = Time.CreateTimer(_ => _ = InvokeAsync(async () =>
+        {
+            await SaveNow();
+            StateHasChanged();
+        }), null, SaveDebounce, Timeout.InfiniteTimeSpan);
+    }
+
+    async Task SaveNow()
+    {
+        saveTimer?.Dispose();
+        saveTimer = null;
+        (string Name, string Netlist, string? Layout) state = (project.Name, netlist, schematicLayout is null ? null : LayoutDoc.Format(schematicLayout));
+        if (lastSaved == state)
+        {
+            return;
+        }
+        try
+        {
+            project = await store.Save(project with { Netlist = state.Netlist, Layout = state.Layout });
+            await store.SetOpen(project.Id);
+            lastSaved = state;
+            saveState = "Saved";
+        }
+        catch (Exception)
+        {
+            saveState = "Not saved. Browser storage is off or full.";
+            return;
+        }
+        LeaveLink();
+    }
+
+    // NOTE: After a shared link becomes a project, a reload opens the project and not the link again.
+    void LeaveLink()
+    {
+        if (fromLink)
+        {
+            fromLink = false;
+            Nav.NavigateTo("editor", replace: true);
+        }
+    }
+
+    void Apply(Project next)
+    {
+        CancelLive();
+        drawTimer?.Dispose();
+        drawTimer = null;
+        saveTimer?.Dispose();
+        saveTimer = null;
+        project = next;
+        netlist = drawn = next.Netlist;
+        schematicLayout = ReadLayout(next.Layout);
+        drawnShape = ShapeOf(loads.Load(drawn));
+        history.Reset(netlist, schematicLayout);
+        result = null;
+        shareError = null;
+        stale = false;
+        liveFailure = null;
+        lastSaved = next.Saved == default ? null : (next.Name, next.Netlist, next.Layout);
+    }
+
+    // NOTE: A layout that does not read is left out. The schematic then places the parts again.
+    static LayoutDoc? ReadLayout(string? text)
+    {
+        try
+        {
+            return text is null ? null : LayoutDoc.Parse(text);
+        }
+        catch (InvalidDataException)
+        {
+            return null;
+        }
+    }
+
+    // NOTE: The open project is saved before the next one opens. A new or imported project is saved at once.
+    async Task OpenProject(Project next)
+    {
+        if (saveTimer is not null)
+        {
+            await SaveNow();
+        }
+        Apply(next);
+        LeaveLink();
+        if (next.Saved == default)
+        {
+            await SaveNow();
+            return;
+        }
+        try
+        {
+            await store.SetOpen(next.Id);
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be blocked. The project is open until a reload.
+        }
+    }
+
+    async Task Rename(string name)
+    {
+        project = project with { Name = name };
+        await SaveNow();
+    }
+
+    async Task Export()
+    {
+        var name = string.Concat(project.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) || c is '/' or '\\' or ':' ? '_' : c));
+        await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
+        await module.InvokeVoidAsync("save", name + ".cir", "data:text/plain;base64," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(netlist)));
     }
 
     // NOTE: A knob change runs the operating point and the frequency response again.
@@ -447,12 +608,14 @@
     {
         netlist = tuned;
         Draw();
+        ScheduleSave();
         await Analyse();
     }
 
     void Typed()
     {
         ScheduleLive();
+        ScheduleSave();
         drawTimer?.Dispose();
         drawTimer = Time.CreateTimer(_ => _ = InvokeAsync(() =>
         {
@@ -507,6 +670,7 @@
         schematicLayout = history.Layout;
         drawnShape = ShapeOf(loads.Load(drawn)) ?? drawnShape;
         ScheduleLive();
+        ScheduleSave();
     }
 
     static string Class(Severity severity) => severity.ToString().ToLowerInvariant();
