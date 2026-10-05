@@ -99,25 +99,29 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         var page = await session.Editor(390, 844, touch: true);
         var before = await Parts(page);
 
-        // NOTE: At 390 px the palette lies over part of the canvas (see the issue "on a phone the palette covers the circuit"). A tap on a
-        // covered part hits the palette, so the test takes three resistors whose centre is the part itself.
-        var reachable = await page.EvaluateAsync<string[]>("""
-            () => [...document.querySelectorAll('.schematic-pins rect.part[data-ref^=R]')].filter(e => {
-                const r = e.getBoundingClientRect();
-                const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-                return at === e && r.width > 0;
-            }).map(e => e.dataset.ref).filter(x => /^R[0-9]+$/.test(x)).sort()
-            """);
-        output.WriteLine($"390x844: resistors a finger can reach [{string.Join(", ", reachable)}]");
-        Assert.True(reachable.Length >= 3, "Fewer than three resistors are reachable on a phone.");
-        var chosen = reachable.Take(3).ToArray();
-
+        // NOTE: At 390 px the palette and the action row lie over part of the canvas, and they move after each tap. A tap on a covered
+        // part hits them, so before each tap the test takes a resistor whose centre is the part itself and taps that point.
         await page.Locator("button[data-tool=select]").TapAsync();
-        foreach (var r in chosen)
+        for (var i = 0; i < 3; i++)
         {
-            await page.Locator($".schematic-pins rect.part[data-ref={r}]").TapAsync(new() { Force = true });
+            var spot = await page.EvaluateAsync<double[]?>("""
+                () => {
+                    const chosen = new Set([...document.querySelectorAll('.schematic-pins rect.part.selected')].map(e => e.dataset.ref));
+                    for (const e of [...document.querySelectorAll('.schematic-pins rect.part[data-ref^=R]')].sort((a, b) => a.dataset.ref.localeCompare(b.dataset.ref))) {
+                        if (!/^R[0-9]+$/.test(e.dataset.ref) || chosen.has(e.dataset.ref)) continue;
+                        const r = e.getBoundingClientRect();
+                        const x = r.x + r.width / 2, y = r.y + r.height / 2;
+                        if (document.elementFromPoint(x, y) === e) return [x, y];
+                    }
+                    return null;
+                }
+                """);
+            Assert.NotNull(spot);
+            await page.Touchscreen.TapAsync((float)spot![0], (float)spot[1]);
         }
-        Assert.Equal(chosen.Order().ToArray(), await Selected(page));
+        var chosen = await Selected(page);
+        output.WriteLine($"390x844: selected by taps [{string.Join(", ", chosen)}]");
+        Assert.Equal(3, chosen.Length);
         await page.Locator(".part-action[data-action=copy]").TapAsync();
         await page.Locator("button[data-action=paste]").TapAsync();
         await page.WaitForFunctionAsync("n => document.querySelectorAll('.schematic-pins rect.part[data-ref]').length >= n", before.Length + 3);
