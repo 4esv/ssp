@@ -86,8 +86,6 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .pin-add-dot { fill: currentColor; stroke: var(--bg); stroke-width: 1; pointer-events: none; }
 .pin-add.chosen .pin-add-dot { stroke: currentColor; stroke-width: 2; }
 .pin-add-sign { fill: var(--bg); font-weight: 700; pointer-events: none; }
-.jack-ring { fill: none; stroke: currentColor; stroke-width: 2; pointer-events: none; }
-.jack-label { fill: currentColor; font-weight: 700; pointer-events: none; }
 .net-name { font-weight: 600; }
 /* NOTE: One row over the canvas that scrolls sideways if it does not fit. The palette adds parts, so the part buttons do not show; the letter keys still work. */
 .schematic-tools { display: flex; flex: none; gap: 0.5rem; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 0.125rem; }

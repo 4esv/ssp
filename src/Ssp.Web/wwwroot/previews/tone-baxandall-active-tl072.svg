@@ -12,7 +12,7 @@
 <g transform="translate(410 270)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="RV1" transform="translate(220 260)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
 <g data-ref="RV2" transform="translate(160 180)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
-<g data-ref="V1" transform="translate(40 220) rotate(-270)"><path d="M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41"/><circle cx="30" cy="0" r="14"/></g>
+<g data-ref="V1" transform="translate(40 220) rotate(-270)"><path d="M0 0H16M44 0H60M22 0Q26 -10 30 0T38 0"/><circle cx="30" cy="0" r="14"/></g>
 <g transform="translate(40 280)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="VCC" transform="translate(240 60)"><path d="M0 0V-20M-10 -20H10"/></g>
 <g data-ref="VEE" transform="translate(240 120) scale(1 -1)"><path d="M0 0V-20M-10 -20H10"/></g>

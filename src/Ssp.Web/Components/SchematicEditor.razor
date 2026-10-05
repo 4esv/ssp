@@ -237,8 +237,7 @@
                 @foreach (var jack in jacks)
                 {
                     <g class="jack" data-jack="@jack.Label.ToLowerInvariant()" transform="translate(@N(jack.At.X) @N(jack.At.Y))">
-                        <circle class="jack-ring" r="9" />
-                        <text class="jack-label" y="-14" text-anchor="middle" font-size="10">@jack.Label</text>
+                        @((MarkupString)SchematicRenderer.Inner("jack-" + jack.Label.ToLowerInvariant()))
                     </g>
                 }
                 @if (active is { } from && !connecting)
@@ -608,14 +607,7 @@
         module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/schematic-canvas.js");
 
     // NOTE: A switch in the palette has its lever at its first position.
-    static string SymbolOf(string kind) => SchematicEdits.IsSwitch(kind)
-        ? Symbols.For(kind).Svg.Replace("</svg>", $"<path d=\"{Symbols.Lever(kind, Ssp.Core.Parts.Switch.Positions(SchematicEdits.Throws(kind))[0])}\"/></svg>", StringComparison.Ordinal)
-        : Symbols.Find(kind switch
-        {
-            "battery" or "source" => "vsource",
-            "jack-in" or "jack-out" => "resistor",
-            _ => kind,
-        })?.Svg ?? "";
+    static string SymbolOf(string kind) => Symbols.Icon(kind);
 
     // The pane box in client pixels: left, top, width, height.
     // NOTE: A module that gives no box, as in a test, leaves the last box.
