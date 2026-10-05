@@ -1,9 +1,10 @@
 @using System.Globalization
 @using Ssp.Core.Netlist
+@using Ssp.Web.Schematic
 @implements IDisposable
 @inject TimeProvider Time
 
-@if (knobs.Count > 0)
+@if (knobs.Count > 0 || switches.Count > 0)
 {
     <section class="knobs">
         <h2>Knobs</h2>
@@ -18,6 +19,17 @@
                 <span class="taper">@knob.Taper</span>
                 <span class="position">@Percent(knob.Position)</span>
             </label>
+        }
+        @foreach (var (part, throws, position) in switches)
+        {
+            <div class="switch" role="group" aria-label="@part" data-part="@part">
+                <span class="part">@part</span>
+                @foreach (var at in Ssp.Core.Parts.Switch.Positions(throws))
+                {
+                    var to = at;
+                    <button type="button" aria-pressed="@(to == position ? "true" : "false")" @onclick="() => Set(part, to)">@PositionName(throws, to)</button>
+                }
+            </div>
         }
     </section>
 }
@@ -40,6 +52,7 @@ else
 
     string? seen;
     List<KnobDirective> knobs = [];
+    List<(string Part, int Throws, int Position)> switches = [];
     CancellationTokenSource? pending;
 
     protected override void OnParametersSet()
@@ -49,7 +62,12 @@ else
             return;
         }
         seen = Netlist;
-        knobs = DirectiveParser.Parse(Netlist).Directives.Knobs.ToList();
+        var directives = DirectiveParser.Parse(Netlist).Directives;
+        knobs = directives.Knobs.ToList();
+        // NOTE: The count of throws is the count of switch resistors, so a netlist with a switch is loaded.
+        var circuit = directives.Switches.Count > 0 ? NetlistLoader.Load(Netlist) : null;
+        switches = directives.Switches.Select(s => (s.Part, Throws: circuit is null ? 0 : Ssp.Core.Parts.Switch.Throws(circuit, s.Part), s.Position))
+            .Where(s => s.Throws > 0).ToList();
     }
 
     void Move(int index, ChangeEventArgs e)
@@ -78,6 +96,16 @@ else
         }
         await InvokeAsync(() => token.IsCancellationRequested ? Task.CompletedTask : NetlistChanged.InvokeAsync(WithPositions(Netlist, knobs)));
     }
+
+    // NOTE: A switch button changes the netlist at once. A tap is one change, not a burst.
+    async Task Set(string part, int position)
+    {
+        var set = SchematicEdits.SetSwitch(Netlist, part, position);
+        if (set != Netlist) await NetlistChanged.InvokeAsync(set);
+    }
+
+    static string PositionName(int throws, int position) =>
+        throws == 1 ? (position == 1 ? "On" : "Off") : position.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>Writes the positions into the <c>knob</c> lines of the netlist, in order. Other lines do not change.</summary>
     static string WithPositions(string netlist, IReadOnlyList<KnobDirective> positions)

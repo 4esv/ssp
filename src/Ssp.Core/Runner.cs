@@ -5,6 +5,7 @@ using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
 using Diagnostic = Ssp.Core.Netlist.Diagnostic;
 using DiagnosticsEngine = Ssp.Core.Diagnostics.Diagnostics;
+using Switch = Ssp.Core.Parts.Switch;
 
 namespace Ssp.Core;
 
@@ -27,8 +28,8 @@ public static class Runner
             return Stop();
         }
 
-        // NOTE: Knob positions are set first, so an explicit override of a pot resistor wins.
-        diagnostics.AddRange(Time("overrides", timings, () => Pot.Apply(circuit).Concat(Overrides.Apply(circuit, options.Overrides)).ToList()));
+        // NOTE: Knob and switch positions are set first, so an explicit override of a pot or switch resistor wins.
+        diagnostics.AddRange(Time("overrides", timings, () => Pot.Apply(circuit).Concat(Switch.Apply(circuit)).Concat(Overrides.Apply(circuit, options.Overrides)).ToList()));
         diagnostics.AddRange(Time("diagnostics", timings, () => DiagnosticsEngine.Run(circuit)));
         if (HasError(diagnostics))
         {

@@ -173,6 +173,16 @@
                     <rect class="select-box" x="@N(Math.Min(bx.From.X, bx.To.X))" y="@N(Math.Min(bx.From.Y, bx.To.Y))"
                           width="@N(Math.Abs(bx.To.X - bx.From.X))" height="@N(Math.Abs(bx.To.Y - bx.From.Y))" />
                 }
+                @foreach (var lever in switches)
+                {
+                    var w = lever;
+                    <g class="switch" data-ref="@w.Reference" data-position="@w.Position" role="button" tabindex="0" aria-label="@SwitchText(w)"
+                       @onpointerdown:stopPropagation @onclick="() => Flip(w.Reference)" @onclick:stopPropagation
+                       @onkeydown="e => SwitchKey(w, e)" @onkeydown:stopPropagation>
+                        <circle class="switch-hit" cx="@N(w.At.X)" cy="@N(w.At.Y)" r="@N(Math.Max(SwitchHit, DotRadius()))" />
+                        <title>@SwitchText(w). Tap to switch.</title>
+                    </g>
+                }
                 @foreach (var pin in pins)
                 {
                     var target = connecting && pin.Ref != active?.Pin;
@@ -308,6 +318,15 @@
     sealed record KnobView(string Reference, Point At, double Position, string Taper, double Total);
 
     List<KnobView> knobs = [];
+
+    // The lever of a switch on the canvas: its middle, its position and its count of throws.
+    sealed record SwitchView(string Reference, Point At, int Position, int Throws);
+
+    List<SwitchView> switches = [];
+
+    // NOTE: The hit circle of a lever is this many schematic units, or DotPixels on screen. It is under the pins, so a
+    // pin at the end of the lever keeps its tap.
+    const double SwitchHit = 14;
 
     // The knob that the pointer turns: the pointer and the position at the start, the position now, and whether it moved.
     (string Reference, double FromY, double From, double Now, bool Moved)? turning;
@@ -503,6 +522,7 @@
         jacks = [];
         outlines = [];
         knobs = [];
+        switches = [];
         var circuit = Loads?.Load(netlist) ?? NetlistLoader.Load(netlist);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
         problems = hasErrors ? [] : Problems.Find(circuit);
@@ -522,16 +542,29 @@
         var v = viewBox.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(t => double.Parse(t, CultureInfo.InvariantCulture)).ToArray();
         box = (v[0], v[1], v[2], v[3]);
         var placements = layout.Parts.ToDictionary(p => p.Reference, StringComparer.OrdinalIgnoreCase);
+        var elements = SchematicRenderer.Elements(circuit, parts);
+        // NOTE: A switch S is placed as S_1. Its outline and pins are those of S, not of the resistor S_1.
+        var levers = elements.Where(e => SchematicEdits.IsSwitch(e.Kind)).ToList();
+        var inSwitch = levers.SelectMany(e => e.Members).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var c in circuit.Circuit.OfType<SpiceComponent>().OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
-            if (!placements.TryGetValue(c.Name, out var placement)) continue;
+            if (inSwitch.Contains(c.Name) || !placements.TryGetValue(c.Name, out var placement)) continue;
             var row = parts.Parts.GetValueOrDefault(c.Name);
             var (min, max) = SchematicRenderer.Outline(c, placement, row);
             outlines.Add(new PartView(c.Name, min, max));
             var positions = SchematicRenderer.Pins(c, placement, row);
             pins.AddRange(positions.Select((p, i) => new PinView(new PinRef(c.Name, i), c.Nodes[i], p)));
         }
-        var elements = SchematicRenderer.Elements(circuit, parts);
+        var thrown = circuit.Directives.Switches.GroupBy(s => s.Part, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Position, StringComparer.OrdinalIgnoreCase);
+        foreach (var e in levers)
+        {
+            if (!(placements.TryGetValue(e.Reference, out var placement) || placements.TryGetValue(e.Members[0], out placement))) continue;
+            var (min, max) = SchematicRenderer.Outline(e, placement);
+            outlines.Add(new PartView(e.Reference, min, max));
+            pins.AddRange(SchematicRenderer.Pins(e, placement).Select((p, i) => new PinView(new PinRef(e.Reference, i), p.Net, p.At)));
+            var (sx, sy) = SchematicRenderer.Place(placement, 30, 0);
+            switches.Add(new SwitchView(e.Reference, new Point(sx, sy), thrown.GetValueOrDefault(e.Reference), SchematicEdits.Throws(e.Kind!)));
+        }
         var tuned = circuit.Directives.Knobs.GroupBy(k => k.Part, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         foreach (var pot in elements.Where(e => e.Kind == "pot"))
         {
@@ -566,12 +599,15 @@
     async Task<IJSObjectReference> Module() =>
         module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/schematic-canvas.js");
 
-    static string SymbolOf(string kind) => Symbols.Find(kind switch
-    {
-        "battery" or "source" => "vsource",
-        "jack-in" or "jack-out" => "resistor",
-        _ => kind,
-    })?.Svg ?? "";
+    // NOTE: A switch in the palette has its lever at its first position.
+    static string SymbolOf(string kind) => SchematicEdits.IsSwitch(kind)
+        ? Symbols.For(kind).Svg.Replace("</svg>", $"<path d=\"{Symbols.Lever(kind, Ssp.Core.Parts.Switch.Positions(SchematicEdits.Throws(kind))[0])}\"/></svg>", StringComparison.Ordinal)
+        : Symbols.Find(kind switch
+        {
+            "battery" or "source" => "vsource",
+            "jack-in" or "jack-out" => "resistor",
+            _ => kind,
+        })?.Svg ?? "";
 
     // The pane box in client pixels: left, top, width, height.
     // NOTE: A module that gives no box, as in a test, leaves the last box.
@@ -1703,6 +1739,21 @@
         if (to is { } position) await Turn(k.Reference, position);
     }
 
+    static string SwitchText(SwitchView w) =>
+        $"{w.Reference} {SchematicRenderer.SwitchName(w.Throws)}, " + (w.Throws == 1 ? (w.Position == 1 ? "on" : "off") : $"throw {w.Position}");
+
+    async Task SwitchKey(SwitchView w, KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ") await Flip(w.Reference);
+    }
+
+    // NOTE: A tap on a switch moves it to its next position: one change, the layout stays and the live run follows.
+    async Task Flip(string reference)
+    {
+        var flipped = SchematicEdits.Flip(netlist, reference);
+        if (flipped != netlist) await Apply(new SchematicChange(flipped, layout));
+    }
+
     // NOTE: A knob turn changes only the knob line, so the layout stays and the live run follows.
     async Task Turn(string reference, double position)
     {
@@ -1758,7 +1809,9 @@
         await Pointed.InvokeAsync([]);
     }
 
-    static string Label(string kind) => char.ToUpperInvariant(kind[0]) + kind[1..].Replace('-', ' ');
+    static string Label(string kind) => SchematicEdits.IsSwitch(kind)
+        ? SchematicRenderer.SwitchName(SchematicEdits.Throws(kind)) + " switch"
+        : char.ToUpperInvariant(kind[0]) + kind[1..].Replace('-', ' ');
 
     static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 }
