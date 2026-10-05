@@ -18,12 +18,22 @@
     <p class="clip-source">@sourceName</p>
 
     <button type="button" class="clip-play" @onclick="() => Try(Netlist)" disabled="@busy">Play clip</button>
+    <button type="button" class="clip-render-again" @onclick="() => Try(Netlist, force: true)" disabled="@busy">Render again</button>
+    @if (OutOfDate)
+    {
+        <button type="button" class="clip-play-old" @onclick="PlayOld" disabled="@busy">Play old</button>
+    }
     @* NOTE: A cancel hides the button in the same render as the "Cancelled." status. The render unwinds after it (#225). *@
     @if (busy && !cancelled)
     {
         <button type="button" class="clip-cancel" @onclick="Cancel">Cancel</button>
     }
-    <button type="button" class="clip-download" @onclick="Download" disabled="@(output is null)">Download WAV</button>
+    <button type="button" class="clip-download" @onclick="Download" disabled="@(shown is null)">Download WAV</button>
+
+    @if (OutOfDate)
+    {
+        <p class="clip-stale" role="status">Out of date: the circuit changed. Press Play to render it.</p>
+    }
 
     <p class="clip-status" role="status">@status</p>
 </section>
@@ -44,14 +54,22 @@
     // A render that runs longer than this many seconds asks the user to cancel.
     const int SlowSeconds = 60;
 
+    /// <summary>
+    /// The renders to reuse. The editor page gives one cache to every player, so they share it and it outlives the panel.
+    /// A player without one keeps its own.
+    /// </summary>
+    [Parameter] public RenderCache? Cache { get; set; }
+
     /// <summary>The clock for the elapsed time of a render. A test gives a fake clock.</summary>
     [Parameter] public TimeProvider Clock { get; set; } = TimeProvider.System;
 
     string sourceName = BundledName;
     double[]? uploaded;
     int uploadedRate;
-    double[]? output;
-    int outputRate;
+    RenderCache ownCache = new();
+    RenderCache Renders => Cache ?? ownCache;
+    (RenderKey Key, RenderedClip Clip)? shown;
+    bool shownRead;
     string status = "";
     bool busy;
     bool rendering;
@@ -63,14 +81,61 @@
     ITimer? ticker;
     IJSObjectReference? module;
 
+    // NOTE: The result on show is the last one played. A new panel on a cache that has one starts with it.
+    (RenderKey Key, RenderedClip Clip)? Shown
+    {
+        get
+        {
+            if (!shownRead)
+            {
+                shown = Renders.Latest;
+                shownRead = true;
+            }
+            return shown;
+        }
+    }
+
+    bool OutOfDate => Shown is { } s && s.Key != KeyFor(Netlist);
+
+    // NOTE: The sample id is the source name with the size of the clip. #276 gives samples their own ids.
+    string SampleId => uploaded is null ? sourceName : $"{sourceName}|{uploaded.Length}|{uploadedRate}";
+
+    RenderKey KeyFor(string netlist) => new(netlist, SampleId, Oversamples[0], CabinetId);
+
+    const string CabinetId = "cab-1x12";
+
+    async Task PlayOld()
+    {
+        if (Shown is { } old && !busy)
+        {
+            await PlayClip(old.Clip);
+        }
+    }
+
+    async Task PlayClip(RenderedClip clip)
+    {
+        await (await Module()).InvokeVoidAsync("play", ToFloat32Bytes(clip.Samples), clip.Rate);
+        status = clip.Summary;
+        StateHasChanged();
+    }
+
     /// <summary>
-    /// Renders the clip through the netlist in the worker, applies the cabinet IR, and plays the result.
+    /// Plays the render for this netlist and clip at once when the cache has it. Otherwise, or with <paramref name="force"/>,
+    /// renders the clip through the netlist in the worker, applies the cabinet IR, and plays the result.
     /// The clip is the upload, or the bundled clip. A failure shows in the status text and does not throw.
     /// </summary>
-    public async Task Try(string netlist)
+    public async Task Try(string netlist, bool force = false)
     {
         if (busy)
         {
+            return;
+        }
+
+        var key = KeyFor(netlist);
+        if (!force && Renders.TryGet(key, out var cached))
+        {
+            shown = (key, cached);
+            await PlayClip(cached);
             return;
         }
 
@@ -105,17 +170,17 @@
             var (peak, rms) = Levels(wet);
             if (peak < SilentDb)
             {
-                output = null;
+                shown = null;
                 status = "The output is silent." + await Bias(netlist);
                 return;
             }
 
             var levels = $"Output peak {peak:0.0} dBFS, RMS {rms:0} dBFS.";
             var how = irRate == rate ? "Playing with the cabinet IR." : $"Playing without the cabinet IR. The clip is {rate} Hz and the IR is {irRate} Hz.";
-            output = wet;
-            outputRate = rate;
-            await (await Module()).InvokeVoidAsync("play", ToFloat32Bytes(wet), rate);
-            status = (used > 1 ? $"Rendered at {used}x oversample. " : "") + how + " " + levels;
+            var clip = new RenderedClip(ToFloat32(wet), rate, (used > 1 ? $"Rendered at {used}x oversample. " : "") + how + " " + levels);
+            Renders.Add(key, clip);
+            shown = (key, clip);
+            await PlayClip(clip);
         }
         catch (OperationCanceledException)
         {
@@ -246,20 +311,18 @@
     async Task Download()
     {
         using var stream = new MemoryStream();
-        Wav.Write(stream, new WavData(outputRate, [output!]), 16);
+        Wav.Write(stream, new WavData(Shown!.Value.Clip.Rate, [[.. Shown.Value.Clip.Samples.Select(x => (double)x)]]), 16);
         await (await Module()).InvokeVoidAsync("download", "ssp-output.wav", stream.ToArray());
     }
 
     async Task<IJSObjectReference> Module() => module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/clip-player.js");
 
-    static byte[] ToFloat32Bytes(double[] samples)
+    static float[] ToFloat32(double[] samples) => [.. samples.Select(x => (float)x)];
+
+    static byte[] ToFloat32Bytes(float[] samples)
     {
         var bytes = new byte[samples.Length * sizeof(float)];
-        for (var i = 0; i < samples.Length; i++)
-        {
-            BitConverter.TryWriteBytes(bytes.AsSpan(i * sizeof(float)), (float)samples[i]);
-        }
-
+        Buffer.BlockCopy(samples, 0, bytes, 0, bytes.Length);
         return bytes;
     }
 
