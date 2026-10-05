@@ -253,31 +253,55 @@ public static class AutoPlacer
     static readonly List<Point> Offsets = Enumerable.Range(-10, 41).SelectMany(x => Enumerable.Range(-20, 41).Select(y => new Point(x * Grid, y * Grid))).ToList();
 
     // Each net is a tree: the next pin joins by the cheapest route to a pin that is already joined.
+    // NOTE: A net routed early did not see the nets after it. A net that meets a wire of another net is routed again with
+    // every other wire in view, and the new route is kept if it meets fewer.
     static List<WireRoute> Wires(Sheet sheet, Dictionary<string, bool> railNets)
     {
-        var wires = new List<WireRoute>();
-        foreach (var (net, all) in sheet.Pins.Where(p => !IsGround(p.Key) && !railNets.ContainsKey(p.Key)).OrderBy(p => p.Key, StringComparer.Ordinal))
+        // NOTE: A rotation leaves noise such as 19.999999999999996 in a box. On the grid, a wire can run along the edge of a part.
+        // The placer keeps the boxes as they are, so the places of the parts do not change.
+        var solid = sheet.Solid.Select(b => new Box(Math.Round(b.X0, 2), Math.Round(b.Y0, 2), Math.Round(b.X1, 2), Math.Round(b.Y1, 2))).ToList();
+        var nets = sheet.Pins.Where(p => !IsGround(p.Key) && !railNets.ContainsKey(p.Key)).OrderBy(p => p.Key, StringComparer.Ordinal).ToList();
+        var routed = new Dictionary<string, List<WireRoute>>(Names);
+        List<(Point, Point)> Others(string net) =>
+            routed.Where(r => !Names.Equals(r.Key, net)).SelectMany(r => r.Value).SelectMany(w => w.Points.Zip(w.Points.Skip(1))).ToList();
+
+        foreach (var (net, all) in nets) routed[net] = Tree(sheet, solid, net, all, Others(net));
+        for (var pass = 0; pass < 2; pass++)
         {
-            var avoid = sheet.Foreign(net);
-            var joined = new List<Point> { all[0] };
-            var rest = all.Skip(1).Distinct().Where(p => p != all[0]).ToList();
-            while (rest.Count > 0)
+            foreach (var (net, all) in nets)
             {
-                var (from, to, route, cost) = (default(Point), default(Point), (IReadOnlyList<Point>?)null, double.PositiveInfinity);
-                foreach (var a in joined)
-                {
-                    foreach (var b in rest)
-                    {
-                        var r = Router.Route(a, b, sheet.Solid, avoid);
-                        var c = r is null ? 1e6 + Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) : Router.Cost(r);
-                        if (c >= cost) continue;
-                        (from, to, route, cost) = (a, b, r, c);
-                    }
-                }
-                wires.Add(new WireRoute(net, route ?? Router.Corner(from, to)));
-                joined.Add(to);
-                rest.Remove(to);
+                var others = Others(net);
+                var now = Router.Meets(routed[net], others);
+                if (now == 0) continue;
+                var again = Tree(sheet, solid, net, all, others);
+                if (Router.Meets(again, others) < now) routed[net] = again;
             }
+        }
+        return nets.SelectMany(n => routed[n.Key]).ToList();
+    }
+
+    static List<WireRoute> Tree(Sheet sheet, List<Box> solid, string net, List<Point> all, List<(Point, Point)> crossed)
+    {
+        var wires = new List<WireRoute>();
+        var avoid = sheet.Foreign(net);
+        var joined = new List<Point> { all[0] };
+        var rest = all.Skip(1).Distinct().Where(p => p != all[0]).ToList();
+        while (rest.Count > 0)
+        {
+            var (from, to, route, cost) = (default(Point), default(Point), (IReadOnlyList<Point>?)null, double.PositiveInfinity);
+            foreach (var a in joined)
+            {
+                foreach (var b in rest)
+                {
+                    var r = Router.Route(a, b, solid, avoid, crossed);
+                    var c = r is null ? 1e6 + Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) : Router.Cost(r);
+                    if (c >= cost) continue;
+                    (from, to, route, cost) = (a, b, r, c);
+                }
+            }
+            wires.Add(new WireRoute(net, route ?? Router.Corner(from, to)));
+            joined.Add(to);
+            rest.Remove(to);
         }
         return wires;
     }
@@ -415,26 +439,29 @@ public static class AutoPlacer
     {
         const int Reach = 12 * Grid;
         const int BendCost = 2 * Grid;
+        const int CrossCost = 40 * Grid;
 
         public static IReadOnlyList<Point> Corner(Point a, Point b) =>
             a.X == b.X || a.Y == b.Y ? [a, b] : [a, new Point(b.X, a.Y), b];
 
         /// <summary>The shortest route with the fewest bends, or null if every route crosses a box. A route may touch the edge of a box.</summary>
-        public static IReadOnlyList<Point>? Route(Point a, Point b, IReadOnlyList<Box> solid, IReadOnlyList<Point> avoid, bool search = true)
+        /// <remarks>A route does not meet a segment of <paramref name="wires"/>, the wires of the other nets. The search may cross one, at a cost, but not run along it or bend on it.</remarks>
+        public static IReadOnlyList<Point>? Route(Point a, Point b, IReadOnlyList<Box> solid, IReadOnlyList<Point> avoid, IReadOnlyList<(Point, Point)>? wires = null, bool search = true)
         {
+            wires ??= [];
             IReadOnlyList<Point>? best = null;
             var bestCost = double.PositiveInfinity;
             foreach (var path in Candidates(a, b))
             {
                 var cost = Cost(path);
-                if (cost >= bestCost || path.Zip(path.Skip(1)).Any(s => solid.Any(box => Crosses(s.First, s.Second, box)) || avoid.Any(pin => On(s.First, s.Second, pin)))) continue;
+                if (cost >= bestCost || path.Zip(path.Skip(1)).Any(s => solid.Any(box => Crosses(s.First, s.Second, box)) || avoid.Any(pin => On(s.First, s.Second, pin)) || wires.Any(w => Meet(s, w)))) continue;
                 (best, bestCost) = (path, cost);
             }
-            return best ?? (search ? Search(a, b, solid, avoid) : null);
+            return best ?? (search ? Search(a, b, solid, avoid, wires) : null);
         }
 
         // The cheapest route on the grid when no simple route is clear. The cost of a move is its length, and a bend costs more.
-        static IReadOnlyList<Point>? Search(Point a, Point b, IReadOnlyList<Box> solid, IReadOnlyList<Point> avoid)
+        static IReadOnlyList<Point>? Search(Point a, Point b, IReadOnlyList<Box> solid, IReadOnlyList<Point> avoid, IReadOnlyList<(Point, Point)> wires)
         {
             var x0 = Math.Floor(Math.Min(solid.Select(s => s.X0).Append(a.X).Min(), b.X) / Grid) * Grid - 4 * Grid;
             var y0 = Math.Floor(Math.Min(solid.Select(s => s.Y0).Append(a.Y).Min(), b.Y) / Grid) * Grid - 4 * Grid;
@@ -453,6 +480,13 @@ public static class AutoPlacer
             {
                 cost[(start.Item1, start.Item2, d)] = 0;
                 queue.Enqueue((start.Item1, start.Item2, d), 0);
+            }
+            var onWire = new Dictionary<(int, int), bool>();
+            bool OnWire((int X, int Y) c)
+            {
+                if (onWire.TryGetValue(c, out var known)) return known;
+                var p = At(c);
+                return onWire[c] = wires.Any(w => On(w.Item1, w.Item2, p));
             }
             while (queue.TryDequeue(out var cur, out var spent))
             {
@@ -476,8 +510,11 @@ public static class AutoPlacer
                     var (p, q) = (At((cur.X, cur.Y)), At(next));
                     var target = (next.X, next.Y) == goal;
                     if (!target && avoid.Any(pin => pin == q) || solid.Any(box => Crosses(p, q, box))) continue;
+                    // NOTE: A route that crosses a wire goes straight over it. A bend on it, or a step along it, would join the two nets on the drawing.
+                    var (here, there) = (OnWire((cur.X, cur.Y)), OnWire(next));
+                    if (here && d != cur.Dir && (cur.X, cur.Y) != start || here && there && wires.Any(w => Meet((p, q), w) && Along((p, q), w))) continue;
                     var key = (next.X, next.Y, d);
-                    var total = spent + Grid + (d == cur.Dir ? 0 : BendCost);
+                    var total = spent + Grid + (d == cur.Dir ? 0 : BendCost) + (there ? CrossCost : 0);
                     if (cost.TryGetValue(key, out var known) && known <= total) continue;
                     cost[key] = total;
                     from[key] = cur;
@@ -503,6 +540,18 @@ public static class AutoPlacer
 
         public static double Cost(IReadOnlyList<Point> path) =>
             path.Zip(path.Skip(1)).Sum(s => Math.Abs(s.First.X - s.Second.X) + Math.Abs(s.First.Y - s.Second.Y)) + BendCost * (path.Count - 2);
+
+        /// <summary>The count of pairs of a segment of the wires and a segment of the other wires that share a point.</summary>
+        public static int Meets(IEnumerable<WireRoute> wires, IReadOnlyList<(Point, Point)> others) =>
+            wires.SelectMany(w => w.Points.Zip(w.Points.Skip(1))).Sum(s => others.Count(o => Meet(s, o)));
+
+        // True if two orthogonal segments share a point.
+        static bool Meet((Point, Point) s, (Point, Point) w) =>
+            Math.Max(Math.Min(s.Item1.X, s.Item2.X), Math.Min(w.Item1.X, w.Item2.X)) <= Math.Min(Math.Max(s.Item1.X, s.Item2.X), Math.Max(w.Item1.X, w.Item2.X))
+            && Math.Max(Math.Min(s.Item1.Y, s.Item2.Y), Math.Min(w.Item1.Y, w.Item2.Y)) <= Math.Min(Math.Max(s.Item1.Y, s.Item2.Y), Math.Max(w.Item1.Y, w.Item2.Y));
+
+        // True if two segments run the same way.
+        static bool Along((Point, Point) s, (Point, Point) w) => (s.Item1.Y == s.Item2.Y) == (w.Item1.Y == w.Item2.Y);
 
         // True if the pin is on the segment, ends included. A wire must not touch the pin of another net.
         static bool On(Point p, Point q, Point pin) =>

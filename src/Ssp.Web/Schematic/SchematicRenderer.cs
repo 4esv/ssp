@@ -51,6 +51,7 @@ public static class SchematicRenderer
         var labels = new StringBuilder();
         var elements = Elements(circuit, parts);
         var rails = elements.Where(e => e.Kind == "rail").ToDictionary(e => e.Nodes[0], e => e.Value, Names);
+        var named = new List<(string Net, Point At)>();
         var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
             .Select(p => (p.X, p.Y)).ToHashSet();
 
@@ -73,6 +74,7 @@ public static class SchematicRenderer
                 {
                     if (symbol?.Pins[i].Hidden == true) continue;
                     var (x, y) = Place(p, pins[i].X, pins[i].Y);
+                    if (Named(rails, e.Nodes[i])) named.Add((e.Nodes[i], new Point(Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0)));
                     // NOTE: A ground net or a supply net has a symbol at each pin, not a wire. A rail element on the pin is that symbol.
                     if (IsGround(e.Nodes[i]))
                     {
@@ -98,8 +100,60 @@ public static class SchematicRenderer
                 .Append(string.Join(' ', w.Points.Select(pt => $"{N(pt.X)},{N(pt.Y)}"))).Append("\"/>\n");
         }
 
+        NetNames(labels, bounds, layout, named);
         return Document(bounds, body, labels);
     }
+
+    // NOTE: A name typed on a net is in capitals, like +9V or VREF (SchematicEdits.NameNet). The nodes of a netlist such as
+    // in, fb or n3 have small letters and no flag. A symbol labels ground and a rail.
+    static bool Named(Dictionary<string, string> rails, string net) =>
+        !IsGround(net) && !rails.ContainsKey(net) && net.Any(char.IsLetter) && !net.Any(char.IsLower) && !net.Contains('.');
+
+    // A name flag on each drawn piece of a named net: the wires that touch, and the pins on them. A pin with no wire is a piece.
+    // The flag is above the middle of the longest horizontal segment of the piece, else right of its longest segment.
+    static void NetNames(StringBuilder labels, Bounds bounds, LayoutDoc layout, List<(string Net, Point At)> pins)
+    {
+        foreach (var net in pins.Select(p => p.Net).Distinct(Names).Order(StringComparer.Ordinal))
+        {
+            var wires = layout.Wires.Where(w => Names.Equals(w.Net, net) && w.Points.Count > 1).ToList();
+            var root = Enumerable.Range(0, wires.Count).ToArray();
+            int Find(int i) => root[i] == i ? i : root[i] = Find(root[i]);
+            for (var i = 0; i < wires.Count; i++)
+            {
+                for (var j = i + 1; j < wires.Count; j++)
+                {
+                    if (wires[i].Points.Any(q => Touches(wires[j], q)) || wires[j].Points.Any(q => Touches(wires[i], q))) root[Find(i)] = Find(j);
+                }
+            }
+            foreach (var piece in Enumerable.Range(0, wires.Count).GroupBy(Find))
+            {
+                var (a, b) = piece.SelectMany(i => wires[i].Points.Zip(wires[i].Points.Skip(1)))
+                    .OrderByDescending(s => s.First.Y == s.Second.Y).ThenByDescending(s => Math.Abs(s.First.X - s.Second.X) + Math.Abs(s.First.Y - s.Second.Y)).First();
+                var (mx, my) = ((a.X + b.X) / 2, (a.Y + b.Y) / 2);
+                if (a.Y == b.Y) NetName(labels, bounds, net, mx, my - LabelGap, start: false);
+                else NetName(labels, bounds, net, mx + LabelGap, my + FontSize / 2, start: true);
+            }
+            foreach (var (_, at) in pins.Where(p => Names.Equals(p.Net, net) && !wires.Any(w => Touches(w, p.At))).DistinctBy(p => p.At))
+            {
+                NetName(labels, bounds, net, at.X + LabelGap, at.Y - LabelGap, start: true);
+            }
+        }
+    }
+
+    static void NetName(StringBuilder labels, Bounds bounds, string net, double x, double y, bool start)
+    {
+        var width = net.Length * FontSize * 0.6;
+        bounds.Add((start ? x : x - width / 2, y - FontSize));
+        bounds.Add((start ? x + width : x + width / 2, y));
+        labels.Append("<text class=\"net-name\" data-net=\"").Append(Escape(net)).Append("\" x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"')
+            .Append(start ? " text-anchor=\"start\"" : "").Append('>').Append(Escape(net)).Append("</text>\n");
+    }
+
+    // True if the point is on a segment of the wire.
+    static bool Touches(WireRoute w, Point p) => w.Points.Zip(w.Points.Skip(1)).Any(s =>
+        Math.Abs((s.Second.X - s.First.X) * (p.Y - s.First.Y) - (s.Second.Y - s.First.Y) * (p.X - s.First.X)) < 0.01
+        && p.X >= Math.Min(s.First.X, s.Second.X) - 0.01 && p.X <= Math.Max(s.First.X, s.Second.X) + 0.01
+        && p.Y >= Math.Min(s.First.Y, s.Second.Y) - 0.01 && p.Y <= Math.Max(s.First.Y, s.Second.Y) + 0.01);
 
     /// <summary>One symbol at a placement, as an SVG document. Shows the symbol of each kind in each orientation.</summary>
     public static string SymbolSvg(string kind, PartPlacement placement)
