@@ -22,7 +22,7 @@ public class EditorPageTests : BunitContext
         var page = Render<Editor>();
         page.Find("textarea").Input(netlist);
         time.Advance(TimeSpan.FromMilliseconds(100));
-        page.Find("button").Click();
+        page.Find("button.run").Click();
         return page;
     }
 
@@ -161,12 +161,12 @@ public class EditorPageTests : BunitContext
 
         time.Advance(TimeSpan.FromMilliseconds(100));
 
-        // NOTE: In the default layout, the netlist is in the left half and the schematic is in the right half.
+        // NOTE: In the default layout, the schematic is at the left and the netlist is in the strip at the right of it.
         var text = page.Find(".dock-panel[data-panel=text]");
         Assert.NotNull(text.QuerySelector("textarea"));
-        Assert.StartsWith("left: 0%;", text.GetAttribute("style"));
+        Assert.StartsWith("left: 72%;", text.GetAttribute("style"));
         var schematic = page.Find(".dock-panel[data-panel=schematic]");
-        Assert.StartsWith("left: 50%;", schematic.GetAttribute("style"));
+        Assert.StartsWith("left: 0%;", schematic.GetAttribute("style"));
         var svg = schematic.QuerySelector(".schematic svg");
         Assert.NotNull(svg);
         Assert.Equal(["R1", "R2", "V1"], svg!.QuerySelectorAll("g[data-ref]").Select(g => g.GetAttribute("data-ref")));

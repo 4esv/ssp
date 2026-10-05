@@ -14,6 +14,7 @@
 
 <section class="schematic-editor">
     <div class="schematic-tools" role="toolbar" aria-label="Schematic tools">
+        @Actions
         <div class="tool-group" role="group" aria-label="Parts">
             <span class="tool-label">Add a part</span>
             @foreach (var kind in SchematicEdits.Kinds.Keys)
@@ -30,16 +31,19 @@
             <button type="button" class="tool" data-action="new" title="Start an empty circuit. Undo brings the old one back." @onclick="NewCircuit">New</button>
         </div>
     </div>
-    <p class="schematic-hint" role="status">@Hint()</p>
-    @if (HintsLeft().Any())
-    {
-        <ul class="first-run-hints" aria-label="First steps">
-            @foreach (var (id, text) in HintsLeft())
-            {
-                <li data-hint="@id">@text</li>
-            }
-        </ul>
-    }
+    @* NOTE: The hint and the first steps share one line, so they take no height from the canvas. *@
+    <div class="schematic-status">
+        <p class="schematic-hint" role="status">@Hint()</p>
+        @if (HintsLeft().Any())
+        {
+            <ul class="first-run-hints" aria-label="First steps">
+                @foreach (var (id, text) in HintsLeft())
+                {
+                    <li data-hint="@id">@text</li>
+                }
+            </ul>
+        }
+    </div>
     @if (problems.Count > 0)
     {
         <ul class="problems" aria-label="Problems">
@@ -103,8 +107,9 @@
                     <rect class="@PartClass(part.Reference)" data-ref="@part.Reference"
                           x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
                           @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartCancel"
-                          @onclick="() => SelectPart(part.Reference)" @onclick:stopPropagation>
-                        <title>@part.Reference</title>
+                          @onclick="() => SelectPart(part.Reference)" @onclick:stopPropagation
+                          @onpointerenter="() => PointAt(part.Reference, null)" @onpointerleave="PointAway">
+                        <title>@PartText(part.Reference)</title>
                     </rect>
                 }
                 @if (moving is { } m && ghost is { } g)
@@ -116,8 +121,9 @@
                     var target = connecting && pin.Ref != active?.Pin;
                     <circle class="pin-hit" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(HitRadius)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
                     <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
-                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation>
-                        <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), node @pin.Node</title>
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation
+                            @onpointerenter="() => PointAt(pin.Ref.Reference, pin.Node)" @onpointerleave="PointAway">
+                        <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), @NodeText(pin.Node)</title>
                     </circle>
                 }
                 @foreach (var open in opens)
@@ -261,6 +267,12 @@
     /// <summary>True while the voltages are from before the last edit.</summary>
     [Parameter] public bool Stale { get; set; }
 
+    /// <summary>Controls of the page, such as Run, Undo and Redo. They sit at the start of the tool row, next to the canvas.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Gets the nodes of the part or pin under the pointer, and no nodes when the pointer leaves it.</summary>
+    [Parameter] public EventCallback<IReadOnlyCollection<string>> Pointed { get; set; }
+
     /// <summary>The loads of the editor page. With none the editor loads the netlist itself.</summary>
     [CascadingParameter] public NetlistCache? Loads { get; set; }
 
@@ -328,6 +340,9 @@
     // NOTE: Null only until the first render has measured the pane. Then the view is a real transform, and only Fit, zoom, wheel, pinch and pan change it.
     const double ZoomStepFactor = 1.25;
     const double FitMargin = 24;
+
+    // NOTE: The zoom control sits in the bottom right corner. Fit keeps the circuit above this band, so the control covers no part.
+    const double ZoomBand = 56;
     ViewTransform? view;
     (double X, double Y, double W, double H) box;
 
@@ -466,7 +481,7 @@
         if (view is not null) return view;
         var b = await PaneBox();
         return view = b is { Length: >= 4 } && b[2] > 0
-            ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], b[3], FitMargin)
+            ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], Math.Max(b[3] - ZoomBand, b[3] / 2), FitMargin)
             : ViewTransform.Identity;
     }
 
@@ -776,6 +791,7 @@
 
     string Hint() =>
         connecting ? "Tap the pin to join. Esc cancels."
+        : pointing is not null && status is null && !menuOpen ? pointing
         : status is not null ? status
         : menuOpen ? "Pick a part, Wire, Ground or Connect."
         : active is { } a ? $"{Name(a)}: tap a +, or press an arrow, then r c q d p b w. G is ground."
@@ -1213,6 +1229,36 @@
         if (tuned != netlist) await Apply(new SchematicChange(tuned, layout));
     }
 
+
+    // The value and the node voltages of the part or pin under the pointer, for the hint line.
+    string? pointing;
+    string? pointedKey;
+
+    string PartText(string reference) =>
+        string.Join(", ", new[] { reference + (SchematicEdits.ValueOf(netlist, reference) is { Length: > 0 } value ? " " + value : "") }
+            .Concat(NodesOf(reference).Select(NodeText)));
+
+    string NodeText(string node) =>
+        "node " + node + (NodeVoltages is not null && NodeVoltages.TryGetValue(node, out var volts) ? " " + Eng.Format(volts, "V") : "");
+
+    IEnumerable<string> NodesOf(string reference) => pins.Where(p => p.Ref.Reference == reference).Select(p => p.Node).Distinct();
+
+    // NOTE: Only a change of the part or pin under the pointer tells the page, so a move over one part renders nothing.
+    async Task PointAt(string reference, string? node)
+    {
+        var key = reference + "/" + node;
+        if (key == pointedKey) return;
+        pointedKey = key;
+        pointing = node is null ? PartText(reference) : $"{reference}: {NodeText(node)}";
+        await Pointed.InvokeAsync(node is null ? NodesOf(reference).ToList() : [node]);
+    }
+
+    async Task PointAway()
+    {
+        if (pointedKey is null) return;
+        (pointedKey, pointing) = (null, null);
+        await Pointed.InvokeAsync([]);
+    }
 
     static string Label(string kind) => char.ToUpperInvariant(kind[0]) + kind[1..].Replace('-', ' ');
 
