@@ -98,6 +98,26 @@ else
         return string.Join('\n', lines);
     }
 
+    /// <summary>The resistance from the wiper to the bottom of a pot of <paramref name="total"/> ohms. An unknown taper is linear.</summary>
+    public static double Resistance(string taper, double position, double total) => total * (Ssp.Core.Parts.Pot.Ratio(taper, position) ?? position);
+
+    /// <summary>The name of a taper on the canvas: linear, audio (log) or reverse audio (revlog).</summary>
+    public static string TaperName(string taper) => taper.ToLowerInvariant() switch
+    {
+        "log" => "audio",
+        "revlog" => "reverse audio",
+        _ => taper,
+    };
+
+    /// <summary>The netlist with a new position, 0 to 1, in the <c>knob</c> line of one part. Other lines do not change.</summary>
+    public static string Turn(string netlist, string part, double position)
+    {
+        var knobs = DirectiveParser.Parse(netlist).Directives.Knobs
+            .Select(k => string.Equals(k.Part, part, StringComparison.OrdinalIgnoreCase) ? k with { Position = Math.Round(Math.Clamp(position, 0, 1), 4) } : k)
+            .ToList();
+        return WithPositions(netlist, knobs);
+    }
+
     static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 
     static string Percent(double value) => value.ToString("0%", CultureInfo.InvariantCulture);
