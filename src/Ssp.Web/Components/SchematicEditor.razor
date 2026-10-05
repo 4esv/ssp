@@ -148,7 +148,7 @@
                 {
                     var wireIndex = i;
                     <polyline class="@(wireIndex == selectedWire ? "wire-hit selected" : "wire-hit")" data-wire="@wireIndex"
-                              points="@WirePoints(layout.Wires[wireIndex])" @onclick="() => SelectWire(wireIndex)" @onclick:stopPropagation />
+                              points="@WirePoints(layout.Wires[wireIndex])" @onclick="e => WireClick(wireIndex, e)" @onclick:stopPropagation />
                 }
                 @foreach (var part in outlines)
                 {
@@ -982,7 +982,7 @@
 
     string Hint() =>
         connecting ? "Tap the pin to join. Esc cancels."
-        : pick is { } p ? $"Tap an empty spot to insert {p.Name}. Esc cancels."
+        : pick is { } p ? $"Tap an empty spot, a wire or a junction to insert {p.Name}. Esc cancels."
         : pointing is not null && status is null && !menuOpen ? pointing
         : status is not null ? status
         : menuOpen ? "Pick a part, Wire, Ground or Connect."
@@ -1275,18 +1275,36 @@
     }
 
     // NOTE: The insert is one edit, so one undo takes it back. The block is the new selection, so a drag moves it.
-    async Task Insert(string name, Clip block, Point client)
+    // A tap on a wire or a junction joins the block there (#265). A drop that would short two nets changes nothing.
+    async Task Insert(string name, Clip block, Point client, int? wire = null)
     {
         pick = null;
-        if (hasErrors) return;
+        // NOTE: With no errors the part map is there.
+        if (hasErrors || parts is null) return;
         double[]? b = null;
         try { b = await PaneBox(); }
         catch (JSException) { }
         var at = b is { Length: >= 4 } && b[2] > 0 ? (await ToCanvas(client.X, client.Y)).At : World(client);
-        var (change, fresh) = SchematicEdits.PasteAt(netlist, layout, block, at);
-        await Apply(change);
+        var drop = SchematicEdits.Drop(netlist, layout, parts, block, at, wire);
+        if (drop.Refused is { } why)
+        {
+            status = $"{name} is not inserted: {why}";
+            return;
+        }
+        await Apply(drop.Change);
+        var fresh = drop.References;
         SelectMany(outlines.Where(o => fresh.Contains(o.Reference, StringComparer.OrdinalIgnoreCase)).Select(o => o.Reference));
-        status = $"Inserted {name}: {string.Join(", ", fresh)}.";
+        status = $"Inserted {name}: {string.Join(", ", fresh)}. {drop.Message}".TrimEnd();
+    }
+
+    async Task WireClick(int index, MouseEventArgs e)
+    {
+        if (pick is { } p && !panMoved)
+        {
+            await Insert(p.Name, p.Clip, new Point(e.ClientX, e.ClientY), index);
+            return;
+        }
+        SelectWire(index);
     }
 
     void StartSave()
