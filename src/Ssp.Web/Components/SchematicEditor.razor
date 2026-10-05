@@ -384,7 +384,7 @@
 
     // NOTE: The state before the last delete, kept for UndoSeconds. Any other edit drops it.
     const int UndoSeconds = 8;
-    const double ActionPixels = 44, ActionGap = 8, LabelPixels = 28;
+    const double ActionPixels = 44, ActionGap = 8, LabelPixels = 28, FingerPixels = 12;
     (string Name, SchematicChange Before)? undo;
     CancellationTokenSource? undoTimer;
     Tool? tool = Tool.Wire;
@@ -1494,15 +1494,17 @@
         if (sized && y < ActionPixels / 2 + 4) y = b.Y + reach;
         var first = mx - (names.Length * ActionPixels + (names.Length - 1) * Space) / 2 + ActionPixels / 2;
         var spots = names.Select((n, i) => (n.Item1, n.Item2, Place(first + i * (ActionPixels + Space), y))).ToList();
-        if (!sized || group.Count == 0) return spots;
+        if (!sized) return spots;
 
-        // NOTE: A group row that would cover a part outside the group moves to the next side: above, below, right, left.
-        // The first side that covers none wins. With none free, the row stays where it was.
-        var others = outlines.Where(o => !group.Contains(o.Reference))
+        // NOTE: A row that would cover a part outside the selection, or lie within a finger of it, moves to the next side: above,
+        // below, right, left. The first side that covers none wins. With none free, the row stays where it was. A phone moves a tap
+        // onto the nearest button, so a button at the edge of a part takes the tap meant for the part (#258).
+        var others = outlines.Where(o => !group.Contains(o.Reference) && o.Reference != selected)
             .Select(o => (A: view!.WorldToScreen(o.Min), B: view!.WorldToScreen(o.Max))).ToList();
+        const double Reach = ActionPixels / 2 + FingerPixels;
         bool Covers(IEnumerable<(double X, double Y)> centres) => centres.Any(c =>
-            others.Any(o => c.X + ActionPixels / 2 > Math.Min(o.A.X, o.B.X) && c.X - ActionPixels / 2 < Math.Max(o.A.X, o.B.X)
-                && c.Y + ActionPixels / 2 > Math.Min(o.A.Y, o.B.Y) && c.Y - ActionPixels / 2 < Math.Max(o.A.Y, o.B.Y)));
+            others.Any(o => c.X + Reach > Math.Min(o.A.X, o.B.X) && c.X - Reach < Math.Max(o.A.X, o.B.X)
+                && c.Y + Reach > Math.Min(o.A.Y, o.B.Y) && c.Y - Reach < Math.Max(o.A.Y, o.B.Y)));
         var step = ActionPixels + Space;
         var my = (a.Y + b.Y) / 2;
         var row = (double Y) => Enumerable.Range(0, names.Length).Select(i => Clamped(first + i * step, Y)).ToList();
