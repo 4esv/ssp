@@ -183,24 +183,15 @@
                         <title>@SwitchText(w). Tap to switch.</title>
                     </g>
                 }
+                @* NOTE: The hit circles of the pins lie under the knobs, and the pin dots above them, so a knob beside a pin does not cover the pin dot (#273). *@
                 @foreach (var pin in pins)
                 {
-                    var target = connecting && pin.Ref != active?.Pin;
                     <circle class="pin-hit" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(PinHit())" @onclick="e => Click(pin.Ref, e)" @onclick:stopPropagation />
-                    <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
-                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="e => Click(pin.Ref, e)" @onclick:stopPropagation
-                            @onpointerenter="() => PointAt(pin.Ref.Reference, pin.Node)" @onpointerleave="PointAway">
-                        <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), @NodeText(pin.Node)</title>
-                    </circle>
                 }
                 @foreach (var open in opens)
                 {
                     var spot = new Spot(open);
                     <circle class="pin-hit" cx="@N(open.X)" cy="@N(open.Y)" r="@N(PinHit())" @onclick="() => Activate(spot)" @onclick:stopPropagation />
-                    <circle class="@(spot == active ? "pin open active" : "pin open")" data-open="@($"{N(open.X)},{N(open.Y)}")"
-                            cx="@N(open.X)" cy="@N(open.Y)" r="5" @onclick="() => Activate(spot)" @onclick:stopPropagation>
-                        <title>Open end</title>
-                    </circle>
                 }
                 @foreach (var knob in knobs)
                 {
@@ -219,6 +210,23 @@
                         <line class="knob-pointer" x1="@N(k.At.X)" y1="@N(k.At.Y)" x2="@N(px)" y2="@N(py)" />
                         <title>@KnobText(k, shown). Drag, scroll or use the arrow keys. Double-click for noon.</title>
                     </g>
+                }
+                @foreach (var pin in pins)
+                {
+                    var target = connecting && pin.Ref != active?.Pin;
+                    <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="e => Click(pin.Ref, e)" @onclick:stopPropagation
+                            @onpointerenter="() => PointAt(pin.Ref.Reference, pin.Node)" @onpointerleave="PointAway">
+                        <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), @NodeText(pin.Node)</title>
+                    </circle>
+                }
+                @foreach (var open in opens)
+                {
+                    var spot = new Spot(open);
+                    <circle class="@(spot == active ? "pin open active" : "pin open")" data-open="@($"{N(open.X)},{N(open.Y)}")"
+                            cx="@N(open.X)" cy="@N(open.Y)" r="5" @onclick="() => Activate(spot)" @onclick:stopPropagation>
+                        <title>Open end</title>
+                    </circle>
                 }
                 @foreach (var (node, at, text) in VoltageLabels())
                 {
@@ -543,12 +551,12 @@
         box = (v[0], v[1], v[2], v[3]);
         var placements = layout.Parts.ToDictionary(p => p.Reference, StringComparer.OrdinalIgnoreCase);
         var elements = SchematicRenderer.Elements(circuit, parts);
-        // NOTE: A switch S is placed as S_1. Its outline and pins are those of S, not of the resistor S_1.
+        // NOTE: A switch S or a pot P is placed as S_1 or P_1. Its outline and pins are those of S or P, not of the resistor S_1 or P_1.
         var levers = elements.Where(e => SchematicEdits.IsSwitch(e.Kind)).ToList();
-        var inSwitch = levers.SelectMany(e => e.Members).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var inElement = levers.Concat(elements.Where(e => e.Kind == "pot")).SelectMany(e => e.Members).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var c in circuit.Circuit.OfType<SpiceComponent>().OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
-            if (inSwitch.Contains(c.Name) || !placements.TryGetValue(c.Name, out var placement)) continue;
+            if (inElement.Contains(c.Name) || !placements.TryGetValue(c.Name, out var placement)) continue;
             var row = parts.Parts.GetValueOrDefault(c.Name);
             var (min, max) = SchematicRenderer.Outline(c, placement, row);
             outlines.Add(new PartView(c.Name, min, max));
