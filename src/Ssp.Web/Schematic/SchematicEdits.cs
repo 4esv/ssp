@@ -389,7 +389,9 @@ public static partial class SchematicEdits
         var group = Group(circuit, layout, parts, references);
         var lines = Lines(netlist);
         var nodes = circuit.Circuit.OfType<IComponent>().ToDictionary(c => c.Name, c => c.Nodes.Count, Names);
-        var models = lines.Where(l => ModelName().IsMatch(l)).ToDictionary(l => ModelName().Match(l).Groups[1].Value, l => l, Names);
+        // NOTE: A model can be on two lines after an edit of the text. The first one goes with the copy.
+        var models = lines.Where(l => ModelName().IsMatch(l)).DistinctBy(l => ModelName().Match(l).Groups[1].Value, Names)
+            .ToDictionary(l => ModelName().Match(l).Groups[1].Value, l => l, Names);
         // NOTE: A subcircuit goes with the copy like a model, so a block with an op-amp pastes into any netlist.
         foreach (var (name, text) in Subcircuits(lines)) models.TryAdd(name, text);
 
@@ -1148,12 +1150,17 @@ public static partial class SchematicEdits
     public static SchematicChange Delete(string netlist, LayoutDoc layout, string reference)
     {
         var lines = Lines(netlist);
-        var (at, count) = Element(lines, reference);
-        lines.RemoveRange(at, count);
+        var members = Members(lines, reference);
+        foreach (var member in members)
+        {
+            var (at, count) = Element(lines, member);
+            lines.RemoveRange(at, count);
+        }
+        lines.RemoveAll(l => KnobOf(l) is { } k && Names.Equals(k, reference));
         var result = Join(lines);
 
         var nets = new HashSet<string>(NetlistLoader.Load(result).NodeNames, StringComparer.Ordinal);
-        var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, reference)).ToList();
+        var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, reference) && !members.Contains(p.Reference, Names)).ToList();
         var wires = layout.Wires.Where(w => nets.Contains(w.Net)).ToList();
         return new SchematicChange(result, new LayoutDoc(parts, wires));
     }
@@ -1262,7 +1269,8 @@ public static partial class SchematicEdits
     // Sets the node of one pin of an element line. The pin index is the node index.
     static void SetNode(List<string> lines, string reference, int pin, string node)
     {
-        var (at, _) = Element(lines, reference);
+        // NOTE: The members of an op-amp X1 are the lines of its .subckt, named X1.Rid and so on. Its pins are on the line of X1.
+        var (at, _) = Element(lines, reference.Split('.')[0]);
         var words = Words().Split(lines[at]);
         var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
         // NOTE: Words has the separators at odd indices.
@@ -1271,32 +1279,50 @@ public static partial class SchematicEdits
     }
 
     /// <summary>
-    /// Copies a part with the next free reference of its prefix and a new node for each pin. The layout places the
+    /// Copies a part with the next free reference of its prefix and a new node for each pin. A pot or a switch copies
+    /// all its lines and its knob or switch line, and its lines keep the nodes they share. The layout places the
     /// copy one column to the right of the other parts, with the rotation and flip of the part.
     /// </summary>
     public static SchematicChange Duplicate(string netlist, LayoutDoc layout, string reference)
     {
         var circuit = NetlistLoader.Load(netlist);
-        var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, reference));
-        var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).ToHashSet(Names);
-        var copy = Fresh(Prefix().Match(component.Name).Value, references);
-        var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
-
         var lines = Lines(netlist);
-        var (at, count) = Element(lines, reference);
-        var words = Words().Split(lines[at]);
-        var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
-        words[first] = copy;
-        for (var k = 1; k <= component.Nodes.Count; k++)
+        var members = Members(lines, reference);
+        var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).SelectMany(n => new[] { n, Pair().Replace(n, "") }).ToHashSet(Names);
+        var copy = Fresh(Prefix().Match(reference).Value, references);
+        var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
+        // NOTE: The members of a pot or a switch share nodes, so a node gets one new name for all of them.
+        var renamed = new Dictionary<string, string>(StringComparer.Ordinal);
+        string Node(string node)
         {
-            var node = Fresh("n", nodes);
-            nodes.Add(node);
-            words[first + 2 * k] = node;
+            if (renamed.TryGetValue(node, out var to)) return to;
+            to = Fresh("n", nodes);
+            nodes.Add(to);
+            return renamed[node] = to;
         }
-        lines.InsertRange(at + count, [string.Concat(words), .. lines.GetRange(at + 1, count - 1)]);
 
-        var source = layout.Parts.Single(p => Names.Equals(p.Reference, reference));
-        var placement = source with { Reference = copy, X = layout.Parts.Max(p => p.X) + ColumnStep };
+        var added = new List<string>();
+        var last = 0;
+        foreach (var member in members)
+        {
+            var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, member));
+            var (at, count) = Element(lines, member);
+            var words = Words().Split(lines[at]);
+            var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+            words[first] = copy + member[reference.Length..];
+            // NOTE: Each pin of a single part gets its own new node, also two pins on one node.
+            for (var k = 1; k <= component.Nodes.Count; k++)
+            {
+                words[first + 2 * k] = members.Count == 1 ? Node(words[first + 2 * k] + "\n" + k) : Node(words[first + 2 * k]);
+            }
+            added.AddRange([string.Concat(words), .. lines.GetRange(at + 1, count - 1)]);
+            last = Math.Max(last, at + count);
+        }
+        added.AddRange(lines.Where(l => KnobOf(l) is { } knob && Names.Equals(knob, reference)).Select(l => KnobWord().Replace(l, m => m.Groups[1].Value + copy, 1)));
+        lines.InsertRange(last, added);
+
+        var source = layout.Parts.Single(p => Names.Equals(p.Reference, reference) || Names.Equals(p.Reference, members[0]));
+        var placement = source with { Reference = copy + source.Reference[reference.Length..], X = layout.Parts.Max(p => p.X) + ColumnStep };
         return new SchematicChange(Join(lines), new LayoutDoc([.. layout.Parts, placement], layout.Wires));
     }
 
@@ -1308,6 +1334,20 @@ public static partial class SchematicEdits
 
     // The first line and the count of lines of an element: its line and the continuation lines after it.
     // NOTE: Lines in a .subckt block are not elements of the circuit. The first line is the title.
+    // The element lines of a part: the part itself, or the lines P_1 to P_3 of a pot or a switch P.
+    static List<string> Members(List<string> lines, string reference)
+    {
+        if (Has(lines, reference)) return [reference];
+        var members = Enumerable.Range(1, 3).Select(i => $"{reference}_{i}").Where(m => Has(lines, m)).ToList();
+        return members.Count > 0 ? members : throw new KeyNotFoundException($"The netlist has no element '{reference}'.");
+    }
+
+    static bool Has(List<string> lines, string reference)
+    {
+        try { Element(lines, reference); return true; }
+        catch (KeyNotFoundException) { return false; }
+    }
+
     static (int At, int Count) Element(List<string> lines, string reference)
     {
         var inSubcircuit = false;
