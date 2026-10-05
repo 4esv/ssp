@@ -51,6 +51,35 @@ public class CanvasKnobTests : BunitContext
         Assert.Contains("linear", knob.GetAttribute("aria-valuetext"));
     }
 
+    // NOTE: #273. A drawn pot is placed as RV1_1. Its halves had an outline and pins of their own, and the lower pin of RV1_1
+    // (the wiper net) lay on the bottom pin of RV1 (ground).
+    [Fact]
+    public void A_drawn_pot_has_its_three_pins_and_one_outline_only()
+    {
+        var pot = SchematicEdits.Place("* schematic\n.END\n", new LayoutDoc([], []), "pot");
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var editor = Render<SchematicEditor>(p => p.Add(c => c.Netlist, pot.Netlist).Add(c => c.Layout, pot.Layout));
+
+        Assert.Equal(["RV1", "RV1", "RV1"], editor.FindAll("svg.schematic-pins circle.pin[data-ref]").Select(e => e.GetAttribute("data-ref")));
+        Assert.Equal(["RV1"], editor.FindAll("svg.schematic-pins rect.part").Select(e => e.GetAttribute("data-ref")));
+    }
+
+    // NOTE: #273. The hit circle of the knob is 22 px in radius and lies about 21 units from the wiper, so at a zoom near 1 it
+    // covered the wiper pin and a click on the wiper turned the knob. The pin dots lie above the knob, the hit circles of the pins under it.
+    [Fact]
+    public void The_pin_dots_lie_above_the_knob_and_the_pin_hit_circles_under_it()
+    {
+        var pot = SchematicEdits.Place("* schematic\n.END\n", new LayoutDoc([], []), "pot");
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var editor = Render<SchematicEditor>(p => p.Add(c => c.Netlist, pot.Netlist).Add(c => c.Layout, pot.Layout));
+
+        var order = editor.FindAll("svg.schematic-pins > *").Select(e => e.GetAttribute("class")).ToList();
+        var knob = order.IndexOf("knob");
+        Assert.True(knob >= 0);
+        Assert.All(order.Select((c, i) => (c, i)).Where(x => x.c == "pin-hit"), x => Assert.True(x.i < knob, $"pin-hit at {x.i}, knob at {knob}"));
+        Assert.All(order.Select((c, i) => (c, i)).Where(x => x.c?.StartsWith("pin ", StringComparison.Ordinal) == true || x.c == "pin"), x => Assert.True(x.i > knob, $"{x.c} at {x.i}, knob at {knob}"));
+    }
+
     [Fact]
     public void Double_click_returns_the_knob_to_noon_and_keeps_the_layout()
     {
