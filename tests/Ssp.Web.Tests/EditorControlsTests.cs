@@ -66,12 +66,12 @@ public class EditorControlsTests : BunitContext
     }
 
     [Fact]
-    public void ToolbarHasEightButtons()
+    public void ToolbarHasNineButtons()
     {
         var page = Render<Editor>();
 
         var bar = page.Find(".toolbar");
-        Assert.Equal(["Run", "Undo", "Redo", "Share link", "Download SVG", "Download PDF", "Parts CSV", "Parts"], bar.QuerySelectorAll("button").Select(b => b.TextContent));
+        Assert.Equal(["Run", "Undo", "Redo", "Export", "Share link", "Download SVG", "Download PDF", "Parts CSV", "Parts"], bar.QuerySelectorAll("button").Select(b => b.TextContent));
         Assert.Empty(bar.QuerySelectorAll("a"));
         Assert.True(page.Find(".toolbar .undo").HasAttribute("disabled"));
         Assert.True(page.Find(".toolbar .redo").HasAttribute("disabled"));
