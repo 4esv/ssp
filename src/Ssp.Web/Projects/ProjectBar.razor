@@ -1,0 +1,147 @@
+@using Microsoft.AspNetCore.Components.Forms
+
+@* NOTE: The bar shows the name of the open project. The list opens under it, over the panels. *@
+<div class="project-bar">
+    <input class="project-name" value="@Current.Name" aria-label="Project name" spellcheck="false" @onchange="Renamed" />
+    <button type="button" class="projects-toggle" aria-expanded="@(open ? "true" : "false")" @onclick="Toggle">Projects</button>
+    <span class="project-state" role="status">@State</span>
+
+    @if (open)
+    {
+        <div class="project-list" role="dialog" aria-label="Projects">
+            <div class="project-actions">
+                <button type="button" class="project-new" @onclick="New">New</button>
+                <label class="project-import">Import .cir<InputFile accept=".cir,.net,.sp,.txt" OnChange="Import" /></label>
+                <button type="button" class="project-export" @onclick="Export">Export .cir</button>
+            </div>
+            @if (importError is not null)
+            {
+                <p class="error" role="alert">@importError</p>
+            }
+            <ul>
+                @foreach (var project in projects)
+                {
+                    <li class="@(project.Id == Current.Id ? "current" : null)">
+                        <button type="button" class="project-open" @onclick="() => Choose(project)">@project.Name</button>
+                        <button type="button" class="project-duplicate" title="Duplicate" @onclick="() => Duplicate(project)">Duplicate</button>
+                        <button type="button" class="project-delete" title="Delete" @onclick="() => Delete(project)">Delete</button>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The project storage.</summary>
+    [Parameter, EditorRequired] public ProjectStore Store { get; set; } = default!;
+
+    /// <summary>The project in the editor.</summary>
+    [Parameter, EditorRequired] public Project Current { get; set; } = default!;
+
+    /// <summary>The text after the name, for example "Saved".</summary>
+    [Parameter] public string State { get; set; } = "";
+
+    /// <summary>Opens a project from the list, or a new or imported project that is not saved yet.</summary>
+    [Parameter] public EventCallback<Project> Open { get; set; }
+
+    [Parameter] public EventCallback<string> Rename { get; set; }
+
+    /// <summary>Saves the netlist of the open project as a .cir file.</summary>
+    [Parameter] public EventCallback Export { get; set; }
+
+    /// <summary>The starter netlist of a new project.</summary>
+    [Parameter] public string Starter { get; set; } = "";
+
+    // NOTE: A larger file is not a netlist.
+    const long MaxImport = 1_000_000;
+
+    bool open;
+    IReadOnlyList<Project> projects = [];
+    string? importError;
+
+    async Task Toggle()
+    {
+        open = !open;
+        importError = null;
+        if (open) await Refresh();
+    }
+
+    async Task Refresh()
+    {
+        try
+        {
+            projects = await Store.List();
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The list is then empty, and the open project stays in the editor.
+            projects = [];
+        }
+    }
+
+    async Task Renamed(ChangeEventArgs e)
+    {
+        var name = (e.Value as string ?? "").Trim();
+        await Rename.InvokeAsync(name.Length == 0 ? Current.Name : name);
+        if (open) await Refresh();
+    }
+
+    async Task Choose(Project project)
+    {
+        open = false;
+        await Open.InvokeAsync(project);
+    }
+
+    async Task New()
+    {
+        open = false;
+        await Open.InvokeAsync(ProjectStore.New("Untitled", Starter, null));
+    }
+
+    async Task Duplicate(Project project)
+    {
+        try
+        {
+            await Store.Duplicate(project.Id);
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be full. The list then shows no copy.
+        }
+        await Refresh();
+    }
+
+    async Task Delete(Project project)
+    {
+        try
+        {
+            await Store.Delete(project.Id);
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be blocked. The list then still shows the project.
+        }
+        await Refresh();
+        if (project.Id == Current.Id)
+        {
+            await New();
+        }
+    }
+
+    async Task Import(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var reader = new StreamReader(e.File.OpenReadStream(MaxImport));
+            var text = await reader.ReadToEndAsync();
+            open = false;
+            importError = null;
+            await Open.InvokeAsync(ProjectStore.New(Path.GetFileNameWithoutExtension(e.File.Name), text, null));
+        }
+        catch (IOException)
+        {
+            importError = $"The file is larger than {MaxImport / 1000} kB. It is not a netlist.";
+        }
+    }
+}
