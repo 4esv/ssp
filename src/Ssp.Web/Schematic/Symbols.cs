@@ -55,6 +55,14 @@ public static class Symbols
         // The triangle is the arrow. The symbol does not draw a second head.
         Make("diode", "0 -12 60 24", DiodeBody, [new("A", 0, 0), new("K", 60, 0)], new SymbolArrow(20, 0, 40, 0), draw: false),
 
+        // A diode with a bent bar at the cathode.
+        Make("zener", "0 -12 60 24", "M0 0H20M40 0H60M20 -10V10L40 0Z M35 -10H40V10H45", [new("A", 0, 0), new("K", 60, 0)],
+            new SymbolArrow(20, 0, 40, 0), draw: false),
+
+        // A diode with an S-shaped bar at the cathode.
+        Make("schottky", "0 -12 60 24", "M0 0H20M40 0H60M20 -10V10L40 0Z M37 -6V-10H40V10H43V6", [new("A", 0, 0), new("K", 60, 0)],
+            new SymbolArrow(20, 0, 40, 0), draw: false),
+
         // A diode with two light arrows.
         Make("led", "0 -26 60 38", DiodeBody + "M28 -13L36 -21M36 -13L44 -21", [new("A", 0, 0), new("K", 60, 0)],
             new SymbolArrow(20, 0, 40, 0), draw: false, extra: "<path fill=\"currentColor\" stroke=\"none\" d=\"M38 -23L33 -21.5L36.5 -18Z M46 -23L41 -21.5L44.5 -18Z\"/>"),

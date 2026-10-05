@@ -1,0 +1,15 @@
+* ssp:title Zener shunt, Schottky drop and LC low-pass
+* Zener node z: 9 V through 1k into a 5.1 V Zener (IBV 5 mA), so v(z) is near 5.1 V (BV 4.5, fitted in this engine: see models/diodes.lib).
+* Schottky node s: 9 V through 1k into a forward Schottky; v(s) is one drop, about 0.28 V.
+* LC node out: V1 in through 10 mH and 10 uF; corner 1 / (2 pi sqrt(L C)) = 503 Hz.
+.model DZ_5V1 D(Is=1e-14 N=1.9 BV=4.5 IBV=5m)
+.model DSCHOTTKY D(Is=3e-7 N=1.05)
+V1 in 0 DC 9 AC 1
+R1 in z 1k
+D1 0 z DZ_5V1
+R2 in s 1k
+D2 s 0 DSCHOTTKY
+L1 in out 10m
+C1 out 0 10u
+R3 out 0 1k
+.END

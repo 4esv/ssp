@@ -38,7 +38,11 @@ public static partial class SchematicEdits
         ["capacitor"] = ("C", "100n"),
         ["npn"] = ("Q", "QNPN"),
         ["pnp"] = ("Q", "QPNP"),
+        ["electrolytic"] = ("C", "10u"),
+        ["inductor"] = ("L", "10m"),
         ["diode"] = ("D", "DGEN"),
+        ["zener"] = ("D", "DZ_5V1"),
+        ["schottky"] = ("D", "DSCHOTTKY"),
         ["led"] = ("D", "LED_RED"),
         ["pot"] = ("RV", "10k"),
         ["switch-1"] = ("RSW", ""),
@@ -57,6 +61,8 @@ public static partial class SchematicEdits
         ["QPNP"] = ".model QPNP PNP (IS=1e-14 BF=100)",
         ["DGEN"] = ".model DGEN D (IS=1e-14 N=1.9)",
         ["LED_RED"] = ".model LED_RED D(Is=4.2555e-19 N=2)",
+        ["DZ_5V1"] = ".model DZ_5V1 D(Is=1e-14 N=1.9 BV=4.5 IBV=5m)",
+        ["DSCHOTTKY"] = ".model DSCHOTTKY D(Is=3e-7 N=1.05)",
     };
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
@@ -86,13 +92,13 @@ public static partial class SchematicEdits
         }
 
         var added = new List<string>();
-        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" ? value : null;
+        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" or "zener" or "schottky" ? value : null;
         switch (kind)
         {
             case "npn" or "pnp":
                 added.Add($"{reference} {Node()} {Node()} {Node()} {Zero} {value}");
                 break;
-            case "diode" or "led":
+            case "diode" or "led" or "zener" or "schottky":
                 added.Add($"{reference} {Node()} {Node()} {value}");
                 break;
             case "pot":
@@ -128,7 +134,9 @@ public static partial class SchematicEdits
         lines.InsertRange(end < 0 ? lines.Count : end, added);
 
         var x = layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep;
-        var parts = layout.Parts.Append(new PartPlacement(kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference, x, Row, 0, false)).ToList();
+        // NOTE: A text edit can remove a part and leave its placement. The new part takes the freed reference, so the stale placement goes.
+        var placed = kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference;
+        var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, placed)).Append(new PartPlacement(kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference, x, Row, 0, false)).ToList();
         return new SchematicChange(Join(lines), new LayoutDoc(parts, layout.Wires));
     }
 
