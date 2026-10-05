@@ -1132,6 +1132,22 @@ public static partial class SchematicEdits
         return (component.Nodes[pin.Pin], positions[pin.Pin]);
     }
 
+    /// <summary>
+    /// Drops each layout part whose reference is not an element of the netlist, and keeps the others. A netlist with an
+    /// error has no reliable elements, so its layout stays as it is.
+    /// </summary>
+    // NOTE: The netlist text changes from outside the schematic (a text edit, undo, paste, a project load). The layout must agree at once.
+    public static LayoutDoc Reconcile(string netlist, LayoutDoc layout) => Reconcile(NetlistLoader.Load(netlist), layout);
+
+    /// <inheritdoc cref="Reconcile(string, LayoutDoc)"/>
+    public static LayoutDoc Reconcile(LoadedCircuit circuit, LayoutDoc layout)
+    {
+        if (circuit.Diagnostics.Any(d => d.Severity == Severity.Error)) return layout;
+        var names = circuit.Circuit.OfType<IComponent>().Select(c => c.Name).ToHashSet(Names);
+        var kept = layout.Parts.Where(p => names.Contains(p.Reference) || names.Contains(p.Reference + "_1")).ToList();
+        return kept.Count == layout.Parts.Count ? layout : new LayoutDoc(kept, layout.Wires);
+    }
+
     /// <summary>Turns a part 90 degrees counter-clockwise on screen. The netlist does not change.</summary>
     public static SchematicChange Rotate(string netlist, LayoutDoc layout, string reference) =>
         Edit(netlist, layout, reference, p => p with { Rotation = Norm(p.Rotation + 90) });
