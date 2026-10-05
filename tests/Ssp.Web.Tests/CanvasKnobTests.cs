@@ -97,43 +97,4 @@ public class CanvasKnobTests : BunitContext
 
         Assert.Equal(0.9, Position(Assert.Single(seen).Netlist), 6);
     }
-
-    static int PinCount(string netlist, string reference) =>
-        SchematicRenderer.Elements(NetlistLoader.Load(netlist), null).Single(e => e.Reference == reference).Nodes.Count;
-
-    [Fact]
-    public void Pole_count_changes_the_pin_count()
-    {
-        var placed = SchematicEdits.Place("* s\n.END\n", new LayoutDoc([], []), "switch");
-        Assert.Equal("switch1", SchematicRenderer.Elements(NetlistLoader.Load(placed.Netlist), null).Single().Kind);
-        Assert.Equal(3, PinCount(placed.Netlist, "SW1"));
-
-        var two = SchematicEdits.SetPoles(placed.Netlist, placed.Layout, "SW1", 2);
-        Assert.Equal(6, PinCount(two.Netlist, "SW1"));
-        var three = SchematicEdits.SetPoles(two.Netlist, two.Layout, "SW1", 3);
-        Assert.Equal(9, PinCount(three.Netlist, "SW1"));
-        Assert.Equal(3, PinCount(SchematicEdits.SetPoles(three.Netlist, three.Layout, "SW1", 1).Netlist, "SW1"));
-        Assert.Throws<ArgumentOutOfRangeException>(() => SchematicEdits.SetPoles(two.Netlist, two.Layout, "SW1", 4));
-    }
-
-    [Fact]
-    public void A_switch_toggle_on_the_canvas_moves_every_pole_to_the_other_throw()
-    {
-        var placed = SchematicEdits.Place("* s\n.END\n", new LayoutDoc([], []), "switch");
-        var two = SchematicEdits.SetPoles(placed.Netlist, placed.Layout, "SW1", 2);
-        var seen = new List<SchematicChange>();
-        JSInterop.Mode = JSRuntimeMode.Loose;
-        var editor = Render<SchematicEditor>(p => p
-            .Add(c => c.Netlist, two.Netlist)
-            .Add(c => c.Layout, two.Layout)
-            .Add(c => c.Changed, (SchematicChange c) => seen.Add(c)));
-        Assert.Equal("A", SchematicRenderer.Elements(NetlistLoader.Load(two.Netlist), null).Single().Value);
-
-        editor.Find(".knob[data-ref=SW1]").Click();
-
-        var change = Assert.Single(seen);
-        Assert.Equal("B", SchematicRenderer.Elements(NetlistLoader.Load(change.Netlist), null).Single().Value);
-        Assert.Equal(6, PinCount(change.Netlist, "SW1"));
-        Assert.Same(two.Layout, change.Layout);
-    }
 }

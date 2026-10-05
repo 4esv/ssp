@@ -1017,8 +1017,9 @@ h1[tabindex="-1"]:focus-visible {
     touch-action: none;
 }
 
-.schematic-pins .knob.switch {
-    cursor: pointer;
+.schematic-pins .knob-hit {
+    fill: transparent;
+    stroke: none;
 }
 
 .schematic-pins .knob-face {
@@ -1033,16 +1034,9 @@ h1[tabindex="-1"]:focus-visible {
     stroke-linecap: round;
 }
 
-.schematic-pins .knob-throw {
-    fill: currentColor;
-    stroke: none;
-    pointer-events: none;
-}
-
 .schematic-pins .knob:hover .knob-face,
 .schematic-pins .knob.turning .knob-face {
-    fill: currentColor;
-    fill-opacity: 0.15;
+    stroke-width: 2.5;
 }
 
 .schematic-pins .knob:focus-visible {

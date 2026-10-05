@@ -132,33 +132,20 @@
                 @foreach (var knob in knobs)
                 {
                     var k = knob;
-                    if (k.Poles > 0)
-                    {
-                        <g class="knob switch" data-ref="@k.Reference" role="switch" tabindex="0" aria-checked="@(k.Throw == "B" ? "true" : "false")"
-                           aria-label="@($"{k.Reference}, {k.Poles} pole, throw {k.Throw}")"
-                           @onclick="() => Flip(k.Reference)" @onclick:stopPropagation @onpointerdown:stopPropagation @ondblclick:stopPropagation
-                           @onkeydown="e => SwitchKey(k.Reference, e)" @onkeydown:stopPropagation>
-                            <circle class="knob-face" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="7" />
-                            <text class="knob-throw" x="@N(k.At.X)" y="@N(k.At.Y + 3.5)" font-size="9" text-anchor="middle">@k.Throw</text>
-                            <title>@k.Reference: throw @k.Throw. Tap to switch.</title>
-                        </g>
-                    }
-                    else
-                    {
-                        var shown = turning is { } t && t.Reference == k.Reference ? t.Now : k.Position;
-                        var (px, py) = KnobPointer(k.At, shown);
-                        <g class="@(turning?.Reference == k.Reference ? "knob turning" : "knob")" data-ref="@k.Reference" role="slider" tabindex="0"
-                           aria-label="@k.Reference" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Math.Round(shown * 100)" aria-valuetext="@KnobText(k, shown)"
-                           @onpointerdown="e => KnobDown(k, e)" @onpointerdown:stopPropagation @onpointermove="KnobMove" @onpointermove:stopPropagation
-                           @onpointerup="KnobUp" @onpointerup:stopPropagation @onpointercancel="KnobUp"
-                           @onclick:stopPropagation @ondblclick="() => Turn(k.Reference, 0.5)" @ondblclick:stopPropagation
-                           @onwheel="e => KnobWheel(k, e)" @onwheel:stopPropagation @onwheel:preventDefault
-                           @onkeydown="e => KnobKey(k, e)" @onkeydown:stopPropagation>
-                            <circle class="knob-face" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(KnobRadius)" />
-                            <line class="knob-pointer" x1="@N(k.At.X)" y1="@N(k.At.Y)" x2="@N(px)" y2="@N(py)" />
-                            <title>@KnobText(k, shown). Drag, scroll or use the arrow keys. Double-click for noon.</title>
-                        </g>
-                    }
+                    var shown = turning is { } t && t.Reference == k.Reference ? t.Now : k.Position;
+                    var (px, py) = KnobPointer(k.At, shown);
+                    <g class="@(turning?.Reference == k.Reference ? "knob turning" : "knob")" data-ref="@k.Reference" role="slider" tabindex="0"
+                       aria-label="@k.Reference" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Math.Round(shown * 100)" aria-valuetext="@KnobText(k, shown)"
+                       @onpointerdown="e => KnobDown(k, e)" @onpointerdown:stopPropagation @onpointermove="KnobMove" @onpointermove:stopPropagation
+                       @onpointerup="KnobUp" @onpointerup:stopPropagation @onpointercancel="KnobUp"
+                       @onclick:stopPropagation @ondblclick="() => Turn(k.Reference, 0.5)" @ondblclick:stopPropagation
+                       @onwheel="e => KnobWheel(k, e)" @onwheel:stopPropagation @onwheel:preventDefault
+                       @onkeydown="e => KnobKey(k, e)" @onkeydown:stopPropagation>
+                        <circle class="knob-hit" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(Math.Max(KnobRadius, DotRadius()))" />
+                        <circle class="knob-face" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(KnobRadius)" />
+                        <line class="knob-pointer" x1="@N(k.At.X)" y1="@N(k.At.Y)" x2="@N(px)" y2="@N(py)" />
+                        <title>@KnobText(k, shown). Drag, scroll or use the arrow keys. Double-click for noon.</title>
+                    </g>
                 }
                 @foreach (var (node, at, text) in VoltageLabels())
                 {
@@ -245,14 +232,15 @@
 
     sealed record PartView(string Reference, Point Min, Point Max);
 
-    // A knob on the canvas. A pot has its position, taper and total. A switch has its poles and its throw.
-    sealed record KnobView(string Reference, Point At, double Position, string Taper, double Total, int Poles, string Throw);
+    // The knob of a pot on the canvas: its position, taper and total resistance.
+    sealed record KnobView(string Reference, Point At, double Position, string Taper, double Total);
 
     List<KnobView> knobs = [];
 
     // The knob that the pointer turns: the pointer and the position at the start, the position now, and whether it moved.
     (string Reference, double FromY, double From, double Now, bool Moved)? turning;
 
+    // NOTE: The hit circle of a knob is DotPixels on screen at any zoom, so a finger can turn a knob on a zoomed-out canvas.
     // NOTE: A drag of this many pixels turns a knob from 0% to 100%. A wheel tick turns it 5%, an arrow key 1%.
     const double KnobTravel = 150, KnobRadius = 9, WheelStep = 0.05, KeyStep = 0.01;
 
@@ -435,17 +423,7 @@
             // NOTE: The knob sits over the right half of the track, beside the wiper lead.
             var (kx, ky) = SchematicRenderer.Place(placement, 48, -20);
             var total = circuit.Circuit.OfType<SpiceSharp.Components.Resistor>().Where(r => pot.Members.Contains(r.Name, StringComparer.OrdinalIgnoreCase)).Sum(r => r.Parameters.Resistance.Value);
-            knobs.Add(new KnobView(pot.Reference, new Point(kx, ky), knob.Position, knob.Taper, total, 0, ""));
-        }
-        foreach (var toggle in elements.Where(e => SchematicRenderer.Poles(e.Kind) > 0))
-        {
-            if (!(placements.TryGetValue(toggle.Reference, out var placement) || placements.TryGetValue(toggle.Members[0], out placement))) continue;
-            var (min, max) = SchematicRenderer.Outline(toggle, placement);
-            outlines.Add(new PartView(toggle.Reference, min, max));
-            pins.AddRange(SchematicRenderer.Pins(toggle, placement).Select((p, i) => new PinView(new PinRef(toggle.Reference, i), p.Net, p.At)));
-            // NOTE: The toggle sits on the blade of the first pole.
-            var (tx, ty) = SchematicRenderer.Place(placement, 30, 0);
-            knobs.Add(new KnobView(toggle.Reference, new Point(tx, ty), 0, "", 0, SchematicRenderer.Poles(toggle.Kind), toggle.Value));
+            knobs.Add(new KnobView(pot.Reference, new Point(kx, ky), knob.Position, knob.Taper, total));
         }
         // NOTE: A jack is a marker on a node. The symbol sits at the first pin on that node.
         foreach (var (node, label) in new[] { (circuit.Directives.Input, "IN"), (circuit.Directives.Output, "OUT") })
@@ -1018,7 +996,6 @@
         "delete" => "\u2715",
         "rotate" => "\u21BB",
         "flip" => "\u21C6",
-        "poles" => "\u2261",
         _ => "\u29C9",
     };
 
@@ -1088,7 +1065,6 @@
             case "rotate": await RotateSelected(); break;
             case "flip": await FlipSelected(); break;
             case "duplicate": await DuplicateSelected(); break;
-            case "poles": await CyclePoles(); break;
         }
     }
 
@@ -1126,7 +1102,6 @@
         if (sized) (a, b) = (view!.WorldToScreen(min), view!.WorldToScreen(max));
         var mx = (a.X + b.X) / 2;
         var names = wire ? new[] { ("delete", "Delete") } : [("delete", "Delete"), ("rotate", "Rotate"), ("flip", "Flip"), ("duplicate", "Duplicate")];
-        if (!wire && knobs.FirstOrDefault(k => k.Reference == selected && k.Poles > 0) is { } sw) names = [.. names, ("poles", $"Poles: {sw.Poles}. Tap for {sw.Poles % 3 + 1}")];
         if (wire) return [("delete", "Delete", Place(mx, (a.Y + b.Y) / 2))];
 
         // The row clears the hit circle of a pin, the labels above the outline, and a gap.
@@ -1235,17 +1210,6 @@
         if (tuned != netlist) await Apply(new SchematicChange(tuned, layout));
     }
 
-    async Task Flip(string reference) => await Apply(SchematicEdits.Toggle(netlist, layout, reference));
-
-    async Task SwitchKey(string reference, KeyboardEventArgs e)
-    {
-        if (e.Key is "Enter" or " " or "ArrowUp" or "ArrowDown") await Flip(reference);
-    }
-
-    async Task CyclePoles()
-    {
-        if (knobs.FirstOrDefault(k => k.Reference == selected && k.Poles > 0) is { } sw) await Apply(SchematicEdits.SetPoles(netlist, layout, sw.Reference, sw.Poles % 3 + 1));
-    }
 
     static string Label(string kind) => char.ToUpperInvariant(kind[0]) + kind[1..].Replace('-', ' ');
 

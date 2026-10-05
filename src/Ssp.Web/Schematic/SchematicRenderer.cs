@@ -19,7 +19,7 @@ namespace Ssp.Web.Schematic;
 public sealed record SchematicElement(string Reference, string? Kind, IReadOnlyList<string> Nodes, string Value, IReadOnlyList<string> Members);
 
 /// <summary>Draws a circuit as an SVG schematic from its layout.</summary>
-public static partial class SchematicRenderer
+public static class SchematicRenderer
 {
     const double Margin = 20;
     const double LabelGap = 4;
@@ -63,7 +63,7 @@ public static partial class SchematicRenderer
             var (inner, box) = symbol is null ? Fallback(e.Nodes.Count) : Drawing(symbol);
 
             body.Append("<g data-ref=\"").Append(Escape(e.Reference)).Append("\" transform=\"").Append(Transform(p)).Append("\">")
-                .Append(inner).Append(Blades(e)).Append("</g>\n");
+                .Append(inner).Append("</g>\n");
 
             var part = Outline(p, box);
             if (e.Kind != "rail")
@@ -125,27 +125,6 @@ public static partial class SchematicRenderer
             var members = components.Keys.Where(n => Names.Equals(n.Split('.')[0], x.Name)).ToList();
             done.UnionWith(members);
             elements.Add(new SchematicElement(x.Name, SubcircuitKind(x), x.Pins, x.Model, members));
-        }
-
-        // NOTE: A switch SW<n> is the resistors RSW<n>_<pole>A and RSW<n>_<pole>B for poles 1 to 3. A closed throw is a small resistor.
-        foreach (var group in components.Values.OfType<Resistor>().Select(r => (r, m: SwitchPart().Match(r.Name))).Where(x => x.m.Success)
-                     .GroupBy(x => x.m.Groups["ref"].Value, Names).OrderBy(g => g.Key, Names))
-        {
-            if (instances.ContainsKey(group.Key)) continue;
-            var poles = new List<(Resistor A, Resistor B)>();
-            for (var k = 1; k <= 3; k++)
-            {
-                var a = group.FirstOrDefault(x => x.m.Groups["pole"].Value == $"{k}" && x.m.Groups["side"].Value.Equals("A", StringComparison.OrdinalIgnoreCase)).r;
-                var b = group.FirstOrDefault(x => x.m.Groups["pole"].Value == $"{k}" && x.m.Groups["side"].Value.Equals("B", StringComparison.OrdinalIgnoreCase)).r;
-                if (a is null || b is null || !Names.Equals(a.Nodes[0], b.Nodes[0])) break;
-                poles.Add((a, b));
-            }
-            if (poles.Count == 0 || poles.Count != group.Count() / 2 || group.Count() % 2 != 0) continue;
-            var members = poles.SelectMany(p => new[] { p.A.Name, p.B.Name }).ToList();
-            done.UnionWith(members);
-            var throwA = poles[0].A.Parameters.Resistance.Value <= poles[0].B.Parameters.Resistance.Value;
-            elements.Add(new SchematicElement(group.Key, $"switch{poles.Count}",
-                poles.SelectMany(p => new[] { p.A.Nodes[0], p.A.Nodes[1], p.B.Nodes[1] }).ToList(), throwA ? "A" : "B", members));
         }
 
         // NOTE: Pot.cs names the two halves of pot P as P_1 (top to wiper) and P_2 (wiper to bottom).
@@ -329,27 +308,6 @@ public static partial class SchematicRenderer
             _ => null,
         };
     }
-
-    /// <summary>The number of poles of a switch kind, or 0 for another kind.</summary>
-    public static int Poles(string? kind) => kind is "switch1" ? 1 : kind is "switch2" ? 2 : kind is "switch3" ? 3 : 0;
-
-    // The blade of each pole of a switch, from the common pin to the closed throw, and a dashed link between the blades.
-    static string Blades(SchematicElement e)
-    {
-        var poles = Poles(e.Kind);
-        if (poles == 0) return "";
-        var up = e.Value == "A" ? -1 : 1;
-        var d = new StringBuilder();
-        for (var k = 0; k < poles; k++) d.Append(CultureInfo.InvariantCulture, $"M20 {k * Symbols.PoleStep}L40 {k * Symbols.PoleStep + up * 10}");
-        var link = poles > 1 ? $"<path stroke-dasharray=\"3 3\" d=\"M30 {N(up * 5)}V{N((poles - 1) * Symbols.PoleStep + up * 5)}\"/>" : "";
-        return $"<path class=\"blade\" d=\"{d}\"/>{link}";
-    }
-
-    [System.Text.RegularExpressions.GeneratedRegex(@"^R(?<ref>SW\d+)_(?<pole>[1-3])(?<side>[AB])$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
-    private static partial System.Text.RegularExpressions.Regex SwitchPart();
-
-    /// <summary>The switch that a netlist component is part of, or null.</summary>
-    public static string? SwitchOf(string name) => SwitchPart().Match(name) is { Success: true } m ? m.Groups["ref"].Value : null;
 
     static string? SubcircuitKind(SubcircuitInstance x)
     {
