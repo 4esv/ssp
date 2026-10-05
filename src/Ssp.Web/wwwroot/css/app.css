@@ -865,6 +865,8 @@ h1[tabindex="-1"]:focus-visible {
 
 .gallery .preview {
     order: -1;
+}
+
 /* NOTE: A problem shows in words in the list and as a ring on the part or pin that causes it. */
 .schematic-editor .problems {
     list-style: none;
@@ -935,10 +937,15 @@ h1[tabindex="-1"]:focus-visible {
 
 .command-palette li button {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
-    gap: var(--space-1);
+    gap: 0.25rem var(--space-1);
     width: 100%;
     text-align: left;
+}
+
+.command-palette kbd {
+    font-size: 0.8em;
 }
 
 .command-palette li.active button {

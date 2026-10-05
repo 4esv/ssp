@@ -191,7 +191,7 @@
     {
         if (e.Key == "Escape")
         {
-            mode = CommandPalette.PaletteMode.None;
+            await Refocus(CommandPalette.PaletteMode.None);
             return;
         }
         if (Shortcuts.Find(e) is not { } shortcut || (shortcut.Bare || shortcut.Id is "undo" or "redo") && await Typing())
@@ -201,10 +201,20 @@
         await Choose(shortcut);
     }
 
+    // NOTE: A closed dialog takes its focus with it, so the page div takes the focus back and the keys keep working.
+    async Task Refocus(CommandPalette.PaletteMode next)
+    {
+        mode = next;
+        if (next == CommandPalette.PaletteMode.None)
+        {
+            await root.FocusAsync();
+        }
+    }
+
     async Task Choose(Shortcut shortcut)
     {
         var previous = mode;
-        mode = CommandPalette.PaletteMode.None;
+        await Refocus(CommandPalette.PaletteMode.None);
         switch (shortcut.Id)
         {
             case "run" when !running: await Run(); break;
@@ -212,8 +222,8 @@
             case "redo" when history.CanRedo: Redo(); break;
             case "share": await Share(); break;
             case "svg" when export is not null: await export.Save(); break;
-            case "palette": mode = previous == CommandPalette.PaletteMode.Palette ? CommandPalette.PaletteMode.None : CommandPalette.PaletteMode.Palette; break;
-            case "shortcuts": mode = previous == CommandPalette.PaletteMode.Sheet ? CommandPalette.PaletteMode.None : CommandPalette.PaletteMode.Sheet; break;
+            case "palette": await Refocus(previous == CommandPalette.PaletteMode.Palette ? CommandPalette.PaletteMode.None : CommandPalette.PaletteMode.Palette); break;
+            case "shortcuts": await Refocus(previous == CommandPalette.PaletteMode.Sheet ? CommandPalette.PaletteMode.None : CommandPalette.PaletteMode.Sheet); break;
         }
     }
 
