@@ -950,6 +950,7 @@ h1[tabindex="-1"]:focus-visible {
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--error, #b3261e);
+}
 
 /* NOTE: Command palette and shortcut sheet (#172). Plain, on the page, no overlay art. */
 .command-palette,
