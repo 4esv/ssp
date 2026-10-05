@@ -18,6 +18,9 @@ public sealed class MonitorSession : IDisposable
     // NOTE: One hour. The fixed step transient needs a stop time, and the session ends before it.
     const double StopSeconds = 3600;
 
+    // The Newton iterations for each step. The default is 10.
+    const int MaxIterations = 100;
+
     readonly RingBufferWaveform input;
     readonly IEnumerator<int> steps;
     readonly Transient transient;
@@ -52,7 +55,15 @@ public sealed class MonitorSession : IDisposable
             circuit.Circuit.Add(source);
         }
 
-        transient = new Transient("monitor", new FixedTrapezoidal { Step = 1.0 / sampleRate, StopTime = StopSeconds });
+        // NOTE: The fixed step method cannot cut the step, so a step that does not converge throws "timestep too small" (#230).
+        // A sharp input edge, as a dropped chunk gives, needs more than the default 10 Newton iterations. Full-scale white
+        // noise into clipper-bjt-si needs more than 20 and converges in 50. A step that converges early costs the same.
+        transient = new Transient("monitor", new FixedTrapezoidal
+        {
+            Step = 1.0 / sampleRate,
+            StopTime = StopSeconds,
+            TransientMaxIterations = MaxIterations,
+        });
         voltage = new RealVoltageExport(transient, outNode);
         steps = transient.Run(circuit.Circuit, Transient.ExportTransient).GetEnumerator();
     }
