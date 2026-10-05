@@ -4,15 +4,20 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
-<div class="dock-closed">
+<div class="dock-closed dock-bar">
     <button type="button" class="dock-reset" @onclick="Reset">Reset layout</button>
+    <button type="button" class="dock-help-toggle" aria-expanded="@(helpShown ? "true" : "false")" aria-label="Layout help" title="Layout help" @onclick="() => helpShown = !helpShown">?</button>
     @if (model.Closed.Count > 0)
     {
-        <span>Closed:</span>
+        <span>Hidden:</span>
         @foreach (var panel in model.Closed)
         {
-            <button type="button" class="dock-open" data-panel="@panel" @onclick="() => Open(panel)">@Title(panel)</button>
+            <button type="button" class="dock-open" data-panel="@panel" title="Show @Title(panel)" @onclick="() => Open(panel)">+ @Title(panel)</button>
         }
+    }
+    @if (helpShown)
+    {
+        <span class="dock-help" role="note">@KeyHelp Double-click a tab, or click –, to hide a panel.</span>
     }
 </div>
 
@@ -31,9 +36,9 @@
                 <span class="dock-tab-item" @key="panel">
                     <button type="button" role="tab" class="dock-tab" data-panel="@panel" aria-selected="@(shown ? "true" : "false")"
                             draggable="true" title="@KeyHelp" @ref="tabs[panel]"
-                            @onclick="() => Show(panel)" @onkeydown="e => Key(panel, e)"
+                            @onclick="() => Show(panel)" @ondblclick="() => Close(panel)" @onkeydown="e => Key(panel, e)"
                             @ondragstart="() => StartDrag(panel)" @ondragend="() => dragging = null">@Title(panel)</button>
-                    <button type="button" class="dock-close" aria-label="Close @Title(panel)" @onclick="() => Close(panel)">×</button>
+                    <button type="button" class="dock-close" aria-label="Hide @Title(panel)" title="Hide @Title(panel)" @onclick="() => Close(panel)">–</button>
                 </span>
             }
         </div>
@@ -81,6 +86,7 @@
     ElementReference element;
     IJSObjectReference? module;
     string? dragging;
+    bool helpShown;
     string? focus;
     DockHandle? resizing;
     double pointer;
