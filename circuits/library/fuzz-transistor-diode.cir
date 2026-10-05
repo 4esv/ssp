@@ -19,8 +19,7 @@ D2 0 n8 DGEN
 RV1_1 n8 n9 5k
 RV1_2 n9 0 5k
 * ssp:knob RV1 linear 0.5
-R3 n9 out 1m
-* ssp:output out
+* ssp:output n9
 R4 n6 0 1k
 C3 n6 0 22u
 R5 n4 0 47k
