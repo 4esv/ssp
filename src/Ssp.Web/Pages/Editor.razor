@@ -173,7 +173,7 @@
     </DockPanel>
 
     <DockPanel Id="clip" Title="Clip">
-        <ClipPlayer @ref="clipPlayer" Netlist="@netlist" />
+        <ClipPlayer @ref="clipPlayer" Netlist="@netlist" Cache="renders" />
     </DockPanel>
 
     <DockPanel Id="monitor" Title="Monitor">
@@ -181,7 +181,7 @@
     </DockPanel>
 
     <DockPanel Id="amp" Title="Virtual amp">
-        <VirtualAmp Pedal="@netlist" />
+        <VirtualAmp Pedal="@netlist" Cache="renders" />
     </DockPanel>
 </DockLayout>
 
@@ -212,6 +212,8 @@
     readonly CommandStack history = new();
     bool running;
     ClipPlayer? clipPlayer;
+    // NOTE: The renders of the Clip tab and the Virtual amp live here, so a tab switch or a hidden panel keeps them.
+    readonly RenderCache renders = new();
     SchematicExport? export;
     ElementReference root;
     IJSObjectReference? keys;
