@@ -19,7 +19,7 @@
     <EmbeddedResource Include="..\..\circuits\fixtures\rc-lowpass.cir" LogicalName="starter.cir" />
     <EmbeddedResource Include="..\..\models\parts.toml" LogicalName="parts.toml" />
     <!-- NOTE: The clip player reads the bundled clip and the cabinet IR from the assembly. -->
-    <EmbeddedResource Include="Audio\clip.wav" LogicalName="audio/clip.wav" />
+    <EmbeddedResource Include="Audio\*.wav" LogicalName="audio/%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\models\ir\cab-1x12.wav" LogicalName="audio/cab-1x12.wav" />
   </ItemGroup>
   <ItemGroup>

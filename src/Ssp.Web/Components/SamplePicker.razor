@@ -1,0 +1,100 @@
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Globalization
+
+<div class="sample-picker">
+    <label>
+        Sample
+        <select class="sample-select" aria-label="Sample" value="@(loading ? LoadValue : Choice.Upload is null ? Choice.BundledId : UploadValue)" @onchange="Pick">
+            @foreach (var sample in SampleChoice.Bundled)
+            {
+                <option value="@sample.Id">@sample.Label</option>
+            }
+            @if (Choice.Upload is { } upload)
+            {
+                <option value="@UploadValue">@upload.Name</option>
+            }
+            <option value="@LoadValue">Load a WAV file...</option>
+        </select>
+    </label>
+    @if (loading || Choice.TooLong is not null)
+    {
+        <label>
+            WAV file
+            <InputFile OnChange="Upload" accept=".wav,audio/wav" />
+        </label>
+    }
+    @if (Choice.Upload is { } shown)
+    {
+        <p class="sample-info">@Choice.Description</p>
+    }
+    @if (Choice.TooLong is { } tooLong)
+    {
+        <p class="sample-long" role="status">
+            @tooLong.Name is @tooLong.SourceSeconds.ToString("0.0", CultureInfo.InvariantCulture) s. The limit is @SampleChoice.MaxSeconds s.
+            <button type="button" class="sample-first" @onclick="Choice.UseFirstSeconds">Use the first @SampleChoice.MaxSeconds s</button>
+        </p>
+    }
+    @if (Choice.Error is { } error)
+    {
+        <p class="sample-error" role="alert">@error</p>
+    }
+</div>
+
+@code {
+    const string LoadValue = "__load";
+    const string UploadValue = "__upload";
+    const int MaxUploadBytes = 20 * 1024 * 1024;
+
+    /// <summary>The choice of the editor. Without a cascading one, the picker keeps its own.</summary>
+    [CascadingParameter] public SampleChoice? Shared { get; set; }
+
+    SampleChoice own = new();
+    SampleChoice Choice => Shared ?? own;
+    SampleChoice? watched;
+    bool loading;
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(watched, Choice))
+        {
+            if (watched is not null) watched.Changed -= Redraw;
+            watched = Choice;
+            watched.Changed += Redraw;
+        }
+    }
+
+    void Redraw() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (watched is not null) watched.Changed -= Redraw;
+    }
+
+    async Task Pick(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "";
+        loading = value == LoadValue;
+        if (value is not (LoadValue or UploadValue))
+        {
+            await Choice.Select(value);
+        }
+    }
+
+    async Task Upload(InputFileChangeEventArgs e)
+    {
+        loading = false;
+        try
+        {
+            await using var file = e.File.OpenReadStream(MaxUploadBytes);
+            using var memory = new MemoryStream();
+            await file.CopyToAsync(memory);
+            memory.Position = 0;
+            Choice.Load(memory, e.File.Name);
+        }
+        catch (IOException ex)
+        {
+            Choice.Fail("Upload failed: " + ex.Message);
+        }
+    }
+}
