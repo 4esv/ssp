@@ -136,7 +136,7 @@ public class TouchGestureTests : BunitContext
     {
         var editor = Editor(new ManualTimeProvider());
         var pins = editor.Find("svg.schematic-pins");
-        var zoom = editor.Find(".zoom-level").TextContent;
+        var zoom = editor.Find(".zoom-level").GetAttribute("value")!;
 
         pins.PointerDown(Pointer(1, 100, 200));
         pins.PointerDown(Pointer(2, 200, 200));
@@ -144,7 +144,7 @@ public class TouchGestureTests : BunitContext
         pins.PointerUp(Pointer(2, 300, 200));
         pins.PointerUp(Pointer(1, 100, 200));
 
-        Assert.NotEqual(zoom, editor.Find(".zoom-level").TextContent);
+        Assert.NotEqual(zoom, editor.Find(".zoom-level").GetAttribute("value")!);
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public class TouchGestureTests : BunitContext
         var editor = Editor(new ManualTimeProvider());
         foreach (var step in new[] { "out", "out", "out", "out", "out", "out", "out" })
         {
-            var zoom = double.Parse(editor.Find(".zoom-level").TextContent.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture) / 100;
+            var zoom = double.Parse(editor.Find(".zoom-level").GetAttribute("value")!.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture) / 100;
             foreach (var hit in editor.FindAll("circle.pin-hit"))
             {
                 var r = double.Parse(hit.GetAttribute("r")!, System.Globalization.CultureInfo.InvariantCulture);

@@ -96,7 +96,7 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
             await page.WaitForTimeoutAsync(300);
 
             var canvas = (await page.Locator(".schematic-editor .schematic").BoundingBoxAsync())!;
-            var zoom = int.Parse((await page.Locator(".zoom-level").TextContentAsync())!.TrimEnd('%'), CultureInfo.InvariantCulture);
+            var zoom = int.Parse((await page.Locator(".zoom-level").InputValueAsync()).TrimEnd('%'), CultureInfo.InvariantCulture);
             var scroll = await page.EvaluateAsync<int[]>("() => [document.scrollingElement.scrollWidth, document.scrollingElement.scrollHeight, innerWidth, innerHeight]");
             var overlaps = await page.EvaluateAsync<string[]>(OverlapScript);
             output.WriteLine($"{width}x{height}: canvas {canvas.Width:0}x{canvas.Height:0}, fit {zoom}%, page {scroll[0]}x{scroll[1]}, overlaps [{string.Join(", ", overlaps)}]");
