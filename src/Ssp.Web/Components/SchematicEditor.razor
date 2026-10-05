@@ -129,6 +129,24 @@
                         <title>Open end</title>
                     </circle>
                 }
+                @foreach (var knob in knobs)
+                {
+                    var k = knob;
+                    var shown = turning is { } t && t.Reference == k.Reference ? t.Now : k.Position;
+                    var (px, py) = KnobPointer(k.At, shown, KnobFace());
+                    <g class="@(turning?.Reference == k.Reference ? "knob turning" : "knob")" data-ref="@k.Reference" role="slider" tabindex="0"
+                       aria-label="@k.Reference" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Math.Round(shown * 100)" aria-valuetext="@KnobText(k, shown)"
+                       @onpointerdown="e => KnobDown(k, e)" @onpointerdown:stopPropagation @onpointermove="KnobMove" @onpointermove:stopPropagation
+                       @onpointerup="KnobUp" @onpointerup:stopPropagation @onpointercancel="KnobUp"
+                       @onclick:stopPropagation @ondblclick="() => Turn(k.Reference, 0.5)" @ondblclick:stopPropagation
+                       @onwheel="e => KnobWheel(k, e)" @onwheel:stopPropagation @onwheel:preventDefault
+                       @onkeydown="e => KnobKey(k, e)" @onkeydown:stopPropagation>
+                        <circle class="knob-hit" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(Math.Max(KnobFace(), DotRadius()))" />
+                        <circle class="knob-face" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(KnobFace())" />
+                        <line class="knob-pointer" x1="@N(k.At.X)" y1="@N(k.At.Y)" x2="@N(px)" y2="@N(py)" />
+                        <title>@KnobText(k, shown). Drag, scroll or use the arrow keys. Double-click for noon.</title>
+                    </g>
+                }
                 @foreach (var (node, at, text) in VoltageLabels())
                 {
                     <g>
@@ -213,6 +231,19 @@
     sealed record JackView(Point At, string Label);
 
     sealed record PartView(string Reference, Point Min, Point Max);
+
+    // The knob of a pot on the canvas: its position, taper and total resistance.
+    sealed record KnobView(string Reference, Point At, double Position, string Taper, double Total);
+
+    List<KnobView> knobs = [];
+
+    // The knob that the pointer turns: the pointer and the position at the start, the position now, and whether it moved.
+    (string Reference, double FromY, double From, double Now, bool Moved)? turning;
+
+    // NOTE: The hit circle of a knob is DotPixels on screen at any zoom, so a finger can turn a knob on a zoomed-out canvas.
+    // NOTE: The face of a knob is at least KnobRadius pixels on screen, so it stays legible on a zoomed-out canvas.
+    // NOTE: A drag of this many pixels turns a knob from 0% to 100%. A wheel tick turns it 5%, an arrow key 1%.
+    const double KnobTravel = 150, KnobRadius = 9, WheelStep = 0.05, KeyStep = 0.01;
 
     static readonly Regex ViewBox = new("viewBox=\"([^\"]*)\"");
 
@@ -352,6 +383,7 @@
         pins = [];
         jacks = [];
         outlines = [];
+        knobs = [];
         var circuit = Loads?.Load(netlist) ?? NetlistLoader.Load(netlist);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
         problems = hasErrors ? [] : Problems.Find(circuit);
@@ -380,12 +412,19 @@
             var positions = SchematicRenderer.Pins(c, placement, row);
             pins.AddRange(positions.Select((p, i) => new PinView(new PinRef(c.Name, i), c.Nodes[i], p)));
         }
-        foreach (var pot in SchematicRenderer.Elements(circuit, parts).Where(e => e.Kind == "pot"))
+        var elements = SchematicRenderer.Elements(circuit, parts);
+        var tuned = circuit.Directives.Knobs.GroupBy(k => k.Part, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        foreach (var pot in elements.Where(e => e.Kind == "pot"))
         {
             if (!(placements.TryGetValue(pot.Reference, out var placement) || placements.TryGetValue(pot.Members[0], out placement))) continue;
             var (min, max) = SchematicRenderer.PotOutline(placement);
             outlines.Add(new PartView(pot.Reference, min, max));
             pins.AddRange(SchematicRenderer.PotPins(placement).Select((p, i) => new PinView(new PinRef(pot.Reference, i), pot.Nodes[i], p)));
+            if (!tuned.TryGetValue(pot.Reference, out var knob)) continue;
+            // NOTE: The knob sits over the right half of the track, beside the wiper lead.
+            var (kx, ky) = SchematicRenderer.Place(placement, 48, -20);
+            var total = circuit.Circuit.OfType<SpiceSharp.Components.Resistor>().Where(r => pot.Members.Contains(r.Name, StringComparer.OrdinalIgnoreCase)).Sum(r => r.Parameters.Resistance.Value);
+            knobs.Add(new KnobView(pot.Reference, new Point(kx, ky), knob.Position, knob.Taper, total));
         }
         // NOTE: A jack is a marker on a node. The symbol sits at the first pin on that node.
         foreach (var (node, label) in new[] { (circuit.Directives.Input, "IN"), (circuit.Directives.Output, "OUT") })
@@ -1113,6 +1152,67 @@
     }
 
     string Pressed(Tool t) => t == tool ? "true" : "false";
+
+    double KnobFace() => Math.Max(KnobRadius, KnobRadius / Zoom());
+
+    static (double X, double Y) KnobPointer(Point at, double position, double radius)
+    {
+        // NOTE: The pointer sweeps 270 degrees, from 7 o'clock at 0% through noon at 50% to 5 o'clock at 100%.
+        var angle = (-135 + 270 * position) * Math.PI / 180;
+        return (at.X + radius * Math.Sin(angle), at.Y - radius * Math.Cos(angle));
+    }
+
+    static string KnobText(KnobView k, double position) =>
+        $"{k.Reference} {position.ToString("0%", CultureInfo.InvariantCulture)} {Knobs.TaperName(k.Taper)}, " +
+        $"{SchematicRenderer.Plain(Knobs.Resistance(k.Taper, position, k.Total))} of {SchematicRenderer.Plain(k.Total)} wiper to bottom";
+
+    void KnobDown(KnobView k, PointerEventArgs e)
+    {
+        if (e.Button > 0) return;
+        turning = (k.Reference, e.ClientY, k.Position, k.Position, false);
+    }
+
+    void KnobMove(PointerEventArgs e)
+    {
+        if (turning is not { } t) return;
+        var moved = t.Moved || Math.Abs(e.ClientY - t.FromY) > DragSlop;
+        turning = t with { Now = moved ? Math.Clamp(t.From + (t.FromY - e.ClientY) / KnobTravel, 0, 1) : t.From, Moved = moved };
+    }
+
+    async Task KnobUp()
+    {
+        if (turning is not { } t) return;
+        turning = null;
+        if (t.Moved) await Turn(t.Reference, t.Now);
+    }
+
+    async Task KnobWheel(KnobView k, WheelEventArgs e)
+    {
+        if (e.DeltaY != 0) await Turn(k.Reference, k.Position - Math.Sign(e.DeltaY) * WheelStep);
+    }
+
+    async Task KnobKey(KnobView k, KeyboardEventArgs e)
+    {
+        double? to = e.Key switch
+        {
+            "ArrowUp" or "ArrowRight" => k.Position + KeyStep,
+            "ArrowDown" or "ArrowLeft" => k.Position - KeyStep,
+            "PageUp" => k.Position + 10 * KeyStep,
+            "PageDown" => k.Position - 10 * KeyStep,
+            "Home" => 0,
+            "End" => 1,
+            _ => null,
+        };
+        if (to is { } position) await Turn(k.Reference, position);
+    }
+
+    // NOTE: A knob turn changes only the knob line, so the layout stays and the live run follows.
+    async Task Turn(string reference, double position)
+    {
+        var tuned = Knobs.Turn(netlist, reference, position);
+        if (tuned != netlist) await Apply(new SchematicChange(tuned, layout));
+    }
+
 
     static string Label(string kind) => char.ToUpperInvariant(kind[0]) + kind[1..].Replace('-', ' ');
 

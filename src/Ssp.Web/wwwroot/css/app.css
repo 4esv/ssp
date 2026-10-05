@@ -950,6 +950,7 @@ h1[tabindex="-1"]:focus-visible {
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--error, #b3261e);
+}
 
 /* NOTE: Command palette and shortcut sheet (#172). Plain, on the page, no overlay art. */
 .command-palette,
@@ -1009,4 +1010,37 @@ h1[tabindex="-1"]:focus-visible {
 
 .editor:focus {
     outline: none;
+}
+
+/* NOTE: A knob turns with a vertical drag, so the browser must not pan or scroll under it. */
+.schematic-pins .knob {
+    cursor: ns-resize;
+    touch-action: none;
+}
+
+.schematic-pins .knob-hit {
+    fill: transparent;
+    stroke: none;
+}
+
+.schematic-pins .knob-face {
+    fill: var(--bg, #fff);
+    stroke: currentColor;
+    stroke-width: 1.5;
+}
+
+.schematic-pins .knob-pointer {
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.schematic-pins .knob:hover .knob-face,
+.schematic-pins .knob.turning .knob-face {
+    stroke-width: 2.5;
+}
+
+.schematic-pins .knob:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 1px;
 }
