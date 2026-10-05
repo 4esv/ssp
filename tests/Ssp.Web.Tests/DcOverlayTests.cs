@@ -10,7 +10,7 @@ namespace Ssp.Web.Tests;
 
 public class DcOverlayTests : BunitContext
 {
-    public DcOverlayTests() => Services.AddSingleton(TimeProvider.System);
+    public DcOverlayTests() => Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
 
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 

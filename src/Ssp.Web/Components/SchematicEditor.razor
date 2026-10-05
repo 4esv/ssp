@@ -128,6 +128,12 @@
                         <title>Open end</title>
                     </circle>
                 }
+                @foreach (var (node, at, text) in VoltageLabels())
+                {
+                    <g>
+                        <text class="@(Stale ? "net-voltage stale" : "net-voltage")" data-node="@node" x="@N(at.X + 6)" y="@N(at.Y - 8)" font-size="10">@text</text>
+                    </g>
+                }
                 @foreach (var jack in jacks)
                 {
                     <g class="jack" data-jack="@jack.Label.ToLowerInvariant()" transform="translate(@N(jack.At.X) @N(jack.At.Y))">
@@ -197,6 +203,12 @@
     readonly HashSet<string> dismissed = [];
 
     sealed record PinView(PinRef Ref, string Node, Point Position);
+    // NOTE: One label for each net, on its first pin. It is in the pin layer, so it moves nothing.
+    // Ground is 0 V and has no label. A net the last run did not know has none either.
+    IEnumerable<(string Node, Point At, string Text)> VoltageLabels() =>
+        NodeVoltages is null ? [] : pins.Where(p => p.Node != "0" && NodeVoltages.ContainsKey(p.Node))
+            .GroupBy(p => p.Node).Select(g => (g.Key, g.First().Position, Eng.Format(NodeVoltages[g.Key], "V")));
+
     sealed record JackView(Point At, string Label);
 
     sealed record PartView(string Reference, Point Min, Point Max);
@@ -210,6 +222,12 @@
 
     /// <summary>Gets the netlist and the layout after each place, wire and ground.</summary>
     [Parameter] public EventCallback<SchematicChange> Changed { get; set; }
+
+    /// <summary>The node voltages of the last good run. Each net shows its voltage on the canvas.</summary>
+    [Parameter] public IReadOnlyDictionary<string, double>? NodeVoltages { get; set; }
+
+    /// <summary>True while the voltages are from before the last edit.</summary>
+    [Parameter] public bool Stale { get; set; }
 
     string? seenNetlist;
     LayoutDoc? seenLayout;

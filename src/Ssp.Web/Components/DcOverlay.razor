@@ -6,10 +6,14 @@
 }
 else
 {
-    <section class="dc-overlay">
+    <section class="@(Stale ? "dc-overlay stale" : "dc-overlay")">
         <label class="dc-switch">
             <input type="checkbox" class="dc-toggle" checked="@show" @onchange="Toggle" />
             DC voltages
+            @if (Stale)
+            {
+                <span class="stale-mark">stale</span>
+            }
         </label>
         @* TODO: Put each label on its net in the schematic when the layout has wires (#35). *@
         <ul class="dc-nodes">
@@ -37,6 +41,9 @@ else
 
     /// <summary>The DC operating point. With no operating point there is no overlay.</summary>
     [Parameter] public OpResult? OperatingPoint { get; set; }
+
+    /// <summary>True while the voltages are from before the last edit.</summary>
+    [Parameter] public bool Stale { get; set; }
 
     bool show;
     string? probe;
