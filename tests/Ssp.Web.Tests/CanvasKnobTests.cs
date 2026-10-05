@@ -83,6 +83,21 @@ public class CanvasKnobTests : BunitContext
         Assert.Equal(1, Position(seen[^1].Netlist));
     }
 
+    [Fact]
+    public void Dragging_the_knob_up_turns_it_up_once_on_release()
+    {
+        var seen = new List<SchematicChange>();
+        var editor = Editor(Pot, seen);
+
+        editor.Find(".knob[data-ref=RV1]").PointerDown(new Microsoft.AspNetCore.Components.Web.PointerEventArgs { ClientY = 200, PointerId = 1 });
+        editor.Find(".knob[data-ref=RV1]").PointerMove(new Microsoft.AspNetCore.Components.Web.PointerEventArgs { ClientY = 185, PointerId = 1 });
+        Assert.Equal("90", editor.Find(".knob[data-ref=RV1]").GetAttribute("aria-valuenow"));
+        Assert.Empty(seen);
+        editor.Find(".knob[data-ref=RV1]").PointerUp(new Microsoft.AspNetCore.Components.Web.PointerEventArgs { ClientY = 185, PointerId = 1 });
+
+        Assert.Equal(0.9, Position(Assert.Single(seen).Netlist), 6);
+    }
+
     static int PinCount(string netlist, string reference) =>
         SchematicRenderer.Elements(NetlistLoader.Load(netlist), null).Single(e => e.Reference == reference).Nodes.Count;
 
