@@ -81,4 +81,55 @@ public class MonitorTests
         Assert.True(edge <= 2 * steps.Max(), $"edge {edge}");
         Assert.Contains(output, v => Math.Abs(v) > 1e-6);
     }
+
+    // NOTE: The browser input starts with a near-silent chunk, and a slow chunk makes the page drop the chunks behind it.
+    // A dropped chunk is a phase jump in the sine. Before #230 the fixed step solver threw "timestep too small" on it.
+    [Fact]
+    public void ASineWithDroppedChunksRunsTenSeconds()
+    {
+        const int rate = 48_000;
+        var phase = 0L;
+        AssertRuns(rate, 10 * rate / 512, (chunk, i) =>
+        {
+            if (chunk == 0)
+            {
+                return 1e-6;
+            }
+
+            if (i == 0 && chunk % 3 == 0)
+            {
+                phase += 512 * 7 / 5;
+            }
+
+            return 0.3 * Math.Sin(2 * Math.PI * 440 * phase++ / rate);
+        });
+    }
+
+    [Fact]
+    public void ASquareRunsTwoSeconds()
+    {
+        const int rate = 48_000;
+        AssertRuns(rate, 2 * rate / 512, (chunk, i) => chunk == 0 ? 0 : ((chunk * 512) + i) / 55 % 2 == 0 ? 1.0 : -1.0);
+    }
+
+    static void AssertRuns(int rate, int chunks, Func<int, int, double> sample)
+    {
+        using var session = new MonitorSession(NetlistLoader.Load(Fixtures.Read("clipper-bjt-si.cir")), rate);
+        var input = new double[MonitorSession.ChunkSamples];
+        var nonzero = 0;
+        for (var c = 0; c < chunks; c++)
+        {
+            for (var i = 0; i < input.Length; i++)
+            {
+                input[i] = sample(c, i);
+            }
+
+            var output = session.Process(input);
+            Assert.All(output, v => Assert.True(double.IsFinite(v)));
+            nonzero += output.Count(v => Math.Abs(v) > 1e-6);
+        }
+
+        Assert.Equal((long)chunks * MonitorSession.ChunkSamples, session.Produced);
+        Assert.True(nonzero > 0);
+    }
 }
