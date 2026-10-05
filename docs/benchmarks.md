@@ -394,3 +394,33 @@ After the change:
 - A live solve on the main thread and the render of its result are two browser tasks.
 
 The solve gap is the live solve on the main thread: 90 to 94 ms in .NET for this circuit. It is not in the limit. Moving it to the worker did not pay (#244).
+
+## Drag on a 100-part circuit (#179)
+
+`DragTimingTests` opens a project of 100 parts in the editor of the published site: the Transistor fuzz starter and 29 copies of an RC low-pass (a source, a resistor and a capacitor). The test makes the layout once with the placer and stores it with the project, so the editor opens it as a hand layout.
+The test presses on the resistor `RR15`, sends one pointer move for each animation frame for 60 frames (8 px right and 4 px down for each frame), and releases. A frame is the gap between two animation frames. At 60 fps a frame is 16.7 ms.
+Run it with `scripts/playwright.sh`. The test log shows the times at detailed verbosity, and the test fails when the p95 frame is 70 ms or more.
+
+| Item | Value |
+|---|---|
+| Machine | Apple M3 Pro, macOS |
+| Browser | Chromium, headless (Playwright) |
+| Build | Release, not AOT |
+| Date | 2026-10-05 |
+
+| Build | Longest frame | p95 frame | Median frame |
+|---|---|---|---|
+| Before (master at fbf73cf9) | 150.0, 133.4, 150.0 ms | 133.4, 133.4, 133.4 ms | 133.3, 133.3, 133.3 ms |
+| After | 33.4, 33.4, 33.4, 33.4 ms | 33.4, 16.8, 16.8, 16.8 ms | 16.7, 16.7, 16.7, 16.7 ms |
+
+Where the frame went before:
+
+- Each pointer move rendered the whole editor two times: one time for the part, and one more time for the canvas under it, because the move bubbles.
+- Each render made the title of each part. For each part, `SchematicEdits.ValueOf` read the whole netlist.
+
+After the change:
+
+- The editor keeps the title of each part until the netlist, the pins or the node voltages change. With only this change, the median frame was 16.7 ms and the p95 frame 33.4 ms, with a slower drag of 2 px right and 1 px down for each frame (the frames alternated between 17 and 33 ms).
+- A pointer move that does not change the screen does not render the editor: the move that bubbles to the canvas during a part drag, a move over a part with no press, and a move that keeps the snapped place of the part.
+
+The release of the drag is one edit, as before (#169). The limit has room for a slow CI runner. A CI number is not measured yet.
