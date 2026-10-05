@@ -41,6 +41,7 @@ public static partial class SchematicEdits
         ["diode"] = ("D", "DGEN"),
         ["led"] = ("D", "LED_RED"),
         ["pot"] = ("RV", "10k"),
+        ["switch"] = ("SW", ""),
         ["battery"] = ("V", "9"),
         ["source"] = ("V", ""),
         ["jack-in"] = ("", ""),
@@ -72,7 +73,7 @@ public static partial class SchematicEdits
         value ??= fallback;
         var circuit = NetlistLoader.Load(netlist);
         // NOTE: A pot P is the two resistors P_1 and P_2. Its reference is P.
-        var references = circuit.Circuit.Select(e => Pair().Replace(e.Name.Split('.')[0], "")).ToHashSet(Names);
+        var references = circuit.Circuit.Select(e => SchematicRenderer.SwitchOf(e.Name) ?? Pair().Replace(e.Name.Split('.')[0], "")).ToHashSet(Names);
         var reference = Fresh(prefix, references);
         var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
         string Node()
@@ -97,6 +98,9 @@ public static partial class SchematicEdits
                 added.Add($"{reference}_1 {top} {wiper} 5k");
                 added.Add($"{reference}_2 {wiper} {bottom} 5k");
                 added.Add($"* ssp:knob {reference} linear 0.5");
+                break;
+            case "switch":
+                added.AddRange(Pole(reference, 1, Node(), Node(), Node(), true));
                 break;
             case "battery":
                 added.Add($"{reference} {Node()} {Zero} DC {value}");
@@ -220,6 +224,7 @@ public static partial class SchematicEdits
     {
         "npn" or "pnp" => (1, 0),
         "pot" => (0, 2),
+        "switch" => (0, 1),
         _ => (0, 1),
     };
 
@@ -561,6 +566,12 @@ public static partial class SchematicEdits
             var at = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference) || Names.Equals(p.Reference, pot.Members[0]));
             return (pot.Nodes[pin.Pin], SchematicRenderer.PotPins(at)[pin.Pin]);
         }
+        if (SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => SchematicRenderer.Poles(e.Kind) > 0 && Names.Equals(e.Reference, pin.Reference)) is { } toggle)
+        {
+            var at = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference) || Names.Equals(p.Reference, toggle.Members[0]));
+            var spot = SchematicRenderer.Pins(toggle, at)[pin.Pin];
+            return (spot.Net, spot.At);
+        }
         var placement = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference));
         var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, pin.Reference));
         var positions = SchematicRenderer.Pins(component, placement, parts.Parts.GetValueOrDefault(component.Name));
@@ -666,6 +677,13 @@ public static partial class SchematicEdits
                 {
                     if (pin < 2) SetNode(lines, element.Members[0], pin, node);
                     if (pin > 0) SetNode(lines, element.Members[1], pin - 1, node);
+                }
+                else if (SchematicRenderer.Poles(element.Kind) > 0)
+                {
+                    // NOTE: A switch pole is S_<k>A and S_<k>B. The common pin is the first node of both.
+                    var (a, b) = (element.Members[2 * (pin / 3)], element.Members[2 * (pin / 3) + 1]);
+                    if (pin % 3 != 2) SetNode(lines, a, pin % 3 == 0 ? 0 : 1, node);
+                    if (pin % 3 != 1) SetNode(lines, b, pin % 3 == 0 ? 0 : 1, node);
                 }
                 else SetNode(lines, element.Members[0], pin, node);
             }
@@ -799,6 +817,66 @@ public static partial class SchematicEdits
 
         var wires = layout.Wires.Select(w => w.Net == from ? w with { Net = to } : w).Concat(added).ToList();
         return new SchematicChange(Join(lines), new LayoutDoc(layout.Parts, wires));
+    }
+
+    const string Closed = "1m", Open = "100Meg";
+
+    // NOTE: SPICE reads a line that starts with S as a switch, so the resistors of switch SW<n> start with R.
+    // The two lines of one switch pole: common to throw A and common to throw B. The closed throw is a small resistor.
+    static string[] Pole(string reference, int pole, string common, string a, string b, bool throwA) =>
+    [
+        $"R{reference}_{pole}A {common} {a} {(throwA ? Closed : Open)}",
+        $"R{reference}_{pole}B {common} {b} {(throwA ? Open : Closed)}",
+    ];
+
+    /// <summary>
+    /// Gives a switch one, two or three poles. A new pole has new nodes and the throw of the first pole. A pole that goes
+    /// away takes its lines. The layout does not change.
+    /// </summary>
+    public static SchematicChange SetPoles(string netlist, LayoutDoc layout, string reference, int poles)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(poles, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(poles, 3);
+        var circuit = NetlistLoader.Load(netlist);
+        var element = SchematicRenderer.Elements(circuit, null).Single(e => SchematicRenderer.Poles(e.Kind) > 0 && Names.Equals(e.Reference, reference));
+        var now = SchematicRenderer.Poles(element.Kind);
+        var lines = Lines(netlist);
+        if (poles < now)
+        {
+            var gone = element.Members.Skip(2 * poles).ToHashSet(Names);
+            lines.RemoveAll(l => Words().Split(l.Trim())[0] is var name && gone.Contains(name));
+        }
+        else if (poles > now)
+        {
+            var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
+            string Node()
+            {
+                var node = Fresh("n", nodes);
+                nodes.Add(node);
+                return node;
+            }
+            var (last, _) = Element(lines, element.Members[^1]);
+            var added = Enumerable.Range(now + 1, poles - now).SelectMany(k => Pole(element.Reference, k, Node(), Node(), Node(), element.Value == "A"));
+            lines.InsertRange(last + 1, added);
+        }
+        return new SchematicChange(Join(lines), layout);
+    }
+
+    /// <summary>Moves every pole of a switch to the other throw. The nodes and the layout do not change.</summary>
+    public static SchematicChange Toggle(string netlist, LayoutDoc layout, string reference)
+    {
+        var element = SchematicRenderer.Elements(NetlistLoader.Load(netlist), null).Single(e => SchematicRenderer.Poles(e.Kind) > 0 && Names.Equals(e.Reference, reference));
+        var lines = Lines(netlist);
+        foreach (var member in element.Members)
+        {
+            var (at, _) = Element(lines, member);
+            var closed = member.EndsWith("A", StringComparison.OrdinalIgnoreCase) == (element.Value == "B");
+            var words = Words().Split(lines[at]);
+            var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+            words[first + 6] = closed ? Closed : Open;
+            lines[at] = string.Concat(words);
+        }
+        return new SchematicChange(Join(lines), layout);
     }
 
     static string Fresh(string prefix, IReadOnlySet<string> used)

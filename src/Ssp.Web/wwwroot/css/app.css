@@ -1010,3 +1010,42 @@ h1[tabindex="-1"]:focus-visible {
 .editor:focus {
     outline: none;
 }
+
+/* NOTE: A knob turns with a vertical drag, so the browser must not pan or scroll under it. */
+.schematic-pins .knob {
+    cursor: ns-resize;
+    touch-action: none;
+}
+
+.schematic-pins .knob.switch {
+    cursor: pointer;
+}
+
+.schematic-pins .knob-face {
+    fill: var(--bg, #fff);
+    stroke: currentColor;
+    stroke-width: 1.5;
+}
+
+.schematic-pins .knob-pointer {
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.schematic-pins .knob-throw {
+    fill: currentColor;
+    stroke: none;
+    pointer-events: none;
+}
+
+.schematic-pins .knob:hover .knob-face,
+.schematic-pins .knob.turning .knob-face {
+    fill: currentColor;
+    fill-opacity: 0.15;
+}
+
+.schematic-pins .knob:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 1px;
+}

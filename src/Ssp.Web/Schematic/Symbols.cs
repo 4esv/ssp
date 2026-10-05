@@ -78,6 +78,12 @@ public static class Symbols
         Make("isource", "0 -15 60 30", "M0 0H16M44 0H60<circle cx=\"30\" cy=\"0\" r=\"14\"/>", TwoPin,
             new SymbolArrow(20, 0, 41, 0)),
 
+        // A switch with one, two or three poles. Each pole has its common pin at the left and its throws A (up) and B (down)
+        // at the right. The renderer draws the blades, because they show the throw.
+        Switch(1),
+        Switch(2),
+        Switch(3),
+
         Make("ground", "-10 0 20 20", "M0 0V10M-10 10H10M-6 14H6M-2 18H2", [new("1", 0, 0)]),
 
         // A supply rail. The label is its voltage.
@@ -91,6 +97,19 @@ public static class Symbols
         Make("vactrol", "0 -30 60 100", DiodeBody + "M30 -14L40 -24M38 -14L48 -24 M0 60H15L20 50L30 70L40 50L45 60H60",
             [new("a", 0, 0), new("k", 60, 0), new("p1", 0, 60), new("p2", 60, 60)]),
     }.ToDictionary(s => s.Kind, StringComparer.Ordinal);
+
+    /// <summary>The distance between two poles of a switch, in symbol units.</summary>
+    public const int PoleStep = 40;
+
+    static Symbol Switch(int poles)
+    {
+        var d = string.Concat(Enumerable.Range(0, poles).Select(k => FormattableString.Invariant($"M0 {k * PoleStep}H20M40 {k * PoleStep - 10}H60M40 {k * PoleStep + 10}H60")));
+        var pins = Enumerable.Range(0, poles).SelectMany(k => new SymbolPin[]
+        {
+            new($"C{k + 1}", 0, k * PoleStep), new($"A{k + 1}", 60, k * PoleStep - 10), new($"B{k + 1}", 60, k * PoleStep + 10),
+        }).ToArray();
+        return Make($"switch{poles}", FormattableString.Invariant($"0 -14 60 {(poles - 1) * PoleStep + 28}"), d, pins);
+    }
 
     static SymbolPin[] Bjt => [new("C", 40, -30), new("B", 0, 0), new("E", 40, 30), new("S", 20, 30, Hidden: true)];
 
