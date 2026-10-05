@@ -14,6 +14,7 @@ public class RunResultJsonTests
     static readonly Dictionary<string, string> SchemaHashes = new(StringComparer.Ordinal)
     {
         ["1.0.0"] = "458ff1327e82faaded67fdd498f37060ebc7173a79fb4a86ac3633a8cc5208ee",
+        ["1.1.0"] = "cd582eeaa373063d8cd99b6a9d3d65999a074fb1abdacd5fdcfe4281d136c17f",
     };
 
     // NOTE: JsonSchema.Net registers the schema by $id in a global registry, so build it once.
