@@ -563,7 +563,7 @@
         // NOTE: The placer is slow. With no given layout, a netlist with the same parts and nodes as the last auto-placement
         // (a value edit, a comment) keeps that placement.
         var next = AutoPlacer.Shape(circuit);
-        layout = given ?? (next == shape ? layout : AutoPlacer.Place(circuit, circuit.Directives));
+        layout = given is null ? (next == shape ? layout : AutoPlacer.Place(circuit, circuit.Directives)) : SchematicEdits.Reconcile(circuit, given);
         shape = given is null ? next : null;
         if (!circuit.Circuit.OfType<SpiceComponent>().Any()) return;
 

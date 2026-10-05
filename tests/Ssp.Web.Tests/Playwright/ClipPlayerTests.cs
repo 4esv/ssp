@@ -42,6 +42,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
         await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
 
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player .sample-select").SelectOptionAsync("__load");
         await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
         {
             Name = "sine.wav",
@@ -75,6 +76,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
             """);
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
         await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player .sample-select").SelectOptionAsync("__load");
         await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
         {
             Name = "sine.wav",
@@ -106,6 +108,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
         // NOTE: The netlist and the clip are tabs of one strip, so fill the netlist before the clip tab hides it.
         await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
         await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player .sample-select").SelectOptionAsync("__load");
         await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
         {
             Name = "sine.wav",
@@ -124,6 +127,43 @@ public class ClipPlayerTests(ITestOutputHelper output)
         Assert.Equal(UploadRate, wav.SampleRate);
         Assert.Equal(UploadFrames + CabFrames - 1, wav.Channels[0].Length);
         Assert.Contains(wav.Channels[0], sample => sample != 0);
+    }
+
+    [PlaywrightFact]
+    public async Task TheSweepThroughTheRcLowPassFallsAboveTheCorner()
+    {
+        await using var session = await Session.Start(output);
+        // NOTE: The starter has no ssp:input node, and a render needs one. The test adds the two directives to the RC low-pass.
+        var starter = File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", "rc-lowpass.cir"));
+        await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync("* ssp:input in\n* ssp:output out\n" + starter);
+        await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player .sample-select").SelectOptionAsync("sweep");
+        Assert.Equal("Sample: Sweep 20 Hz-20 kHz", await session.Page.Locator(".dock-panel[data-panel=clip] .clip-source").InnerTextAsync());
+
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player button.clip-play").ClickAsync();
+        try
+        {
+            await session.Page.WaitForFunctionAsync("() => globalThis.sspClipBuffer", null, new() { Timeout = 90_000 });
+        }
+        catch (TimeoutException)
+        {
+            Assert.Fail("No output in 90 s. Status: " + await session.Page.Locator(".dock-panel[data-panel=clip] .clip-status").InnerTextAsync());
+        }
+        var rate = (await session.Page.EvaluateAsync<JsonElement>(Output)).GetProperty("rate").GetInt32();
+        var samples = (await session.Page.EvaluateAsync<double[]>("() => Array.from(globalThis.sspClipBuffer.getChannelData(0))"));
+
+        // NOTE: The sweep is logarithmic over 2 s, so the time of a frequency is 2 s * ln(f / 20) / ln(1000).
+        double Level(double hz)
+        {
+            var centre = (int)(rate * 2.0 * Math.Log(hz / 20) / Math.Log(1000));
+            var window = samples.Skip(centre - rate / 40).Take(rate / 20).ToArray();
+            return 20 * Math.Log10(Math.Sqrt(window.Sum(x => x * x) / window.Length));
+        }
+        var below = Level(500);
+        var above = Level(8000);
+        output.WriteLine($"500 Hz {below:0.0} dB, 8 kHz {above:0.0} dB, corner 1.59 kHz");
+
+        Assert.True(below - above > 10, $"The output at 8 kHz is {below - above:0.0} dB below the output at 500 Hz. The corner is 1.59 kHz.");
     }
 
     static string Clipper => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", "clipper-bjt-si.cir"));
