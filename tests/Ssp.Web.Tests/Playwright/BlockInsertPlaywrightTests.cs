@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace Ssp.Web.Tests.Playwright;
 
-// NOTE: My Blocks on the fuzz starter (#181): save R2, R3 and R4 as a block, insert it on an empty spot, and one Undo takes it back.
+// NOTE: My Blocks on the fuzz starter (#181): save R2, R4 and R5 as a block, insert it on an empty spot, and one Undo takes it back.
 // Set SSP_SHOTS to a folder to keep a screenshot of the block list at 1280 and 390 px.
 [Collection(PlaywrightCollection.Name)]
 public class BlockInsertPlaywrightTests(ITestOutputHelper output)
@@ -46,8 +46,8 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
         var before = await Parts(page);
 
         await page.Locator(".schematic-pins rect.part[data-ref=R2]").ClickAsync(new() { Force = true });
-        await page.Locator(".schematic-pins rect.part[data-ref=R3]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
         await page.Locator(".schematic-pins rect.part[data-ref=R4]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
+        await page.Locator(".schematic-pins rect.part[data-ref=R5]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
         await page.Locator(".part-action[data-action=save-block]").ClickAsync();
         await page.Locator("input.block-name").FillAsync("Bias");
         await page.Locator("input.block-name").PressAsync("Enter");
@@ -67,8 +67,8 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
         var added = (await Parts(page)).Except(before).ToArray();
         var netlist = await page.Locator("textarea[aria-label=Netlist]").InputValueAsync();
         output.WriteLine($"1456x797: inserted {string.Join(", ", added)} at {spot[0]:0},{spot[1]:0}; hint: {await page.Locator(".schematic-hint").TextContentAsync()}");
-        output.WriteLine(string.Join('\n', netlist.Split('\n').Where(l => l.StartsWith("R1 ") || l.StartsWith("R7 ") || l.StartsWith("R8 "))));
-        Assert.Equal(["R1", "R7", "R8"], added);
+        output.WriteLine(string.Join('\n', netlist.Split('\n').Where(l => l.StartsWith("R1 ") || l.StartsWith("R3 ") || l.StartsWith("R7 "))));
+        Assert.Equal(["R1", "R3", "R7"], added);
         // NOTE: The inserted parts cover none of the parts that were there.
         var overlaps = await page.EvaluateAsync<string[]>("""
             () => {

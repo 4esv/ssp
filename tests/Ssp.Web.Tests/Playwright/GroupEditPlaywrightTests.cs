@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace Ssp.Web.Tests.Playwright;
 
-// NOTE: Several parts at once on the fuzz starter (#169): select R2, R3 and R4, copy, paste, and one Undo takes the paste back.
+// NOTE: Several parts at once on the fuzz starter (#169): select R2, R4 and R5, copy, paste, and one Undo takes the paste back.
 // The keys work, and so do the Select, Copy and Paste buttons for a finger.
 [Collection(PlaywrightCollection.Name)]
 public class GroupEditPlaywrightTests(ITestOutputHelper output)
@@ -41,9 +41,9 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         output.WriteLine($"1456x797: tools out of view [{string.Join(", ", await page.EvaluateAsync<string[]>(HiddenTools))}]");
 
         await page.Locator(".schematic-pins rect.part[data-ref=R2]").ClickAsync(new() { Force = true });
-        await page.Locator(".schematic-pins rect.part[data-ref=R3]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
-        await page.Locator(".schematic-pins rect.part[data-ref=R4]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.ControlOrMeta] });
-        Assert.Equal(["R2", "R3", "R4"], await Selected(page));
+        await page.Locator(".schematic-pins rect.part[data-ref=R4]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
+        await page.Locator(".schematic-pins rect.part[data-ref=R5]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.ControlOrMeta] });
+        Assert.Equal(["R2", "R4", "R5"], await Selected(page));
 
         await page.Keyboard.PressAsync("ControlOrMeta+c");
         await page.Keyboard.PressAsync("ControlOrMeta+v");
@@ -51,8 +51,8 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         var pasted = await Parts(page);
         var added = pasted.Except(before).ToArray();
         output.WriteLine($"1456x797: pasted {string.Join(", ", added)}; selected {string.Join(", ", await Selected(page))}; hint: {await page.Locator(".schematic-hint").TextContentAsync()}");
-        Assert.Equal(["R1", "R7", "R8"], added);
-        Assert.Equal(["R1", "R7", "R8"], await Selected(page));
+        Assert.Equal(["R1", "R3", "R7"], added);
+        Assert.Equal(["R1", "R3", "R7"], await Selected(page));
 
         await page.Keyboard.PressAsync("ControlOrMeta+z");
         await Assertions.Expect(page.Locator(".schematic-pins rect.part[data-ref=R7]")).ToHaveCountAsync(0);
@@ -92,15 +92,15 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         var before = await Parts(page);
 
         await page.Locator("button[data-tool=select]").TapAsync();
-        foreach (var r in new[] { "R2", "R3", "R4" })
+        foreach (var r in new[] { "R2", "R4", "R5" })
         {
             await page.Locator($".schematic-pins rect.part[data-ref={r}]").TapAsync(new() { Force = true });
         }
-        Assert.Equal(["R2", "R3", "R4"], await Selected(page));
+        Assert.Equal(["R2", "R4", "R5"], await Selected(page));
         await page.Locator(".part-action[data-action=copy]").TapAsync();
         await page.Locator("button[data-action=paste]").TapAsync();
         await Assertions.Expect(page.Locator(".schematic-pins rect.part[data-ref=R7]")).ToBeAttachedAsync();
-        Assert.Equal(["R1", "R7", "R8"], (await Parts(page)).Except(before).ToArray());
+        Assert.Equal(["R1", "R3", "R7"], (await Parts(page)).Except(before).ToArray());
 
         var sizes = await page.EvaluateAsync<double[][]>("() => ['select', 'copy', 'cut', 'paste'].map(k => document.querySelector(`[data-tool=${k}], [data-action=${k}]`).getBoundingClientRect()).map(r => [r.width, r.height])");
         output.WriteLine($"390x844 touch: buttons {string.Join(", ", sizes.Select(b => $"{b[0]:0}x{b[1]:0}"))}");
