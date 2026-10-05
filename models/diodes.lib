@@ -1,0 +1,7 @@
+* provenance: generic 5.1 V Zener and generic Schottky small-signal diode, typical values only, no single datasheet; values are UNVERIFIED against a manufacturer sheet
+* fit: Zener: the node sits at 5.1 V at about 4 mA reverse in SpiceSharp (BV is 4.5 because this engine puts the knee above BV; measured, not a datasheet value); Schottky: Vf about 0.28 V at 9 mA, N = 1.05
+* author: 4esv
+* license: MIT
+
+.model DZ_5V1 D(Is=1e-14 N=1.9 BV=4.5 IBV=5m)
+.model DSCHOTTKY D(Is=3e-7 N=1.05)
