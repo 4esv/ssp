@@ -20,6 +20,7 @@
 <h1 class="editor-title">Editor</h1>
 
 <div class="editor" tabindex="-1" @ref="root" @onkeydown="Hotkey" data-sheet="@sheet">
+<CascadingValue Value="sample" IsFixed="true">
 <CascadingValue Value="loads" IsFixed="true">
 @if (RunErrors().ToList() is { Count: > 0 } errors)
 {
@@ -193,6 +194,7 @@
     }
 </nav>
 </CascadingValue>
+</CascadingValue>
 </div>
 
 @code {
@@ -206,6 +208,8 @@
     // DrawDebounce, so a key in the box does not redraw the schematic. The panels share one load of each netlist.
     static readonly TimeSpan DrawDebounce = TimeSpan.FromMilliseconds(100);
     readonly NetlistCache loads = new();
+    // NOTE: One sample for every panel (#276). The project keeps its id, and so does browser storage.
+    SampleChoice sample = default!;
     string drawn = "";
     string? drawnShape;
     ITimer? drawTimer;
@@ -339,7 +343,10 @@
 
     protected override void OnInitialized()
     {
-        store = new ProjectStore(new LocalStorage(Js), Time);
+        var storage = new LocalStorage(Js);
+        store = new ProjectStore(storage, Time);
+        sample = new SampleChoice(storage);
+        sample.Changed += SampleChanged;
         var hash = new Uri(Nav.Uri).Fragment.TrimStart('#');
         fromLink = hash.Length > 0;
         project = ProjectStore.New(fromLink ? "Shared circuit" : "Untitled", "", null);
@@ -364,6 +371,7 @@
     // project. It is saved at its first edit, so it does not overwrite the open project.
     protected override async Task OnInitializedAsync()
     {
+        await sample.Restore();
         if (fromLink)
         {
             return;
@@ -511,6 +519,7 @@
 
     public void Dispose()
     {
+        sample.Changed -= SampleChanged;
         CancelLive();
         drawTimer?.Dispose();
         if (saveTimer is not null)
@@ -524,7 +533,7 @@
     ProjectStore store = default!;
     Project project = default!;
     // The name, the netlist and the layout text of the last save, or null before the first save.
-    (string Name, string Netlist, string? Layout, string? View)? lastSaved;
+    (string Name, string Netlist, string? Layout, string? View, string? Sample)? lastSaved;
     ITimer? saveTimer;
     bool fromLink;
     string saveState = "";
@@ -534,6 +543,14 @@
     {
         if (project.View == view) return;
         project = project with { View = view };
+        if (lastSaved is not null) ScheduleSave();
+    }
+
+    // NOTE: The project keeps the id of the bundled sample, so it comes back with the project.
+    void SampleChanged()
+    {
+        if (project.Sample == sample.BundledId) return;
+        project = project with { Sample = sample.BundledId };
         if (lastSaved is not null) ScheduleSave();
     }
 
@@ -552,7 +569,7 @@
     {
         saveTimer?.Dispose();
         saveTimer = null;
-        (string Name, string Netlist, string? Layout, string? View) state = (project.Name, netlist, schematicLayout is null ? null : LayoutDoc.Format(schematicLayout), project.View);
+        (string Name, string Netlist, string? Layout, string? View, string? Sample) state = (project.Name, netlist, schematicLayout is null ? null : LayoutDoc.Format(schematicLayout), project.View, project.Sample);
         if (lastSaved == state)
         {
             return;
@@ -590,6 +607,7 @@
         saveTimer?.Dispose();
         saveTimer = null;
         project = next;
+        sample.Adopt(next.Sample);
         netlist = drawn = next.Netlist;
         schematicLayout = ReadLayout(next.Layout);
         drawnShape = ShapeOf(loads.Load(drawn));
@@ -598,7 +616,7 @@
         shareError = null;
         stale = false;
         liveFailure = null;
-        lastSaved = next.Saved == default ? null : (next.Name, next.Netlist, next.Layout, next.View);
+        lastSaved = next.Saved == default ? null : (next.Name, next.Netlist, next.Layout, next.View, next.Sample);
     }
 
     // NOTE: A layout that does not read is left out. The schematic then places the parts again.
