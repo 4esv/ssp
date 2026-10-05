@@ -1496,8 +1496,9 @@
         var spots = names.Select((n, i) => (n.Item1, n.Item2, Place(first + i * (ActionPixels + Space), y))).ToList();
         if (!sized || group.Count == 0) return spots;
 
-        // NOTE: A group row that would cover a part outside the group moves to the next side: above, below, right, left.
-        // The first side that covers none wins. With none free, the row stays where it was.
+        // NOTE: A group row that would cover a part outside the group moves to the next candidate: above, below, right, left,
+        // the four corners, then the same sides one row further out. With none free, the row sits as a bar on the bottom edge
+        // of the pane, then the top edge, then at the first free spot of a scan of the pane. Each centre is clamped into the pane.
         var others = outlines.Where(o => !group.Contains(o.Reference))
             .Select(o => (A: view!.WorldToScreen(o.Min), B: view!.WorldToScreen(o.Max))).ToList();
         bool Covers(IEnumerable<(double X, double Y)> centres) => centres.Any(c =>
@@ -1505,11 +1506,33 @@
                 && c.Y + ActionPixels / 2 > Math.Min(o.A.Y, o.B.Y) && c.Y - ActionPixels / 2 < Math.Max(o.A.Y, o.B.Y)));
         var step = ActionPixels + Space;
         var my = (a.Y + b.Y) / 2;
-        var row = (double Y) => Enumerable.Range(0, names.Length).Select(i => Clamped(first + i * step, Y)).ToList();
-        var column = (double X) => Enumerable.Range(0, names.Length).Select(i => Clamped(X, my - (names.Length - 1) * step / 2 + i * step)).ToList();
-        var sides = new[] { row(a.Y - reach), row(b.Y + reach), column(b.X + reach), column(a.X - reach) };
-        if (!Covers(Enumerable.Range(0, names.Length).Select(i => Clamped(first + i * step, y)))) return spots;
-        foreach (var centres in sides)
+        var width = names.Length * ActionPixels + (names.Length - 1) * Space;
+        // NOTE: The row is a line of buttons from its left end, or a column from its top end.
+        var row = (double Left, double Y) => Enumerable.Range(0, names.Length).Select(i => Clamped(Left + ActionPixels / 2 + i * step, Y)).ToList();
+        var column = (double X, double Top) => Enumerable.Range(0, names.Length).Select(i => Clamped(X, Top + ActionPixels / 2 + i * step)).ToList();
+        var left = mx - width / 2;
+        var top = my - width / 2;
+        if (!Covers(row(left, y))) return spots;
+        var candidates = new List<List<(double X, double Y)>>();
+        foreach (var further in new[] { 0.0, step })
+        {
+            candidates.Add(row(left, a.Y - reach - further));
+            candidates.Add(row(left, b.Y + reach + further));
+            candidates.Add(column(b.X + reach + further, top));
+            candidates.Add(column(a.X - reach - further, top));
+            if (further > 0) continue;
+            candidates.Add(row(b.X + reach, a.Y - reach));
+            candidates.Add(row(a.X - reach - width, a.Y - reach));
+            candidates.Add(row(b.X + reach, b.Y + reach));
+            candidates.Add(row(a.X - reach - width, b.Y + reach));
+        }
+        candidates.Add(row(mx - width / 2, paneBox[3]));
+        candidates.Add(row(mx - width / 2, 0));
+        for (var gy = paneBox[3]; gy >= 0; gy -= step / 2)
+        {
+            for (var gx = 0.0; gx <= paneBox[2]; gx += step / 2) candidates.Add(row(gx, gy));
+        }
+        foreach (var centres in candidates)
         {
             if (Covers(centres)) continue;
             return names.Select((n, i) => (n.Item1, n.Item2, FormattableString.Invariant($"left: {centres[i].X:0.#}px; top: {centres[i].Y:0.#}px"))).ToList();
