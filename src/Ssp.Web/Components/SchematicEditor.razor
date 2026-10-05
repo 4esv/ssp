@@ -581,6 +581,7 @@
     // NOTE: The first render draws the stage hidden. This measures the pane and sets the view, so the canvas never shows a view that it then replaces.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        still = false;
         if (svg is null || view is not null) return;
         try { await Current(); }
         catch (Exception) { return; }
@@ -667,7 +668,12 @@
             return;
         }
         // NOTE: Until PanDown has made the view, the moves are lost.
-        if (view is null || !touches.TryGetValue(e.PointerId, out var last) || moving is not null) return;
+        // NOTE: A move with no press, or the move of a part drag that bubbles from PartMove, changes nothing here.
+        if (view is null || !touches.TryGetValue(e.PointerId, out var last) || moving is not null)
+        {
+            still = true;
+            return;
+        }
         press?.Move(e.PointerId, e.ClientX, e.ClientY);
         var now = new Point(e.ClientX, e.ClientY);
         var others = touches.Where(t => t.Key != e.PointerId).Select(t => t.Value).ToList();
@@ -911,17 +917,31 @@
         moveMoved = false;
     }
 
+    // PERF: A pointer move that changes nothing on the screen does not render the editor: on a large circuit one render
+    // takes about a frame (#179). OnAfterRenderAsync clears it, so a render that was already queued does not keep it.
+    bool still;
+
+    protected override bool ShouldRender()
+    {
+        var render = !still;
+        still = false;
+        return render;
+    }
+
     void PartMove(PointerEventArgs e)
     {
+        still = true;
         if (moving is null) return;
         press?.Move(e.PointerId, e.ClientX, e.ClientY);
         var (px, py) = (e.ClientX - moveFrom.X, e.ClientY - moveFrom.Y);
         moveMoved |= Math.Abs(px) > Slop(e) || Math.Abs(py) > Slop(e);
         if (!moveMoved) return;
         moveDelta = new Point(px * moveScale, py * moveScale);
+        var shown = ghost;
         // NOTE: The ghost shows where the part lands. It is the offset of the snapped position, not of the pointer.
         var at = layout.Parts.FirstOrDefault(p => string.Equals(p.Reference, moving.Reference, StringComparison.OrdinalIgnoreCase) || string.Equals(p.Reference, moving.Reference + "_1", StringComparison.OrdinalIgnoreCase));
         ghost = at is null ? moveDelta : new Point(SchematicEdits.Snap(at.X + moveDelta.X) - at.X, SchematicEdits.Snap(at.Y + moveDelta.Y) - at.Y);
+        still = ghost == shown;
     }
 
     async Task PartUp(PointerEventArgs e)
@@ -1646,9 +1666,26 @@
     string? pointing;
     string? pointedKey;
 
-    string PartText(string reference) =>
-        string.Join(", ", new[] { reference + (SchematicEdits.ValueOf(netlist, reference) is { Length: > 0 } value ? " " + value : "") }
-            .Concat(NodesOf(reference).Select(NodeText)));
+    // PERF: Each part rect has its text as a title, and a drag renders on each pointer move. ValueOf reads the whole
+    // netlist, so the texts are kept until the netlist, the pins or the voltages change (#179).
+    readonly Dictionary<string, string> partTexts = [];
+    (string Netlist, List<PinView> Pins, IReadOnlyDictionary<string, double>? Voltages)? partTextsFor;
+
+    string PartText(string reference)
+    {
+        if (partTextsFor is not { } f || !ReferenceEquals(f.Netlist, netlist) || !ReferenceEquals(f.Pins, pins) || !ReferenceEquals(f.Voltages, NodeVoltages))
+        {
+            partTexts.Clear();
+            partTextsFor = (netlist, pins, NodeVoltages);
+        }
+        if (!partTexts.TryGetValue(reference, out var text))
+        {
+            text = string.Join(", ", new[] { reference + (SchematicEdits.ValueOf(netlist, reference) is { Length: > 0 } value ? " " + value : "") }
+                .Concat(NodesOf(reference).Select(NodeText)));
+            partTexts[reference] = text;
+        }
+        return text;
+    }
 
     string NodeText(string node) =>
         "node " + node + (NodeVoltages is not null && NodeVoltages.TryGetValue(node, out var volts) ? " " + Eng.Format(volts, "V") : "");
