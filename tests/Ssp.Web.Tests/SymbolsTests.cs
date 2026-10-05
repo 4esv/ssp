@@ -63,7 +63,7 @@ public class SymbolSetTests
     {
         { "resistor", 2 }, { "pot", 3 }, { "capacitor", 2 }, { "electrolytic", 2 }, { "inductor", 2 },
         { "diode", 2 }, { "led", 2 }, { "npn", 4 }, { "pnp", 4 }, { "njf", 3 }, { "pjf", 3 },
-        { "opamp", 3 }, { "opamp5", 5 }, { "vsource", 2 }, { "isource", 2 }, { "ground", 1 }, { "rail", 1 },
+        { "opamp", 3 }, { "opamp5", 5 }, { "battery", 2 }, { "source", 2 }, { "jack-in", 1 }, { "jack-out", 1 }, { "isource", 2 }, { "ground", 1 }, { "rail", 1 },
     };
 
     public static TheoryData<string, int, bool> Orientations()

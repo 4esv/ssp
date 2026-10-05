@@ -15,7 +15,7 @@ public sealed class PartsList
 {
     const string SearchUrl = "https://www.mouser.com/c/?q=";
 
-    static readonly HashSet<string?> NotParts = ["vsource", "isource", "rail"];
+    static readonly HashSet<string?> NotParts = ["source", "battery", "isource", "rail"];
 
     PartsList(string title, IReadOnlyList<PartsListRow> rows)
     {
