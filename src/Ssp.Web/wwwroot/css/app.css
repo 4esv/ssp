@@ -817,6 +817,16 @@ h1[tabindex="-1"]:focus-visible {
     touch-action: none;
 }
 
+.schematic-pins .select-box {
+    stroke: currentColor;
+    stroke-width: 1;
+    stroke-dasharray: 4 3;
+    vector-effect: non-scaling-stroke;
+    fill: currentColor;
+    fill-opacity: 0.06;
+    pointer-events: none;
+}
+
 .schematic-pins .part.ghost {
     stroke: currentColor;
     stroke-width: 1;

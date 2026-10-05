@@ -27,6 +27,14 @@
             <button type="button" class="tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)">Wire</button>
             <button type="button" class="tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)">Ground</button>
         </div>
+        <div class="tool-group" role="group" aria-label="Selection">
+            <button type="button" class="tool" data-tool="select" aria-pressed="@(boxTool ? "true" : "false")" title="Drag a box to select parts. A tap on a part adds it or takes it out." @onclick="ToggleBox">Select</button>
+            @* NOTE: Copy, Cut and Delete of a group are its actions on the canvas. Paste shows once there is a copy. *@
+            @if (clip is not null)
+            {
+                <button type="button" class="tool" data-action="paste" disabled="@hasErrors" title="Paste (Ctrl+V or Cmd+V)" @onclick="PasteClip">Paste</button>
+            }
+        </div>
         <div class="tool-group" role="group" aria-label="Circuit">
             <button type="button" class="tool" data-action="new" title="Start an empty circuit. Undo brings the old one back." @onclick="NewCircuit">New</button>
         </div>
@@ -83,7 +91,7 @@
         }
     </div>
     <figure class="schematic" aria-label="Schematic" tabindex="0" @ref="pane" data-view="@(view is null ? null : "")" style="@StageStyle()"
-            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null || active is not null)"
+            @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null || active is not null || group.Count > 0)"
             @onwheel="Wheel" @onwheel:preventDefault @onclick="CanvasClick">
         @if (svg is null && !hasErrors)
         {
@@ -107,21 +115,30 @@
                     <rect class="@PartClass(part.Reference)" data-ref="@part.Reference"
                           x="@N(part.Min.X)" y="@N(part.Min.Y)" width="@N(part.Max.X - part.Min.X)" height="@N(part.Max.Y - part.Min.Y)"
                           @onpointerdown="e => PartDown(part.Reference, e)" @onpointermove="PartMove" @onpointerup="PartUp" @onpointercancel="PartUp"
-                          @onclick="() => SelectPart(part.Reference)" @onclick:stopPropagation
+                          @onclick="e => ClickPart(part.Reference, e)" @onclick:stopPropagation
                           @onpointerenter="() => PointAt(part.Reference, null)" @onpointerleave="PointAway">
                         <title>@PartText(part.Reference)</title>
                     </rect>
                 }
-                @if (moving is { } m && ghost is { } g)
+                @if (moving is not null && ghost is { } g)
                 {
-                    <rect class="part ghost" x="@N(m.Min.X + g.X)" y="@N(m.Min.Y + g.Y)" width="@N(m.Max.X - m.Min.X)" height="@N(m.Max.Y - m.Min.Y)" />
+                    @foreach (var m in Moving())
+                    {
+                        <rect class="part ghost" x="@N(m.Min.X + g.X)" y="@N(m.Min.Y + g.Y)" width="@N(m.Max.X - m.Min.X)" height="@N(m.Max.Y - m.Min.Y)" />
+                    }
+                }
+                @if (boxing is { } client)
+                {
+                    var bx = (From: World(client.From), To: World(client.To));
+                    <rect class="select-box" x="@N(Math.Min(bx.From.X, bx.To.X))" y="@N(Math.Min(bx.From.Y, bx.To.Y))"
+                          width="@N(Math.Abs(bx.To.X - bx.From.X))" height="@N(Math.Abs(bx.To.Y - bx.From.Y))" />
                 }
                 @foreach (var pin in pins)
                 {
                     var target = connecting && pin.Ref != active?.Pin;
-                    <circle class="pin-hit" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(PinHit())" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation />
+                    <circle class="pin-hit" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin" cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@N(PinHit())" @onclick="e => Click(pin.Ref, e)" @onclick:stopPropagation />
                     <circle class="@PinClass(pin)" data-ref="@pin.Ref.Reference" data-pin="@pin.Ref.Pin"
-                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="() => Click(pin.Ref)" @onclick:stopPropagation
+                            cx="@N(pin.Position.X)" cy="@N(pin.Position.Y)" r="@PinRadius(pin, target)" @onclick="e => Click(pin.Ref, e)" @onclick:stopPropagation
                             @onpointerenter="() => PointAt(pin.Ref.Reference, pin.Node)" @onpointerleave="PointAway">
                         <title>@pin.Ref.Reference pin @(pin.Ref.Pin + 1), @NodeText(pin.Node)</title>
                     </circle>
@@ -301,6 +318,22 @@
     string? selected;
     int? selectedWire;
 
+    // The parts that a group edit takes, when two or more are selected. Then selected is null.
+    readonly HashSet<string> group = new(StringComparer.OrdinalIgnoreCase);
+
+    // What Copy or Cut kept. Paste adds it with fresh references.
+    Clip? clip;
+
+    // Whether a one-pointer drag on the empty canvas draws a selection box. Shift and a drag draw one too.
+    bool boxTool;
+
+    // The selection box in client pixels, while the pointer draws it.
+    // NOTE: It is kept in client pixels, so the moves that come before PanDown has measured the pane are not lost.
+    (Point From, Point To)? boxing;
+
+    // NOTE: A drag ends with a click on the part. That click keeps the group.
+    bool dragged;
+
     // NOTE: The state before the last delete, kept for UndoSeconds. Any other edit drops it.
     const int UndoSeconds = 8;
     const double ActionPixels = 44, ActionGap = 8, LabelPixels = 28;
@@ -458,6 +491,7 @@
         }
         opens = SchematicEdits.OpenEnds(layout, pins.Select(p => p.Position)).ToList();
         if (!outlines.Any(p => p.Reference == selected)) selected = null;
+        group.RemoveWhere(r => !outlines.Any(o => o.Reference == r));
     }
 
     public async ValueTask DisposeAsync()
@@ -554,6 +588,15 @@
     async Task PanDown(PointerEventArgs e)
     {
         if (e.Button > 0 || moving is not null) return;
+        // NOTE: The Select tool or Shift turns a one-pointer drag into a box. A second finger still pans and pinches.
+        if ((boxTool || e.ShiftKey) && touches.Count == 0)
+        {
+            var at = new Point(e.ClientX, e.ClientY);
+            (boxing, panFrom, panMoved) = ((at, at), at, false);
+            await PaneBox();
+            await Current();
+            return;
+        }
         press?.Down(e.PointerId, e.ClientX, e.ClientY);
         if (touches.Count == 0)
         {
@@ -567,6 +610,14 @@
 
     void PanMove(PointerEventArgs e)
     {
+        if (boxing is { } b)
+        {
+            var to = new Point(e.ClientX, e.ClientY);
+            var slop = Slop(e);
+            if (!panMoved && Math.Abs(e.ClientX - panFrom.X) <= slop && Math.Abs(e.ClientY - panFrom.Y) <= slop) return;
+            (boxing, panMoved) = ((b.From, to), true);
+            return;
+        }
         // NOTE: Until PanDown has made the view, the moves are lost.
         if (view is null || !touches.TryGetValue(e.PointerId, out var last) || moving is not null) return;
         press?.Move(e.PointerId, e.ClientX, e.ClientY);
@@ -591,9 +642,23 @@
 
     void PanUp(PointerEventArgs e)
     {
+        if (boxing is { } b)
+        {
+            boxing = null;
+            // NOTE: A tap with the Select tool is a tap on the canvas. It clears the selection.
+            if (!panMoved) return;
+            var (from, to) = (World(b.From), World(b.To));
+            var (min, max) = (new Point(Math.Min(from.X, to.X), Math.Min(from.Y, to.Y)), new Point(Math.Max(from.X, to.X), Math.Max(from.Y, to.Y)));
+            var inside = outlines.Where(o => o.Min.X <= max.X && o.Max.X >= min.X && o.Min.Y <= max.Y && o.Max.Y >= min.Y).Select(o => o.Reference);
+            SelectMany(e.ShiftKey ? Selection().Concat(inside) : inside);
+            return;
+        }
         press?.Up(e.PointerId);
         touches.Remove(e.PointerId);
     }
+
+    // The schematic point of a client position, from the last pane box and view.
+    Point World(Point client) => (view ?? ViewTransform.Identity).ScreenToWorld(new Point(client.X - paneBox[0], client.Y - paneBox[1]));
 
     static double Slop(PointerEventArgs e) => e.PointerType == "touch" ? LongPress.Slop : DragSlop;
 
@@ -645,6 +710,7 @@
             return;
         }
         (selected, selectedWire) = (null, null);
+        group.Clear();
         ClearActive();
     }
 
@@ -653,6 +719,7 @@
     {
         var before = new SchematicChange(netlist, layout);
         selected = null;
+        group.Clear();
         await Apply(new SchematicChange("", new LayoutDoc([], [])));
         undo = ("circuit", before);
         undoTimer = new CancellationTokenSource();
@@ -672,6 +739,7 @@
         if (panMoved || parts is null) return;
         _ = Done("pin");
         (selected, selectedWire) = (null, null);
+        group.Clear();
         ClearActive();
         active = spot;
         free = SchematicEdits.Directions(netlist, layout, parts, spot).ToList();
@@ -715,7 +783,7 @@
         PinClass(pin).EndsWith("problem", StringComparison.Ordinal) ? Math.Max(target ? 7 : 5, 10 / Zoom()) : target ? 7 : 5;
 
     string PartClass(string reference) =>
-        (reference == selected ? "part selected" : "part")
+        (reference == selected || group.Contains(reference) ? "part selected" : "part")
         + (problems.Any(p => p.Pin is null && p.Reference == reference) ? " problem" : "");
 
     // NOTE: The picker opens under its dot, or over it near the foot of the pane.
@@ -779,7 +847,9 @@
     async Task PartDown(string reference, PointerEventArgs e)
     {
         if (e.Button > 0) return;
-        SelectPart(reference);
+        // NOTE: A press on a part of the group drags the group. A press with Shift, Ctrl or Cmd waits for the click to add the part.
+        if (!group.Contains(reference) && !(e.ShiftKey || e.CtrlKey || e.MetaKey || boxTool)) SelectPart(reference);
+        dragged = false;
         press?.Down(e.PointerId, e.ClientX, e.ClientY);
         moving = outlines.Single(p => p.Reference == reference);
         moveFrom = new Point(e.ClientX, e.ClientY);
@@ -807,7 +877,11 @@
         if (moving is not { } part) return;
         var moved = moveMoved;
         (moving, ghost) = (null, null);
-        if (moved) await Apply(SchematicEdits.Drag(netlist, layout, parts!, part.Reference, moveDelta.X, moveDelta.Y));
+        dragged = moved;
+        if (!moved) return;
+        // NOTE: The whole group moves in one edit, so one Undo takes it back.
+        if (group.Contains(part.Reference)) await Apply(SchematicEdits.DragMany(netlist, layout, parts!, group.ToList(), moveDelta.X, moveDelta.Y));
+        else await Apply(SchematicEdits.Drag(netlist, layout, parts!, part.Reference, moveDelta.X, moveDelta.Y));
     }
 
     async Task Place(string kind)
@@ -827,6 +901,8 @@
         : menuOpen ? "Pick a part, Wire, Ground or Connect."
         : active is { } a ? $"{Name(a)}: tap a +, or press an arrow, then r c q d p b w. G is ground."
         : selectedWire is not null ? "Wire selected: Delete remove"
+        : group.Count > 0 ? $"{group.Count} parts selected: drag to move, Ctrl+C copy, Ctrl+X cut, Delete remove"
+        : boxTool ? "Drag a box around parts, or tap parts to select them."
         : selected is { } s ? $"{s} selected: R rotate, H/V flip, arrows move, Delete remove"
         : tool == Tool.Ground ? "Ground: click a pin"
         : tool == Tool.Wire ? "Tap a pin to see where to go."
@@ -837,13 +913,20 @@
         tool = tool == next ? null : next;
         ClearActive();
         selected = null;
+        group.Clear();
         selectedWire = null;
     }
 
-    async Task Click(PinRef pin)
+    async Task Click(PinRef pin, MouseEventArgs e)
     {
         if (panMoved) return;
         await Focus();
+        // NOTE: A pin covers much of a small part on a phone. With the Select tool, or Shift, Ctrl or Cmd, a tap on a pin takes its part.
+        if (boxTool || e.ShiftKey || e.CtrlKey || e.MetaKey)
+        {
+            Toggle(pin.Reference);
+            return;
+        }
         if (tool == Tool.Ground)
         {
             await Apply(SchematicEdits.Ground(netlist, layout, parts!, pin));
@@ -878,9 +961,24 @@
                 await FitView();
                 return;
         }
+        if ((e.CtrlKey || e.MetaKey) && !e.AltKey && !e.ShiftKey && e.Key.ToLowerInvariant() is "a" or "c" or "x" or "v")
+        {
+            switch (e.Key.ToLowerInvariant())
+            {
+                case "a": SelectMany(outlines.Select(o => o.Reference)); break;
+                case "c": CopySelection(); break;
+                case "x": await CutSelection(); break;
+                default: await PasteClip(); break;
+            }
+            return;
+        }
         if (active is not null && await ActiveKey(e)) return;
-        if (e.Key == "Escape") selectedWire = null;
-        if (e.Key is "Delete" or "Backspace" or "x" or "X" && (selected is not null || selectedWire is not null))
+        if (e.Key == "Escape")
+        {
+            selectedWire = null;
+            group.Clear();
+        }
+        if (e.Key is "Delete" or "Backspace" or "x" or "X" && (selected is not null || selectedWire is not null || group.Count > 0))
         {
             await DeleteSelected();
             return;
@@ -965,13 +1063,106 @@
     {
         _ = Done("select");
         ClearActive();
+        group.Clear();
         (selected, selectedWire) = (reference, null);
     }
+
+    // NOTE: Shift, Ctrl or Cmd, or the Select tool, adds the part to the selection or takes it out.
+    void ClickPart(string reference, MouseEventArgs e)
+    {
+        if (dragged)
+        {
+            dragged = false;
+            return;
+        }
+        if (!(e.ShiftKey || e.CtrlKey || e.MetaKey || boxTool))
+        {
+            SelectPart(reference);
+            return;
+        }
+        Toggle(reference);
+    }
+
+    // Adds a part to the selection, or takes it out.
+    void Toggle(string reference)
+    {
+        var now = Selection().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!now.Remove(reference)) now.Add(reference);
+        SelectMany(now);
+    }
+
+    // The selected parts: the group, or the one selected part.
+    IReadOnlyCollection<string> Selection() => group.Count > 0 ? group : selected is { } s ? [s] : [];
+
+    // Selects some parts. Two or more make a group. One is the selected part.
+    void SelectMany(IEnumerable<string> references)
+    {
+        ClearActive();
+        var all = references.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        group.Clear();
+        (selected, selectedWire) = (null, null);
+        if (all.Count == 1) selected = all[0];
+        else group.UnionWith(all);
+    }
+
+    void ToggleBox()
+    {
+        boxTool = !boxTool;
+        ClearActive();
+    }
+
+    // The outlines that a drag moves: the group, or the one part.
+    IEnumerable<PartView> Moving() =>
+        moving is not { } m ? [] : group.Contains(m.Reference) ? outlines.Where(o => group.Contains(o.Reference)) : [m];
+
+    void CopySelection()
+    {
+        if (parts is null || Selection() is not { Count: > 0 } chosen)
+        {
+            status = "Select a part first, then copy.";
+            return;
+        }
+        clip = SchematicEdits.Copy(netlist, layout, parts, chosen);
+        status = $"Copied {Count(clip.Parts.Count)}.";
+    }
+
+    async Task CutSelection()
+    {
+        if (parts is null || Selection() is not { Count: > 0 } chosen)
+        {
+            status = "Select a part first, then cut.";
+            return;
+        }
+        var (change, cut) = SchematicEdits.Cut(netlist, layout, parts, chosen.ToList());
+        clip = cut;
+        SelectMany([]);
+        await Apply(change);
+        status = $"Cut {Count(cut.Parts.Count)}.";
+    }
+
+    // NOTE: The paste is the new selection, so a drag moves it where it goes.
+    async Task PasteClip()
+    {
+        if (clip is null || hasErrors)
+        {
+            status = "Copy a part first, then paste.";
+            return;
+        }
+        var (change, fresh) = SchematicEdits.Paste(netlist, layout, clip);
+        await Apply(change);
+        SelectMany(outlines.Where(o => fresh.Contains(o.Reference, StringComparer.OrdinalIgnoreCase) || fresh.Any(f => string.Equals(o.Reference, f + "_1", StringComparison.OrdinalIgnoreCase))).Select(o => o.Reference));
+        status = $"Pasted {string.Join(", ", fresh)}.";
+        var shown = outlines.Where(o => fresh.Contains(o.Reference, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (shown.Count > 0) await Reveal(new Point(shown.Min(o => o.Min.X), shown.Min(o => o.Min.Y)), new Point(shown.Max(o => o.Max.X), shown.Max(o => o.Max.Y)));
+    }
+
+    static string Count(int parts) => parts == 1 ? "1 part" : $"{parts} parts";
 
     void SelectWire(int index)
     {
         if (panMoved) return;
         ClearActive();
+        group.Clear();
         (selected, selectedWire) = (null, index);
     }
 
@@ -994,9 +1185,14 @@
         {
             (name, change) = (part, SchematicEdits.Delete(netlist, layout, part));
         }
+        else if (group.Count > 0 && parts is not null)
+        {
+            (name, change) = (Count(group.Count), SchematicEdits.Cut(netlist, layout, parts, group.ToList()).Change);
+        }
         else return;
 
         selected = null;
+        group.Clear();
         await Apply(change);
         undo = (name, before);
         undoTimer = new CancellationTokenSource();
@@ -1044,6 +1240,8 @@
         "delete" => "\u2715",
         "rotate" => "\u21BB",
         "flip" => "\u21C6",
+        "copy" => "\u2398",
+        "cut" => "\u2702",
         _ => "\u29C9",
     };
 
@@ -1113,12 +1311,14 @@
             case "rotate": await RotateSelected(); break;
             case "flip": await FlipSelected(); break;
             case "duplicate": await DuplicateSelected(); break;
+            case "copy": CopySelection(); break;
+            case "cut": await CutSelection(); break;
         }
     }
 
     // NOTE: With a view, the four buttons make one row above the part, beyond its labels and the hit circles of its pins.
     // Where the row does not fit above, it goes below. Each centre is clamped so the whole 44 px button stays in the pane.
-    // A wire gets one Delete at its middle.
+    // A wire gets one Delete at its middle. A group gets Delete, Copy and Cut over the box of its parts.
     List<(string Action, string Label, string Style)>? ActionSpots()
     {
         Point min, max;
@@ -1133,6 +1333,10 @@
         else if (selected is { } part && outlines.FirstOrDefault(o => o.Reference == part) is { } outline)
         {
             (min, max) = (outline.Min, outline.Max);
+        }
+        else if (group.Count > 0 && outlines.Where(o => group.Contains(o.Reference)).ToList() is { Count: > 0 } chosen)
+        {
+            (min, max) = (new Point(chosen.Min(o => o.Min.X), chosen.Min(o => o.Min.Y)), new Point(chosen.Max(o => o.Max.X), chosen.Max(o => o.Max.Y)));
         }
         else return null;
 
@@ -1149,7 +1353,9 @@
         Point a = default, b = default;
         if (sized) (a, b) = (view!.WorldToScreen(min), view!.WorldToScreen(max));
         var mx = (a.X + b.X) / 2;
-        var names = wire ? new[] { ("delete", "Delete") } : [("delete", "Delete"), ("rotate", "Rotate"), ("flip", "Flip"), ("duplicate", "Duplicate")];
+        var names = wire ? new[] { ("delete", "Delete") }
+            : group.Count > 0 ? [("delete", "Delete"), ("copy", "Copy"), ("cut", "Cut")]
+            : [("delete", "Delete"), ("rotate", "Rotate"), ("flip", "Flip"), ("duplicate", "Duplicate")];
         if (wire) return [("delete", "Delete", Place(mx, (a.Y + b.Y) / 2))];
 
         // The row clears the hit circle of a pin, the labels above the outline, and a gap.
