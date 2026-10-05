@@ -24,6 +24,21 @@ public sealed record ViewTransform(double Zoom, double X, double Y)
         return new ViewTransform(zoom, screen.X - world.X * zoom, screen.Y - world.Y * zoom);
     }
 
+    /// <summary>
+    /// One finger of a pinch moves from <paramref name="before"/> to <paramref name="after"/> while the other stays at <paramref name="other"/>.
+    /// The zoom scales by the ratio of the finger distances, within the limits, and the world point between the fingers stays between them.
+    /// </summary>
+    public ViewTransform Pinch(Point before, Point after, Point other)
+    {
+        var world = ScreenToWorld(Mid(before, other));
+        var zoom = Math.Clamp(Zoom * Distance(after, other) / Math.Max(Distance(before, other), 1), MinZoom, MaxZoom);
+        var mid = Mid(after, other);
+        return new ViewTransform(zoom, mid.X - world.X * zoom, mid.Y - world.Y * zoom);
+
+        static Point Mid(Point a, Point b) => new((a.X + b.X) / 2, (a.Y + b.Y) / 2);
+        static double Distance(Point a, Point b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
+    }
+
     /// <summary>Pans by the least that brings a world box inside the pane, with a margin. A box larger than the pane keeps its top left in. The zoom never changes.</summary>
     public ViewTransform Reveal(Point min, Point max, double paneWidth, double paneHeight, double margin)
     {
