@@ -1,0 +1,11 @@
+* ssp:title N and P channel JFET bias
+* Node dn: N-channel JFET, gate 0 V, source 0 V, so Id = Beta (Vto)^2 (1 + Lambda Vds) is about 5 mA and v(dn) = 9 V - 1k * Id is a little under 4 V (triode edge not reached).
+* Node dp: P-channel mirror, source on 9 V, gate on 9 V, so v(dp) is about 5 V.
+.model JN NJF(Beta=1.25m Vto=-2 Lambda=2m)
+.model JP PJF(Beta=1.25m Vto=-2 Lambda=2m)
+V1 vdd 0 DC 9 AC 1
+R1 vdd dn 1k
+J1 dn 0 0 JN
+J2 dp vdd vdd JP
+R2 dp 0 1k
+.END

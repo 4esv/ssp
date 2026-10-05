@@ -18,9 +18,12 @@ public class SchematicPlaceKindsTests
         { "npn", 4 }, { "pnp", 4 }, { "diode", 2 }, { "led", 2 }, { "pot", 3 },
         { "battery", 2 }, { "source", 2 },
         { "electrolytic", 2 }, { "inductor", 2 }, { "zener", 2 }, { "schottky", 2 },
+        { "njf", 3 }, { "pjf", 3 },
     };
 
     public static TheoryData<string> GroupOne => new() { "electrolytic", "inductor", "zener", "schottky" };
+
+    public static TheoryData<string> GroupTwo => new() { "njf", "pjf" };
 
     [Theory]
     [MemberData(nameof(NewKinds))]
@@ -44,6 +47,8 @@ public class SchematicPlaceKindsTests
     [InlineData("led", ".model LED_RED")]
     [InlineData("zener", ".model DZ_5V1")]
     [InlineData("schottky", ".model DSCHOTTKY")]
+    [InlineData("njf", ".model JN")]
+    [InlineData("pjf", ".model JP")]
     public void Place_adds_the_model_once(string kind, string model)
     {
         var once = SchematicEdits.Place(Empty, NoLayout, kind);
@@ -55,6 +60,7 @@ public class SchematicPlaceKindsTests
 
     [Theory]
     [MemberData(nameof(GroupOne))]
+    [MemberData(nameof(GroupTwo))]
     public void A_new_kind_has_its_own_symbol_and_the_renderer_draws_it(string kind)
     {
         Assert.Equal(kind, Symbols.For(kind).Kind);
@@ -68,17 +74,18 @@ public class SchematicPlaceKindsTests
 
     [Theory]
     [MemberData(nameof(GroupOne))]
+    [MemberData(nameof(GroupTwo))]
     public void A_new_kind_wired_to_a_battery_runs_without_errors(string kind)
     {
         var change = SchematicEdits.Place(Empty, NoLayout, kind);
         change = SchematicEdits.Place(change.Netlist, change.Layout, "battery");
         change = SchematicEdits.Place(change.Netlist, change.Layout, "resistor");
         var parts = Parts(change.Netlist);
-        var reference = kind switch { "electrolytic" => "C1", "inductor" => "L1", _ => "D1" };
+        var reference = kind switch { "electrolytic" => "C1", "inductor" => "L1", "njf" or "pjf" => "J1", _ => "D1" };
         // NOTE: A resistor sits between the battery and the part, because an inductor straight across a battery is a loop of voltage sources.
         change = Wire(change, parts, "R1", 0, "V1", 0);
         change = Wire(change, parts, reference, 0, "R1", 1);
-        change = SchematicEdits.Ground(change.Netlist, change.Layout, parts, new PinRef(reference, 1));
+        change = SchematicEdits.Ground(change.Netlist, change.Layout, parts, new PinRef(reference, kind is "njf" or "pjf" ? 2 : 1));
         change = SchematicEdits.PlaceJack(change.Netlist, change.Layout, parts, "jack-out", new Spot(default, new PinRef(reference, 0)));
 
         var result = Runner.Run(change.Netlist, new RunOptions());
@@ -96,6 +103,17 @@ public class SchematicPlaceKindsTests
         Assert.InRange(v["z"], 5.0, 5.2);
         Assert.InRange(v["s"], 0.25, 0.31);
         Assert.InRange(v["out"], 8.9, 9.0);
+    }
+
+    [Fact]
+    public void The_group_two_fixture_solves_to_its_hand_values()
+    {
+        var text = File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", "parts-group2.cir"));
+        var result = Runner.Run(text, new RunOptions());
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == Severity.Error);
+        var v = result.OperatingPoint!.NodeVoltages;
+        Assert.InRange(v["dn"], 3.8, 4.1);
+        Assert.InRange(v["dp"], 4.9, 5.2);
     }
 
     [Fact]

@@ -1,0 +1,7 @@
+* provenance: generic small-signal N and P channel JFETs, typical values only, no single datasheet; values are UNVERIFIED against a manufacturer sheet
+* fit: N: Idss about 5 mA (Beta 1.25m, Vto -2 V), Lambda 2m; P: the same magnitudes (SpiceSharp takes Vto negative for both channel types); measured in SpiceSharp, not read from a sheet
+* author: 4esv
+* license: MIT
+
+.model JN NJF(Beta=1.25m Vto=-2 Lambda=2m)
+.model JP PJF(Beta=1.25m Vto=-2 Lambda=2m)
