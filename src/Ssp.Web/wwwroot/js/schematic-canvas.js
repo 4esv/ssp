@@ -1,7 +1,7 @@
 // Pointer helpers for the schematic editor. index.html loads this module at start. Blazor has no pointer capture, so it keeps the pointer events on the part or palette entry that
 // started a drag, also when the pointer leaves it.
 document.addEventListener("pointerdown", e => {
-    const target = e.target.closest?.(".palette-item, .schematic-pins .part") ?? (e.target.matches?.("svg.schematic-pins") ? e.target : null);
+    const target = e.target.closest?.(".palette-item, .schematic-pins .part, .schematic-pins .knob") ?? (e.target.matches?.("svg.schematic-pins") ? e.target : null);
     if (target) target.setPointerCapture(e.pointerId);
 });
 
