@@ -54,6 +54,63 @@ public class SchematicExportTests : BunitContext
         Assert.Empty(export.FindAll("button.svg-download"));
     }
 
+    [Fact]
+    public void PdfDownloadIsAPdfWithATitleBlock()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var save = JSInterop.SetupVoid("save", _ => true);
+        var export = Render<SchematicExport>(p => p.Add(c => c.Netlist, Fixture("divider-basic.cir")));
+
+        export.Find("button.pdf-download").Click();
+
+        var call = Assert.Single(save.Invocations);
+        Assert.Equal("schematic.pdf", call.Arguments[0]);
+        var href = (string)call.Arguments[1]!;
+        Assert.StartsWith("data:application/pdf;base64,", href);
+        var pdf = Encoding.Latin1.GetString(Convert.FromBase64String(href["data:application/pdf;base64,".Length..]));
+        Assert.StartsWith("%PDF-", pdf);
+        Assert.Contains("(Resistor divider) Tj", pdf);
+    }
+
+    [Fact]
+    public void CsvDownloadIsThePartsList()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var save = JSInterop.SetupVoid("save", _ => true);
+        var export = Render<SchematicExport>(p => p.Add(c => c.Netlist, Fixture("divider-basic.cir")));
+
+        export.Find("button.parts-csv").Click();
+
+        var call = Assert.Single(save.Invocations);
+        Assert.Equal("parts.csv", call.Arguments[0]);
+        var href = (string)call.Arguments[1]!;
+        Assert.StartsWith("data:text/csv;base64,", href);
+        var csv = Encoding.UTF8.GetString(Convert.FromBase64String(href["data:text/csv;base64,".Length..]));
+        Assert.StartsWith("qty,refs,kind,value,footprint,buy link\n", csv);
+        Assert.Contains("R1", csv);
+    }
+
+    [Fact]
+    public void PartsShowOnScreenWithALinkOnEachRow()
+    {
+        var export = Render<SchematicExport>(p => p.Add(c => c.Netlist, Fixture("divider-basic.cir")));
+        Assert.Empty(export.FindAll("table.parts-list"));
+
+        export.Find("button.parts-toggle").Click();
+
+        var rows = export.FindAll("table.parts-list tbody tr");
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, r => Assert.StartsWith("https://", r.QuerySelector("a")!.GetAttribute("href")));
+    }
+
+    [Fact]
+    public void NoSchematicGivesNoPartsOrPdf()
+    {
+        var export = Render<SchematicExport>(p => p.Add(c => c.Netlist, "R1 a\n.END\n"));
+
+        Assert.Empty(export.FindAll("button.pdf-download, button.parts-csv, button.parts-toggle"));
+    }
+
     [PlaywrightFact]
     public async Task DownloadedSvgOpensInBrowser()
     {
