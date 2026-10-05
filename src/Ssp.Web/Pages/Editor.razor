@@ -41,7 +41,7 @@
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">
-        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point">
+        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" View="@project?.View" ViewChanged="ViewChanged" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point">
             <Actions>
                 <div class="toolbar" role="toolbar" aria-label="Editor actions">
                     <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
@@ -173,7 +173,7 @@
     </DockPanel>
 
     <DockPanel Id="clip" Title="Clip">
-        <ClipPlayer @ref="clipPlayer" Netlist="@netlist" />
+        <ClipPlayer @ref="clipPlayer" Netlist="@netlist" Cache="renders" />
     </DockPanel>
 
     <DockPanel Id="monitor" Title="Monitor">
@@ -181,7 +181,7 @@
     </DockPanel>
 
     <DockPanel Id="amp" Title="Virtual amp">
-        <VirtualAmp Pedal="@netlist" />
+        <VirtualAmp Pedal="@netlist" Cache="renders" />
     </DockPanel>
 </DockLayout>
 
@@ -212,6 +212,8 @@
     readonly CommandStack history = new();
     bool running;
     ClipPlayer? clipPlayer;
+    // NOTE: The renders of the Clip tab and the Virtual amp live here, so a tab switch or a hidden panel keeps them.
+    readonly RenderCache renders = new();
     SchematicExport? export;
     ElementReference root;
     IJSObjectReference? keys;
@@ -522,10 +524,18 @@
     ProjectStore store = default!;
     Project project = default!;
     // The name, the netlist and the layout text of the last save, or null before the first save.
-    (string Name, string Netlist, string? Layout)? lastSaved;
+    (string Name, string Netlist, string? Layout, string? View)? lastSaved;
     ITimer? saveTimer;
     bool fromLink;
     string saveState = "";
+
+    // NOTE: A zoom or pan is saved with the project, after the same wait as an edit. A project that was never saved has no view to keep yet.
+    void ViewChanged(string view)
+    {
+        if (project.View == view) return;
+        project = project with { View = view };
+        if (lastSaved is not null) ScheduleSave();
+    }
 
     void ScheduleSave()
     {
@@ -542,7 +552,7 @@
     {
         saveTimer?.Dispose();
         saveTimer = null;
-        (string Name, string Netlist, string? Layout) state = (project.Name, netlist, schematicLayout is null ? null : LayoutDoc.Format(schematicLayout));
+        (string Name, string Netlist, string? Layout, string? View) state = (project.Name, netlist, schematicLayout is null ? null : LayoutDoc.Format(schematicLayout), project.View);
         if (lastSaved == state)
         {
             return;
@@ -588,7 +598,7 @@
         shareError = null;
         stale = false;
         liveFailure = null;
-        lastSaved = next.Saved == default ? null : (next.Name, next.Netlist, next.Layout);
+        lastSaved = next.Saved == default ? null : (next.Name, next.Netlist, next.Layout, next.View);
     }
 
     // NOTE: A layout that does not read is left out. The schematic then places the parts again.

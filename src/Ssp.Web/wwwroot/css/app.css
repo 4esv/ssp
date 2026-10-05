@@ -144,8 +144,9 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .schematic-editor .schematic[data-view] > svg { visibility: visible; width: var(--w); height: var(--h); transform: translate(var(--x), var(--y)) scale(var(--z)); }
 /* NOTE: The zoom control is in the bottom right corner. Fit keeps the circuit above it. Floating boxes have a background and a border so they read over the circuit. */
 .schematic-zoom { position: absolute; z-index: 1; bottom: 0.25rem; right: 0.25rem; display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; background: var(--bg); border: 1px solid; }
+.schematic-zoom .zoom-menu { position: absolute; bottom: 100%; right: 0; display: flex; flex-direction: column; margin-bottom: 0.25rem; padding: 0.25rem; background: var(--bg); border: 1px solid; white-space: nowrap; }
 .schematic-zoom button { min-width: 2rem; min-height: 2rem; padding: 0 0.25rem; }
-.schematic-zoom .zoom-level { min-width: 3.25rem; text-align: center; font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.schematic-zoom .zoom-level { width: 3.5rem; box-sizing: border-box; text-align: center; font-size: 0.85em; font-variant-numeric: tabular-nums; }
 .pin-menu { position: absolute; left: 0.5rem; right: 0.5rem; top: 3.5rem; z-index: 2; display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.25rem; background: var(--bg); border: 1px solid; }
 .pin-menu button { min-height: 2.75rem; min-width: 2.75rem; }
 /* NOTE: In the dock the schematic fills its panel, so the bar and the menu at the bottom of the canvas are in view. */

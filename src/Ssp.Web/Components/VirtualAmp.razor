@@ -34,7 +34,7 @@
     <p class="amp-error" role="alert">@(error is null ? null : "The chain cannot be built. " + error)</p>
     <textarea class="amp-netlist" aria-label="Chain netlist" readonly rows="6">@netlist</textarea>
 
-    <ClipPlayer @ref="player" Netlist="@netlist" />
+    <ClipPlayer @ref="player" Netlist="@netlist" Cache="Cache" />
 </section>
 
 @code {
@@ -63,6 +63,9 @@
 
     /// <summary>The netlist of the editor. With a Jack in and a Jack out it can be the first stage of the chain.</summary>
     [Parameter] public string? Pedal { get; set; }
+
+    /// <summary>The renders to reuse. The editor gives the one that its Clip tab uses.</summary>
+    [Parameter] public RenderCache? Cache { get; set; }
 
     bool pedalOn = true;
     bool pedalUsable;

@@ -33,8 +33,8 @@ public sealed class LocalStorage(IJSRuntime js) : IKeyValueStore
     }
 }
 
-/// <summary>A saved circuit: the netlist and the text of its layout file (see docs/file-format.md).</summary>
-public sealed record Project(string Id, string Name, string Netlist, string? Layout, DateTimeOffset Saved);
+/// <summary>A saved circuit: the netlist, the text of its layout file (see docs/file-format.md) and the zoom and pan of the schematic, as text.</summary>
+public sealed record Project(string Id, string Name, string Netlist, string? Layout, DateTimeOffset Saved, string? View = null);
 
 /// <summary>
 /// The projects in browser storage. Each project is one entry. An index holds the ids, and one more key holds the id
@@ -48,7 +48,7 @@ public sealed class ProjectStore(IKeyValueStore storage, TimeProvider time)
 
     public static string EntryKey(string id) => "ssp.project." + id;
 
-    sealed record Entry(string Name, string Netlist, string? Layout, DateTimeOffset Saved);
+    sealed record Entry(string Name, string Netlist, string? Layout, DateTimeOffset Saved, string? View = null);
 
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -73,7 +73,7 @@ public sealed class ProjectStore(IKeyValueStore storage, TimeProvider time)
         try
         {
             var entry = JsonSerializer.Deserialize<Entry>(await storage.Get(EntryKey(id)) ?? "null", Json);
-            return entry is { Name: not null, Netlist: not null } ? new Project(id, entry.Name, entry.Netlist, entry.Layout, entry.Saved) : null;
+            return entry is { Name: not null, Netlist: not null } ? new Project(id, entry.Name, entry.Netlist, entry.Layout, entry.Saved, entry.View) : null;
         }
         catch (JsonException)
         {
@@ -122,7 +122,7 @@ public sealed class ProjectStore(IKeyValueStore storage, TimeProvider time)
 
     async Task Write(Project project)
     {
-        await storage.Set(EntryKey(project.Id), JsonSerializer.Serialize(new Entry(project.Name, project.Netlist, project.Layout, project.Saved), Json));
+        await storage.Set(EntryKey(project.Id), JsonSerializer.Serialize(new Entry(project.Name, project.Netlist, project.Layout, project.Saved, project.View), Json));
         var ids = await Ids();
         if (!ids.Contains(project.Id))
         {

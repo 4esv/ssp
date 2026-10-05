@@ -54,6 +54,36 @@ public class SchematicDeleteTests : BunitContext
         Assert.Equal(layout.Parts.Count - 1, after.Layout.Parts.Count);
     }
 
+    // NOTE: The monkey edits the netlist text, so the selection and the layout can name a part that the netlist no longer has (#278).
+    [Fact]
+    public void Deleting_a_part_that_the_netlist_no_longer_has_drops_its_placement_and_keeps_the_netlist()
+    {
+        var (_, layout) = Start(Chain);
+        var without = "* chain\nV1 in 0 1\nR1 in a 1k\nR2 a 0 1k\n.END\n";
+
+        var after = SchematicEdits.Delete(without, layout, "R3");
+
+        Assert.Equal(without, after.Netlist);
+        Assert.DoesNotContain(after.Layout.Parts, p => p.Reference == "R3");
+        Assert.Equal(layout.Parts.Count - 1, after.Layout.Parts.Count);
+    }
+
+    // NOTE: The monkey seed 11 (#278): a selected part whose line the loader does not read, or the netlist no longer has, is not duplicated and does not crash.
+    [Fact]
+    public void Duplicating_a_part_that_the_circuit_does_not_have_changes_nothing()
+    {
+        var (_, layout) = Start(Chain);
+        var without = "* chain\nV1 in 0 1\nR1 in a 1k\nR2 a 0 1k\n.END\n";
+        var unread = "* chain\nV1 in 0 1\nR1 in a 1k\nR3 a 0\n.END\n";
+
+        var gone = SchematicEdits.Duplicate(without, layout, "R3");
+        var broken = SchematicEdits.Duplicate(unread, layout, "R3");
+
+        Assert.Equal(without, gone.Netlist);
+        Assert.Equal(layout, gone.Layout);
+        Assert.Equal(layout, broken.Layout);
+    }
+
     IRenderedComponent<SchematicEditor> Editor(List<SchematicChange> seen)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;

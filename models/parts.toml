@@ -81,3 +81,21 @@ symbol = "vactrol"
 footprint = "none"
 buy_url = "https://www.mouser.com/c/?q={id}"
 provenance = "Generic vactrol, LED plus lagged LDR, models/vactrol.cir"
+
+[[part]]
+id = "ZENER-5V1"
+kind = "zener"
+model = "DZ_5V1"
+symbol = "zener"
+footprint = "DO-35"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/diodes.lib, generic 5.1 V Zener, typical values"
+
+[[part]]
+id = "SCHOTTKY"
+kind = "schottky"
+model = "DSCHOTTKY"
+symbol = "schottky"
+footprint = "DO-35"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/diodes.lib, generic Schottky small-signal diode, typical values"

@@ -38,7 +38,11 @@ public static partial class SchematicEdits
         ["capacitor"] = ("C", "100n"),
         ["npn"] = ("Q", "QNPN"),
         ["pnp"] = ("Q", "QPNP"),
+        ["electrolytic"] = ("C", "10u"),
+        ["inductor"] = ("L", "10m"),
         ["diode"] = ("D", "DGEN"),
+        ["zener"] = ("D", "DZ_5V1"),
+        ["schottky"] = ("D", "DSCHOTTKY"),
         ["led"] = ("D", "LED_RED"),
         ["pot"] = ("RV", "10k"),
         ["switch-1"] = ("RSW", ""),
@@ -57,6 +61,8 @@ public static partial class SchematicEdits
         ["QPNP"] = ".model QPNP PNP (IS=1e-14 BF=100)",
         ["DGEN"] = ".model DGEN D (IS=1e-14 N=1.9)",
         ["LED_RED"] = ".model LED_RED D(Is=4.2555e-19 N=2)",
+        ["DZ_5V1"] = ".model DZ_5V1 D(Is=1e-14 N=1.9 BV=4.5 IBV=5m)",
+        ["DSCHOTTKY"] = ".model DSCHOTTKY D(Is=3e-7 N=1.05)",
     };
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
@@ -86,13 +92,13 @@ public static partial class SchematicEdits
         }
 
         var added = new List<string>();
-        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" ? value : null;
+        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" or "zener" or "schottky" ? value : null;
         switch (kind)
         {
             case "npn" or "pnp":
                 added.Add($"{reference} {Node()} {Node()} {Node()} {Zero} {value}");
                 break;
-            case "diode" or "led":
+            case "diode" or "led" or "zener" or "schottky":
                 added.Add($"{reference} {Node()} {Node()} {value}");
                 break;
             case "pot":
@@ -128,7 +134,9 @@ public static partial class SchematicEdits
         lines.InsertRange(end < 0 ? lines.Count : end, added);
 
         var x = layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep;
-        var parts = layout.Parts.Append(new PartPlacement(kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference, x, Row, 0, false)).ToList();
+        // NOTE: A text edit can remove a part and leave its placement. The new part takes the freed reference, so the stale placement goes.
+        var placed = kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference;
+        var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, placed)).Append(new PartPlacement(kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference, x, Row, 0, false)).ToList();
         return new SchematicChange(Join(lines), new LayoutDoc(parts, layout.Wires));
     }
 
@@ -1150,14 +1158,15 @@ public static partial class SchematicEdits
     public static SchematicChange Delete(string netlist, LayoutDoc layout, string reference)
     {
         var lines = Lines(netlist);
-        var members = Members(lines, reference);
+        // NOTE: A reference that the netlist no longer has (the text was edited) has no lines to remove. Its placement still goes.
+        var members = Found(lines, reference);
         foreach (var member in members)
         {
             var (at, count) = Element(lines, member);
             lines.RemoveRange(at, count);
         }
         lines.RemoveAll(l => KnobOf(l) is { } k && Names.Equals(k, reference));
-        var result = Join(lines);
+        var result = members.Count > 0 ? Join(lines) : netlist;
 
         var nets = new HashSet<string>(NetlistLoader.Load(result).NodeNames, StringComparer.Ordinal);
         var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, reference) && !members.Contains(p.Reference, Names)).ToList();
@@ -1287,7 +1296,9 @@ public static partial class SchematicEdits
     {
         var circuit = NetlistLoader.Load(netlist);
         var lines = Lines(netlist);
-        var members = Members(lines, reference);
+        var members = Found(lines, reference);
+        // NOTE: A part that the netlist has no line for, or that the loader did not read, has nothing to copy (the text was edited, #278).
+        if (members.Count == 0 || members.Any(m => !circuit.Circuit.OfType<IComponent>().Any(c => Names.Equals(c.Name, m)))) return new SchematicChange(netlist, layout);
         var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).SelectMany(n => new[] { n, Pair().Replace(n, "") }).ToHashSet(Names);
         var copy = Fresh(Prefix().Match(reference).Value, references);
         var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
@@ -1337,9 +1348,15 @@ public static partial class SchematicEdits
     // The element lines of a part: the part itself, or the lines P_1 to P_3 of a pot or a switch P.
     static List<string> Members(List<string> lines, string reference)
     {
-        if (Has(lines, reference)) return [reference];
-        var members = Enumerable.Range(1, 3).Select(i => $"{reference}_{i}").Where(m => Has(lines, m)).ToList();
+        var members = Found(lines, reference);
         return members.Count > 0 ? members : throw new KeyNotFoundException($"The netlist has no element '{reference}'.");
+    }
+
+    // The same as Members, but empty for a reference that the netlist does not have.
+    static List<string> Found(List<string> lines, string reference)
+    {
+        if (Has(lines, reference)) return [reference];
+        return Enumerable.Range(1, 3).Select(i => $"{reference}_{i}").Where(m => Has(lines, m)).ToList();
     }
 
     static bool Has(List<string> lines, string reference)

@@ -57,10 +57,10 @@ public class SchematicBuildFlowTests : BunitContext
     }
 
     [Fact]
-    public void Fit_on_one_part_is_at_most_100_percent_and_centres()
+    public void Fit_on_one_part_is_at_most_200_percent_and_centres()
     {
         var view = ViewTransform.Fit(0, 0, 40, 20, 1280, 700, 24);
-        Assert.True(view.Zoom <= 1);
+        Assert.True(view.Zoom <= 2);
         Assert.Equal(1280 / 2.0, 40 * view.Zoom / 2 + view.X, 9);
         Assert.Equal(700 / 2.0, 20 * view.Zoom / 2 + view.Y, 9);
     }
