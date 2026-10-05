@@ -87,10 +87,38 @@ public static class Symbols
         Make("transformer", "0 -10 80 80", "M0 0H20M0 60H20M60 0H80M60 60H80M20 0V60M60 0V60M38 0V60M42 0V60",
             [new("p1", 0, 0), new("p2", 0, 60), new("s1", 80, 0), new("s2", 80, 60)]),
 
+        // A switch: the common at left, the throws at right, throw 1 at the top. The lever is drawn by Lever at the position.
+        Make("switch-1", "0 -18 60 22", "M0 0H15M45 0H60" + Contacts(1), [new("1", 0, 0), new("2", 60, 0)]),
+        Make("switch-2", "0 -24 60 48", "M0 0H15M45 -20H60M45 20H60" + Contacts(2), [new("C", 0, 0), new("1", 60, -20), new("2", 60, 20)]),
+        Make("switch-3", "0 -24 60 48", "M0 0H15M45 -20H60M45 0H60M45 20H60" + Contacts(3),
+            [new("C", 0, 0), new("1", 60, -20), new("2", 60, 0), new("3", 60, 20)]),
+
         // LED above, resistor below. LED anode a at top left, cathode k at top right. LDR pins p1 left and p2 right at the bottom.
         Make("vactrol", "0 -30 60 100", DiodeBody + "M30 -14L40 -24M38 -14L48 -24 M0 60H15L20 50L30 70L40 50L45 60H60",
             [new("a", 0, 0), new("k", 60, 0), new("p1", 0, 60), new("p2", 60, 60)]),
     }.ToDictionary(s => s.Kind, StringComparer.Ordinal);
+
+    // The contact circles of a switch: the common, then each throw.
+    static string Contacts(int throws) =>
+        string.Concat(new (int X, int Y)[] { (15, 0) }.Concat(Throws(throws)).Select(c => $"<circle cx=\"{c.X}\" cy=\"{c.Y}\" r=\"2.5\"/>"));
+
+    static (int X, int Y)[] Throws(int throws) => throws switch
+    {
+        1 => [(45, 0)],
+        2 => [(45, -20), (45, 20)],
+        _ => [(45, -20), (45, 0), (45, 20)],
+    };
+
+    /// <summary>
+    /// The path of the lever of a switch kind at a position, in symbol units. The lever goes from the common to the
+    /// closed throw. At position 0 it points up, between the throws, and touches none.
+    /// </summary>
+    public static string Lever(string kind, int position)
+    {
+        var throws = Throws(kind[^1] - '0');
+        var (x, y) = position >= 1 && position <= throws.Length ? throws[position - 1] : (42, -14);
+        return $"M15 0L{x} {y}";
+    }
 
     static SymbolPin[] Bjt => [new("C", 40, -30), new("B", 0, 0), new("E", 40, 30), new("S", 20, 30, Hidden: true)];
 

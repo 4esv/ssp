@@ -50,6 +50,7 @@ public static class SchematicRenderer
         var body = new StringBuilder();
         var labels = new StringBuilder();
         var elements = Elements(circuit, parts);
+        var levers = circuit.Directives.Switches.DistinctBy(s => s.Part, Names).ToDictionary(s => s.Part, s => s.Position, Names);
         var rails = elements.Where(e => e.Kind == "rail").ToDictionary(e => e.Nodes[0], e => e.Value, Names);
         var named = new List<(string Net, Point At)>();
         var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
@@ -64,7 +65,7 @@ public static class SchematicRenderer
             var (inner, box) = symbol is null ? Fallback(e.Nodes.Count) : Drawing(symbol);
 
             body.Append("<g data-ref=\"").Append(Escape(e.Reference)).Append("\" transform=\"").Append(Transform(p)).Append("\">")
-                .Append(inner).Append("</g>\n");
+                .Append(inner).Append(symbol is not null && levers.TryGetValue(e.Reference, out var at) ? Lever(symbol.Kind, at) : "").Append("</g>\n");
 
             var part = Outline(p, box);
             if (e.Kind != "rail")
@@ -159,6 +160,7 @@ public static class SchematicRenderer
     public static string SymbolSvg(string kind, PartPlacement placement)
     {
         var (inner, box) = Drawing(Symbols.For(kind));
+        if (kind.StartsWith("switch-", StringComparison.Ordinal)) inner += Lever(kind, Switch.Positions(kind[^1] - '0')[0]);
         var bounds = Outline(placement, box);
         var body = new StringBuilder()
             .Append("<g data-kind=\"").Append(Escape(kind)).Append("\" transform=\"").Append(Transform(placement)).Append("\">")
@@ -179,6 +181,18 @@ public static class SchematicRenderer
             var members = components.Keys.Where(n => Names.Equals(n.Split('.')[0], x.Name)).ToList();
             done.UnionWith(members);
             elements.Add(new SchematicElement(x.Name, SubcircuitKind(x), x.Pins, x.Model, members));
+        }
+
+        // NOTE: Switch.cs names the throws of switch S as S_1 to S_n, each from the common to its throw. The nodes are the
+        // common and then each throw. A switch with one throw has the two nodes of S_1.
+        foreach (var s in circuit.Directives.Switches.DistinctBy(s => s.Part, Names))
+        {
+            var throws = Enumerable.Range(1, Switch.MaxThrows).Select(n => components.GetValueOrDefault($"{s.Part}_{n}") as Resistor)
+                .TakeWhile(r => r is not null && !done.Contains(r.Name)).Select(r => r!).ToList();
+            if (throws.Count == 0 || instances.ContainsKey(s.Part) || throws.Any(r => !Names.Equals(r.Nodes[0], throws[0].Nodes[0]))) continue;
+            done.UnionWith(throws.Select(r => r.Name));
+            elements.Add(new SchematicElement(s.Part, $"switch-{throws.Count}", [throws[0].Nodes[0], .. throws.Select(r => r.Nodes[1])],
+                SwitchName(throws.Count), throws.Select(r => r.Name).ToList()));
         }
 
         // NOTE: Pot.cs names the two halves of pot P as P_1 (top to wiper) and P_2 (wiper to bottom).
@@ -207,6 +221,9 @@ public static class SchematicRenderer
 
         return elements.OrderBy(e => e.Reference, Names).ThenBy(e => e.Reference, StringComparer.Ordinal).ToList();
     }
+
+    /// <summary>The name of a switch with this many throws, for its label and the parts list: SPST, SPDT or SP3T.</summary>
+    public static string SwitchName(int throws) => throws switch { 1 => "SPST", 2 => "SPDT", _ => $"SP{throws}T" };
 
     /// <summary>A value in plain units with an SI prefix: 100k, 10n, 1u, 4.7k. Three significant digits at most.</summary>
     public static string Plain(double value)
@@ -508,6 +525,10 @@ public static class SchematicRenderer
     static int Norm(int degrees) => (degrees % 360 + 360) % 360;
 
     static string N(double v) => (Math.Round(v, 2) + 0.0).ToString("0.##", CultureInfo.InvariantCulture);
+
+    // The lever of a switch symbol, in the group of its symbol.
+    static string Lever(string kind, int position) =>
+        kind.StartsWith("switch-", StringComparison.Ordinal) ? $"<path class=\"lever\" d=\"{Symbols.Lever(kind, position)}\"/>" : "";
 
     static string Escape(string s) => SecurityElement.Escape(s);
 }
