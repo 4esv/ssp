@@ -34,9 +34,8 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
             if (row[0] > row[1]) failures.Add($"{width}x{height}: the tool row scrolls ({row[0]} > {row[1]}).");
             if (outside.Length > 0) failures.Add($"{width}x{height}: controls outside the viewport: {string.Join(", ", outside)}.");
 
-            // NOTE: The group action row covers no unselected part when a side of the group is free. Crowded groups such as D1 with anything, or C3 with R4, whose four sides
-            // all hold a part, is a known gap (#259: D1+R4, D1+R6 and C3+R4 cover D1, D2 or the pot).
-            foreach (var group in new[] { new[] { "R2", "R4", "R6" }, ["R2", "D2"] })
+            // NOTE: The group action row covers no unselected part, even when every side of the group is crowded (#259: D1+R4).
+            foreach (var group in new[] { new[] { "R2", "R4", "R6" }, ["R2", "D2"], ["D1", "R4"], ["D1", "R6"] })
             {
                 await page.Locator(".schematic-pins rect.part[data-ref=" + group[0] + "]").ClickAsync(new() { Force = true });
                 foreach (var r in group.Skip(1))
