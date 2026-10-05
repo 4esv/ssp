@@ -46,7 +46,8 @@ public class ProjectAutosaveTests : BunitContext
         }
     }
 
-    static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
+    // NOTE: A textarea gives \n. A checkout on Windows can have \r\n in the fixture files, so read them with \n.
+    static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name)).ReplaceLineEndings("\n");
 
     static readonly LayoutDoc HandLayout = new(
         [new PartPlacement("V1", 0, 0, 0, false), new PartPlacement("R1", 120, 40, 90, false), new PartPlacement("R2", 240, 40, 270, true)],
