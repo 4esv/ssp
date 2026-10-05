@@ -14,6 +14,7 @@ public static class DirectiveParser
         string? title = null, input = null, output = null;
         var knobs = new List<KnobDirective>();
         var parts = new List<PartDirective>();
+        var switches = new List<SwitchDirective>();
         var diagnostics = new List<Diagnostic>();
 
         var lines = netlist.Split('\n');
@@ -51,6 +52,11 @@ public static class DirectiveParser
                         knobs.Add(new KnobDirective(args[0], args[1], pos));
                     else Warn("ssp:knob needs <part> <taper> <pos>, where pos is a number.");
                     break;
+                case "switch":
+                    if (args.Length == 2 && int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out var at))
+                        switches.Add(new SwitchDirective(args[0], at));
+                    else Warn("ssp:switch needs <part> <pos>, where pos is a whole number.");
+                    break;
                 case "part":
                     if (args.Length == 2) parts.Add(new PartDirective(args[0], args[1]));
                     else Warn("ssp:part needs <ref> <part-id>.");
@@ -63,6 +69,6 @@ public static class DirectiveParser
             void Warn(string message) => diagnostics.Add(new Diagnostic(Severity.Warning, message, number));
         }
 
-        return new DirectiveResult(new Directives(title, input, output, knobs, parts), diagnostics);
+        return new DirectiveResult(new Directives(title, input, output, knobs, parts, switches), diagnostics);
     }
 }
