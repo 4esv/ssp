@@ -95,6 +95,7 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         foreach (var r in new[] { "R2", "R4", "R6" })
         {
             await page.Locator($".schematic-pins rect.part[data-ref={r}]").TapAsync(new() { Force = true });
+            output.WriteLine($"after tap {r}: selected [{string.Join(", ", await Selected(page))}], parts [{string.Join(", ", await Parts(page))}]");
         }
         Assert.Equal(["R2", "R4", "R6"], await Selected(page));
         await page.Locator(".part-action[data-action=copy]").TapAsync();
