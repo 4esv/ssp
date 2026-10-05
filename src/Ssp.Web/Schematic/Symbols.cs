@@ -28,6 +28,12 @@ public static class Symbols
     // Triangle with the inverting input above the non-inverting input and the output at the apex.
     const string OpampBody = "M0 -10H20M0 10H20M60 0H80M20 -30V30L60 0Z M24 -10H30 M24 10H30M27 7V13";
 
+    // Tip spring from the pin at (0, 0), the sleeve contact below it, and a ground symbol under the sleeve.
+    const string JackBody = "M0 0H-22L-26 -5H-46M-26 10H-46M-36 10V18M-44 18H-28M-41 22H-31M-38 26H-34";
+
+    static string JackLabel(string text) =>
+        $"<text x=\"-36\" y=\"-12\" fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"700\" text-anchor=\"middle\">{text}</text>";
+
     static readonly SymbolPin[] TwoPin = [new("1", 0, 0), new("2", 60, 0)];
 
     static readonly Dictionary<string, Symbol> ByKind = new Symbol[]
@@ -71,8 +77,16 @@ public static class Symbols
         Make("opamp5", "0 -30 80 60", OpampBody + "M40 -15V-30M40 15V30",
             [new("in+", 0, 10), new("in-", 0, -10), new("out", 80, 0), new("V+", 40, -30), new("V-", 40, 30)]),
 
-        // Positive node first.
-        Make("vsource", "0 -15 60 30", "M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41<circle cx=\"30\" cy=\"0\" r=\"14\"/>", TwoPin),
+        // A cell: the long plate is the positive pin, first. The + mark sits at the long plate.
+        Make("battery", "0 -14 60 28", "M0 0H27M33 0H60M27 -12V12M33 -6V6M16 -10H22M19 -13V-7", TwoPin),
+
+        // An AC source: a circle with one sine period. Positive node first.
+        Make("source", "0 -15 60 30", "M0 0H16M44 0H60M22 0Q26 -10 30 0T38 0<circle cx=\"30\" cy=\"0\" r=\"14\"/>", TwoPin),
+
+        // A 1/4 inch mono jack, drawn to the left of its pin. The pin is the tip, a spring contact. The sleeve contact below
+        // goes to ground. The label is beside the symbol.
+        Make("jack-in", "-52 -26 58 56", JackBody, [new("T", 0, 0)], extra: JackLabel("IN")),
+        Make("jack-out", "-52 -26 58 56", JackBody, [new("T", 0, 0)], extra: JackLabel("OUT")),
 
         // The arrow is the direction of the current through the source, from the first node to the second.
         Make("isource", "0 -15 60 30", "M0 0H16M44 0H60<circle cx=\"30\" cy=\"0\" r=\"14\"/>", TwoPin,
@@ -132,6 +146,12 @@ public static class Symbols
         ByKind.TryGetValue(kind, out var symbol)
             ? symbol
             : throw new KeyNotFoundException($"No symbol for kind \"{kind}\".");
+
+    /// <summary>The palette icon of a kind: its symbol, and for a switch also its lever at the first position.</summary>
+    public static string Icon(string kind) =>
+        kind.StartsWith("switch-", StringComparison.Ordinal)
+            ? For(kind).Svg.Replace("</svg>", $"<path d=\"{Lever(kind, Ssp.Core.Parts.Switch.Positions(kind[^1] - '0')[0])}\"/></svg>", StringComparison.Ordinal)
+            : For(kind).Svg;
 
     /// <summary>The symbol for a part kind, or null if the kind has none.</summary>
     public static Symbol? Find(string? kind) => kind is not null && ByKind.TryGetValue(kind, out var symbol) ? symbol : null;

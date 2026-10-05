@@ -122,7 +122,7 @@ public class SchematicRendererTests
             "I1 0 c 1m\nQ1 c b 0 0 QN\nQ2 c b 0 0 QP\nJ1 c b 0 JN\nJ2 c b 0 JP\n" +
             ".MODEL DGEN D\n.MODEL LED_RED D\n.MODEL QN NPN\n.MODEL QP PNP\n.MODEL JN NJF\n.MODEL JP PJF\n.END\n"));
 
-        Assert.Equal("vsource", e["V1"].Kind);
+        Assert.Equal("source", e["V1"].Kind);
         Assert.Equal("resistor", e["R1"].Kind);
         Assert.Equal("capacitor", e["C1"].Kind);
         Assert.Equal("electrolytic", e["C2"].Kind);
@@ -173,7 +173,7 @@ public class SchematicRendererTests
         Assert.Equal(["vcc"], e["Vcc"].Nodes);
         Assert.Equal("rail", e["Vee"].Kind);
         Assert.Equal("-15V", e["Vee"].Value);
-        Assert.Equal("vsource", e["V1"].Kind);
+        Assert.Equal("source", e["V1"].Kind);
     }
 
     [Theory]

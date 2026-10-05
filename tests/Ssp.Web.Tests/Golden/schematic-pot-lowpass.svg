@@ -3,7 +3,7 @@
 <g transform="translate(70 230)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="RV1" transform="translate(40 110) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
 <g transform="translate(40 170)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
-<g data-ref="V1" transform="translate(40 30) rotate(-270)"><path d="M0 0H16M44 0H60M19 0H25M22 -3V3M35 0H41"/><circle cx="30" cy="0" r="14"/></g>
+<g data-ref="V1" transform="translate(40 30) rotate(-270)"><path d="M0 0H16M44 0H60M22 0Q26 -10 30 0T38 0"/><circle cx="30" cy="0" r="14"/></g>
 <g transform="translate(40 90)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <polyline data-net="in" points="40,30 20,30 20,110 40,110"/>
 <polyline data-net="out" points="70,140 70,170"/>

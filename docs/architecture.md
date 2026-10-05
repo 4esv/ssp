@@ -177,7 +177,7 @@ Limits:
 | `njf`, `pjf` | Channel bar. Gate arrow in for N-channel, out for P-channel. | D, G, S |
 | `opamp` | Triangle, `-` input above `+` input, output at the apex | in-, in+, out |
 | `opamp5` | Op-amp with supply pins | in+, in-, out, V+, V- |
-| `vsource`, `isource` | Circle with `+` and `-`, circle with a current arrow | +, - |
+| `battery`, `source`, `isource` | Cell with `+` mark, circle with a sine, circle with a current arrow | +, - |
 | `ground` | Three bars | 1 |
 | `rail` | T bar with the supply voltage | 1 |
 | `transformer`, `vactrol` | Coils with a core, LED over an LDR | as in `models/` |
