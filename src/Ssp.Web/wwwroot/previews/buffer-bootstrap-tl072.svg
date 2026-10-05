@@ -16,8 +16,8 @@
 <polyline data-net="b" points="160,90 160,160"/>
 <polyline data-net="b" points="160,160 250,160 250,90"/>
 <polyline data-net="in" points="40,90 40,130"/>
-<polyline data-net="o" points="240,90 240,120 310,120"/>
-<polyline data-net="o" points="310,120 310,90"/>
+<polyline data-net="o" points="240,90 240,60 310,60 310,90"/>
+<polyline data-net="o" points="310,90 310,120"/>
 <polyline data-net="o" points="240,90 240,20 160,20 160,80"/>
 <polyline data-net="out" points="370,120 370,150"/>
 <g fill="currentColor" stroke="none" font-family="sans-serif" font-size="10" text-anchor="middle">

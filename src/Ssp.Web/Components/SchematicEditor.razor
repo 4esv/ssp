@@ -63,6 +63,19 @@
                    @onkeydown="ValueKey" @onkeydown:stopPropagation />
         </div>
     }
+    @if (NameBox() is { } net)
+    {
+        <div class="value-edit-box">
+            <input class="value-edit net-name-edit" type="text" autocomplete="off" spellcheck="false" aria-label="Name of net @net" placeholder="Net name"
+                   aria-invalid="@(nameError is null ? null : "true")" value="@nameText"
+                   @oninput="TypeName"
+                   @onkeydown="NameKey" @onkeydown:stopPropagation />
+        </div>
+        @if (nameError is not null)
+        {
+            <p class="value-error" role="alert">@nameError</p>
+        }
+    }
     @if (saving is not null)
     {
         <form class="block-save" @onsubmit="SaveBlock">
@@ -1444,6 +1457,42 @@
         var text = SchematicEdits.FormatValue(value);
         (valueText, valueError) = (text, null);
         if (text != SchematicEdits.ValueOf(netlist, part)) await Apply(SchematicEdits.SetValue(netlist, layout, part, text));
+    }
+
+    string nameText = "";
+    string? nameError;
+    string? nameFor;
+
+    // The net of the selected wire, which has a name to type. The box is where the value box is: a wire has no value.
+    string? NameBox()
+    {
+        if (hasErrors || selectedWire is not { } w || w >= layout.Wires.Count || layout.Wires[w].Net == "0") return null;
+        var net = layout.Wires[w].Net;
+        if (nameFor != net) (nameFor, nameText, nameError) = (net, net, null);
+        return net;
+    }
+
+    void TypeName(ChangeEventArgs e) => (nameText, nameError) = (e.Value?.ToString() ?? "", null);
+
+    async Task NameKey(KeyboardEventArgs e)
+    {
+        if (NameBox() is not { } net) return;
+        switch (e.Key)
+        {
+            case "Enter":
+                if (!SchematicEdits.TryNetName(nameText, out var error))
+                {
+                    nameError = error;
+                    return;
+                }
+                nameFor = nameText.Trim();
+                if (nameFor != net) await Apply(SchematicEdits.NameNet(netlist, layout, net, nameText));
+                break;
+            case "Escape":
+                nameFor = null;
+                await Focus();
+                break;
+        }
     }
 
     async Task Act(string action)
