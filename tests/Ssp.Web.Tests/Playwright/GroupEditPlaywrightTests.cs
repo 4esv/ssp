@@ -96,7 +96,8 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
     async Task ButtonsCore()
     {
         await using var session = await Session.Open();
-        var page = await session.Editor(390, 844, touch: true);
+        // NOTE: The subject is the phone buttons, not the fuzz. Three resistors in a chain stay clear of the palette at 390 px.
+        var page = await session.Editor(390, 844, touch: true, netlist: "* three resistors\nV1 in 0 DC 1\nR1 in a 1k\nR2 a b 2k\nR3 b 0 3k\n.END\n");
         var before = await Parts(page);
 
         // NOTE: At 390 px the palette and the action row lie over part of the canvas, and they move after each tap. A tap on a covered
@@ -156,13 +157,13 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
             return session;
         }
 
-        public async Task<IPage> Editor(int width, int height, bool touch = false)
+        public async Task<IPage> Editor(int width, int height, bool touch = false, string? netlist = null)
         {
             var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = width, Height = height }, HasTouch = touch, IsMobile = touch });
             page.SetDefaultTimeout(60_000);
             await page.RouteAsync(baseUrl + "editor", async route =>
                 await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));
-            await page.GotoAsync(baseUrl + "editor#" + hash);
+            await page.GotoAsync(baseUrl + "editor#" + (netlist is null ? hash : ShareCodec.Encode(netlist)));
             await page.Locator(".schematic[data-view]").WaitForAsync();
             return page;
         }
