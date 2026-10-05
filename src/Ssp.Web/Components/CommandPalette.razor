@@ -1,0 +1,102 @@
+@using Ssp.Web.Editing
+
+@if (Mode == PaletteMode.Palette)
+{
+    <div class="command-palette" role="dialog" aria-label="Command palette">
+        <input @ref="search" type="text" autocomplete="off" spellcheck="false" aria-label="Search actions" placeholder="Type an action"
+               value="@query" @oninput="e => Search(e.Value?.ToString() ?? string.Empty)" @onkeydown="Key" />
+        <ul>
+            @foreach (var (shortcut, index) in Matches().Select((s, i) => (s, i)))
+            {
+                <li class="@(index == active ? "active" : null)">
+                    <button type="button" @onclick="() => Choose(shortcut)">
+                        <span>@shortcut.Label</span> <kbd>@shortcut.Keys</kbd>
+                    </button>
+                </li>
+            }
+        </ul>
+    </div>
+}
+else if (Mode == PaletteMode.Sheet)
+{
+    <div class="shortcut-sheet" role="dialog" aria-label="Keyboard shortcuts">
+        <table>
+            <thead><tr><th>Action</th><th>Keys</th></tr></thead>
+            <tbody>
+                @foreach (var shortcut in Shortcuts.All)
+                {
+                    <tr><td>@shortcut.Label</td><td>@shortcut.Keys</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    public enum PaletteMode { None, Palette, Sheet }
+
+    [Parameter] public PaletteMode Mode { get; set; }
+    [Parameter] public EventCallback<Shortcut> Chosen { get; set; }
+
+    ElementReference search;
+    string query = "";
+    int active;
+    bool wasOpen;
+
+    IEnumerable<Shortcut> Matches()
+    {
+        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return Shortcuts.All.Where(s => words.All(w => s.Label.Contains(w, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    void Search(string text)
+    {
+        query = text;
+        active = 0;
+    }
+
+    async Task Key(KeyboardEventArgs e)
+    {
+        var count = Matches().Count();
+        if (e.Key == "ArrowDown" && count > 0)
+        {
+            active = (active + 1) % count;
+        }
+        else if (e.Key == "ArrowUp" && count > 0)
+        {
+            active = (active + count - 1) % count;
+        }
+        else if (e.Key == "Enter" && !e.CtrlKey && !e.MetaKey && Matches().ElementAtOrDefault(active) is { } pick)
+        {
+            await Choose(pick);
+        }
+    }
+
+    Task Choose(Shortcut shortcut) => Chosen.InvokeAsync(shortcut);
+
+    protected override void OnParametersSet()
+    {
+        var open = Mode == PaletteMode.Palette;
+        if (open && !wasOpen)
+        {
+            query = "";
+            active = 0;
+        }
+        wasOpen = open;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Mode == PaletteMode.Palette && !focused)
+        {
+            focused = true;
+            await search.FocusAsync();
+        }
+        else if (Mode != PaletteMode.Palette)
+        {
+            focused = false;
+        }
+    }
+
+    bool focused;
+}

@@ -18,14 +18,14 @@
 
 <h1>Editor</h1>
 
-<div class="editor" @onkeydown="Hotkey">
+<div class="editor" tabindex="-1" @ref="root" @onkeydown="Hotkey">
 <div class="toolbar" role="toolbar" aria-label="Editor actions">
     <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
     <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
     <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
     <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
-    <SchematicExport Netlist="@netlist" />
-    <span class="toolbar-hint">Run: Ctrl+Enter or Cmd+Enter</span>
+    <SchematicExport @ref="export" Netlist="@netlist" />
+    <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
     <span class="toolbar-status" role="status">@toolbarStatus</span>
 </div>
 
@@ -47,6 +47,8 @@
         <span class="live-failed" role="alert">The last edit does not solve. @liveFailure The results are from the last good run.</span>
     }
 </div>
+
+<CommandPalette Mode="mode" Chosen="Choose" />
 
 <DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor">
     <DockPanel Id="text" Title="Netlist">
@@ -177,6 +179,10 @@
     readonly CommandStack history = new();
     bool running;
     ClipPlayer? clipPlayer;
+    SchematicExport? export;
+    ElementReference root;
+    IJSObjectReference? keys;
+    CommandPalette.PaletteMode mode;
     RunResult? result;
     Diagnostic? shareError;
     string toolbarStatus = "";
@@ -197,13 +203,69 @@
 
     IEnumerable<Diagnostic> RunErrors() => result?.Diagnostics.Where(d => d.Severity == Severity.Error) ?? [];
 
+    // NOTE: Every key comes from Shortcuts.All, the table the palette and the sheet show.
+    // A bare key and the undo keys belong to a field that has the focus.
     async Task Hotkey(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey) && !running)
+        if (e.Key == "Escape")
         {
-            await Run();
+            await Refocus(CommandPalette.PaletteMode.None);
+            return;
+        }
+        if (Shortcuts.Find(e) is not { } shortcut || (shortcut.Bare || shortcut.Id is "undo" or "redo") && await Typing())
+        {
+            return;
+        }
+        await Choose(shortcut);
+    }
+
+    // NOTE: A closed dialog takes its focus with it, so the page div takes the focus back and the keys keep working.
+    async Task Refocus(CommandPalette.PaletteMode next)
+    {
+        mode = next;
+        if (next == CommandPalette.PaletteMode.None)
+        {
+            await root.FocusAsync();
         }
     }
+
+    async Task Choose(Shortcut shortcut)
+    {
+        var previous = mode;
+        await Refocus(CommandPalette.PaletteMode.None);
+        switch (shortcut.Id)
+        {
+            case "run" when !running: await Run(); break;
+            case "undo" when history.CanUndo: Undo(); break;
+            case "redo" when history.CanRedo: Redo(); break;
+            case "share": await Share(); break;
+            case "svg" when export is not null: await export.Save(); break;
+            case "palette": await Refocus(previous == CommandPalette.PaletteMode.Palette ? CommandPalette.PaletteMode.None : CommandPalette.PaletteMode.Palette); break;
+            case "shortcuts": await Refocus(previous == CommandPalette.PaletteMode.Sheet ? CommandPalette.PaletteMode.None : CommandPalette.PaletteMode.Sheet); break;
+        }
+    }
+
+    // NOTE: keys.js stops the browser acting on the table keys, and says whether a field has the focus.
+    async Task<bool> Typing() => await (await KeysModule()).InvokeAsync<bool>("typing");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // NOTE: The key handler is on this div, so the div holds the focus until a control takes it.
+                await root.FocusAsync();
+                await (await KeysModule()).InvokeVoidAsync("guard", Shortcuts.All.Select(s => new { s.Key, s.Shift, s.Bare, Plain = s.Id is "undo" or "redo" }));
+            }
+            catch (Exception)
+            {
+                // NOTE: The guard is best effort. Without it the shortcuts still work, and the browser may also act on the key.
+            }
+        }
+    }
+
+    async Task<IJSObjectReference> KeysModule() => keys ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/keys.js");
 
     // NOTE: The address bar takes the link so it survives a clipboard that the browser denies.
     async Task Share()
