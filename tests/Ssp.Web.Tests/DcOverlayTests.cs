@@ -81,7 +81,7 @@ public class DcOverlayTests : BunitContext
         var page = Render<Editor>();
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
         time.Advance(TimeSpan.FromMilliseconds(100));
-        page.Find("button").Click();
+        page.Find("button.run").Click();
 
         page.Find(".dock-panel[data-panel=dc] input.dc-toggle").Change(true);
 
