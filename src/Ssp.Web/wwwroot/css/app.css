@@ -652,6 +652,24 @@ h1[tabindex="-1"]:focus-visible {
     }
 }
 
+/* NOTE: A finger needs 44 px. A long press on the canvas selects no text and opens no callout. */
+@media (pointer: coarse) {
+    .schematic-tools button,
+    .palette-item {
+        min-height: 2.75rem;
+    }
+
+    .schematic-tools button {
+        min-width: 2.75rem;
+    }
+}
+
+.schematic-editor .schematic {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
 .schematic-zoom .zoom-level {
     min-width: 3.25rem;
     text-align: center;
