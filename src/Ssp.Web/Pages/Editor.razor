@@ -260,6 +260,7 @@
 
     async Task Analyse()
     {
+        CancelLive();
         shareError = null;
         toolbarStatus = "";
         running = true;
