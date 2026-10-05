@@ -4,6 +4,7 @@ public enum Severity
 {
     Warning,
     Error,
+    Info,
 }
 
 public sealed record Diagnostic(Severity Severity, string Message, int? Line);

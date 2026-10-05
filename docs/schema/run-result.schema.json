@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:ssp:schema:run-result:1.0.0",
-  "version": "1.0.0",
+  "$id": "urn:ssp:schema:run-result:1.1.0",
+  "version": "1.1.0",
   "title": "ssp run result",
   "description": "The result of one run. An analysis is null if the pipeline stopped before it.",
   "type": "object",
   "required": ["$schema", "schemaVersion", "operatingPoint", "frequencyResponse", "impedance", "diagnostics", "timingsMs"],
   "additionalProperties": false,
   "properties": {
-    "$schema": { "const": "urn:ssp:schema:run-result:1.0.0" },
-    "schemaVersion": { "const": "1.0.0" },
+    "$schema": { "const": "urn:ssp:schema:run-result:1.1.0" },
+    "schemaVersion": { "const": "1.1.0" },
     "operatingPoint": {
       "description": "The DC operating point.",
       "oneOf": [
@@ -65,7 +65,7 @@
         "required": ["severity", "message", "line"],
         "additionalProperties": false,
         "properties": {
-          "severity": { "enum": ["warning", "error"] },
+          "severity": { "enum": ["info", "warning", "error"] },
           "message": { "type": "string" },
           "line": { "type": ["integer", "null"], "description": "The line in the netlist, or null." }
         }
