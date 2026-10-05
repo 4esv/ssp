@@ -10,12 +10,16 @@ public class CompareTests : BunitContext
 {
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
-    readonly SpyHost host = new();
+    static string Fuzz() => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "library", "fuzz-transistor-diode.cir"));
 
-    IRenderedComponent<Compare> Compare(string part, string values)
+    readonly SpyHost host = new();
+    readonly ManualTimeProvider time = new();
+
+    IRenderedComponent<Compare> Compare(string part, string values, string? netlist = null)
     {
         Services.AddSingleton<ISimulationHost>(host);
-        var page = Render<Compare>(p => p.Add(c => c.Netlist, Fixture("rc-lowpass.cir")));
+        Services.AddSingleton<TimeProvider>(time);
+        var page = Render<Compare>(p => p.Add(c => c.Netlist, netlist ?? Fixture("rc-lowpass.cir")));
         page.Find("select.part").Change(part);
         page.Find("input.values").Input(values);
         page.Find("button.compare").Click();
@@ -61,9 +65,81 @@ public class CompareTests : BunitContext
     }
 
     [Fact]
+    public void ThreeEmitterValuesGiveThreeCurvesAndThreeRows()
+    {
+        var page = Compare("R4", "470, 1k, 2k2", Fuzz());
+
+        var paths = page.FindAll(".compare .magnitude path.series").Select(p => p.GetAttribute("d")).ToList();
+        Assert.Equal(3, paths.Distinct().Count());
+        var rows = page.FindAll(".compare table.series tbody tr").Select(r => r.QuerySelector("th")!.TextContent).ToList();
+        Assert.Equal(["R4 = 470", "R4 = 1k", "R4 = 2k2"], rows);
+    }
+
+    [Fact]
+    public void GainIsFromTheInNodeToTheOutNode()
+    {
+        // NOTE: The fuzz source is AC 1 at the in node, so the out node in dB is the gain. A source of AC 2 adds 6 dB to
+        // both nodes and must not change the gain.
+        var one = Compare("R4", "1k", Fuzz());
+        var gain = one.Find(".compare table.series tbody tr td.gain").TextContent;
+        var two = Render<Compare>(p => p.Add(c => c.Netlist, Fuzz().Replace("AC 1", "AC 2")));
+        two.Find("select.part").Change("R4");
+        two.Find("input.values").Input("1k");
+        two.Find("button.compare").Click();
+
+        Assert.Equal(gain, two.Find(".compare table.series tbody tr td.gain").TextContent);
+    }
+
+    [Fact]
+    public void FrozenSeriesStaysWhenTheCircuitChanges()
+    {
+        var page = Compare("R4", "470, 1k, 2k2", Fuzz());
+        var before = Cells(page);
+        page.Find("button.freeze").Click();
+
+        page.Render(p => p.Add(c => c.Netlist, Fuzz().Replace("R2 n3 n10 2.2k", "R2 n3 n10 4.7k")));
+        Assert.Equal(1, host.Sweeps);
+        time.Advance(TimeSpan.FromMilliseconds(250));
+
+        page.WaitForAssertion(() => Assert.Equal(2, host.Sweeps));
+        var rows = page.FindAll(".compare table.series tbody tr").Select(r => r.QuerySelector("th")!.TextContent).ToList();
+        Assert.Equal(["R4 = 470", "R4 = 1k", "R4 = 2k2", "R4 = 470 (frozen)", "R4 = 1k (frozen)", "R4 = 2k2 (frozen)"], rows);
+        // NOTE: The axis fits the new curves too, so the frozen numbers prove the frozen curve, not its path.
+        Assert.Equal(before, Cells(page, "tr.frozen"));
+        Assert.Equal(3, page.FindAll(".compare .magnitude path.series.frozen").Count);
+        Assert.Empty(Cells(page, "tr:not(.frozen)").Intersect(before));
+    }
+
+    static List<string> Cells(IRenderedComponent<Compare> page, string rows = "tr") =>
+        page.FindAll($".compare table.series tbody {rows}").Select(r => string.Join(" | ", r.QuerySelectorAll("td").Select(d => d.TextContent))).ToList();
+
+    [Fact]
+    public void NoRunBeforeTheDebounce()
+    {
+        var page = Compare("R4", "1k", Fuzz());
+
+        page.Render(p => p.Add(c => c.Netlist, Fuzz().Replace("R2 n3 n10 2.2k", "R2 n3 n10 4.7k")));
+        time.Advance(TimeSpan.FromMilliseconds(249));
+
+        Assert.Equal(1, host.Sweeps);
+    }
+
+    [Fact]
+    public void ClearRemovesTheFrozenSeries()
+    {
+        var page = Compare("R4", "1k", Fuzz());
+        page.Find("button.freeze").Click();
+        page.Find("button.unfreeze").Click();
+
+        Assert.Single(page.FindAll(".compare table.series tbody tr"));
+        Assert.Empty(page.FindAll(".compare path.series.frozen"));
+    }
+
+    [Fact]
     public void PartListHasEachPassivePart()
     {
         Services.AddSingleton<ISimulationHost>(host);
+        Services.AddSingleton<TimeProvider>(time);
         var page = Render<Compare>(p => p.Add(c => c.Netlist, Fixture("rc-lowpass.cir")));
 
         Assert.Equal(["C1", "R1"], page.FindAll("select.part option").Select(o => o.TextContent));

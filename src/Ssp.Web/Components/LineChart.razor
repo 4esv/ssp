@@ -22,7 +22,7 @@
 
     @foreach (var (name, path, index) in paths)
     {
-        <path class="series series-@index" d="@path" fill="none"><title>@name</title></path>
+        <path class="@PathClass(name, index)" d="@path" fill="none"><title>@name</title></path>
     }
 
     @if (paths.Count > 1)
@@ -30,7 +30,7 @@
         @foreach (var (name, _, index) in paths)
         {
             <g class="legend">
-                <text class="series-@index" x="@Num(Right - 4)" y="@(Top + 12 + index * 12)" text-anchor="end">@name</text>
+                <text class="series-@ColorOf(name, index)" x="@Num(Right - 4)" y="@(Top + 12 + index * 12)" text-anchor="end">@name</text>
             </g>
         }
     }
@@ -61,6 +61,21 @@
     [Parameter, EditorRequired] public string YUnit { get; set; } = "";
     [Parameter] public bool LogX { get; set; }
     [Parameter] public bool LogY { get; set; }
+
+    /// <summary>The names of the series that show as a dashed line, for example a frozen result.</summary>
+    [Parameter] public IEnumerable<string> Dashed { get; set; } = [];
+
+    // NOTE: The style sheet has four series colors. A fifth series takes the first color again. The solid series and
+    // the dashed series count their colors apart, so the nth dashed series has the color of the nth solid series.
+    const int Colors = 4;
+
+    string PathClass(string name, int index) => $"series series-{ColorOf(name, index)}" + (Dashed.Contains(name) ? " frozen" : "");
+
+    int ColorOf(string name, int index)
+    {
+        var dashed = Dashed.Contains(name);
+        return Series.Keys.Take(index).Count(k => Dashed.Contains(k) == dashed) % Colors;
+    }
 
     (double Min, double Max) xRange;
     (double Min, double Max) yRange;
