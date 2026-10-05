@@ -29,11 +29,11 @@ public class CommandPaletteTests : BunitContext
     public void CtrlKOpensAndTextFiltersTheActions()
     {
         var page = Open();
-        Assert.True(page.FindAll(".palette li").Count >= 5);
+        Assert.True(page.FindAll(".command-palette li").Count >= 5);
 
-        page.Find(".palette input").Input("share");
+        page.Find(".command-palette input").Input("share");
 
-        var item = Assert.Single(page.FindAll(".palette li"));
+        var item = Assert.Single(page.FindAll(".command-palette li"));
         Assert.Contains("Share link", item.TextContent);
     }
 
@@ -41,11 +41,11 @@ public class CommandPaletteTests : BunitContext
     public void ChosenActionRuns()
     {
         var page = Open();
-        page.Find(".palette input").Input("run");
+        page.Find(".command-palette input").Input("run");
 
-        page.Find(".palette li button").Click();
+        page.Find(".command-palette li button").Click();
 
-        Assert.Empty(page.FindAll(".palette"));
+        Assert.Empty(page.FindAll(".command-palette"));
         Assert.NotEmpty(page.FindAll("table.voltages"));
     }
 
@@ -53,9 +53,9 @@ public class CommandPaletteTests : BunitContext
     public void EnterRunsTheFirstMatch()
     {
         var page = Open();
-        page.Find(".palette input").Input("run");
+        page.Find(".command-palette input").Input("run");
 
-        page.Find(".palette input").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        page.Find(".command-palette input").KeyDown(new KeyboardEventArgs { Key = "Enter" });
 
         Assert.NotEmpty(page.FindAll("table.voltages"));
     }
@@ -87,6 +87,6 @@ public class CommandPaletteTests : BunitContext
     {
         var page = Open();
         page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "Escape" });
-        Assert.Empty(page.FindAll(".palette"));
+        Assert.Empty(page.FindAll(".command-palette"));
     }
 }
