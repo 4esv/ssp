@@ -1,3 +1,4 @@
+@using Ssp.Web.Editing
 @using System.Globalization
 @using Ssp.Core.Calculators
 @using Ssp.Core.Netlist
@@ -98,6 +99,9 @@
 
     bool CanWrite => !hasErrors && parts.All(p => double.IsFinite(p.Value) && p.Value > 0);
 
+    /// <summary>The loads of the editor page. With none the panel loads the netlist itself.</summary>
+    [CascadingParameter] public NetlistCache? Loads { get; set; }
+
     protected override void OnInitialized() => Reset();
 
     // NOTE: The panel keeps its own copy. The editor page keeps the undo history.
@@ -113,7 +117,7 @@
     {
         netlist = text;
         layout = given;
-        circuit = NetlistLoader.Load(text);
+        circuit = Loads?.Load(text) ?? NetlistLoader.Load(text);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
         var references = References(Resistor).Concat(References(Capacitor)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         targets = targets.Select(t => references.Contains(t) ? t : "").ToArray();
