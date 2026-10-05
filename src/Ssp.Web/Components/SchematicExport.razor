@@ -1,14 +1,42 @@
 @using Ssp.Web.Editing
+@using Ssp.Web.Schematic
 @using Ssp.Core.Netlist
+@using Ssp.Core.Parts
 @using System.Text
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
 
-@* NOTE: The button needs only a load. The SVG needs the placer, which is slow, so it is made on a click and not on each render. *@
-@if (SchematicView.Drawable(Loads?.Load(Netlist) ?? NetlistLoader.Load(Netlist)))
+@* NOTE: The buttons need only a load. The SVG needs the placer, which is slow, so it is made on a click and not on each render. *@
+@if (SchematicView.Drawable(Circuit()))
 {
     @* NOTE: The file is the same SVG that the schematic shows. A data URL needs no server. *@
     <button type="button" class="svg-download" title="Save the schematic as an SVG file" @onclick="Save">Download SVG</button>
+    <button type="button" class="pdf-download" title="Save the schematic and the parts list as a PDF file" @onclick="SavePdf">Download PDF</button>
+    <button type="button" class="parts-csv" title="Save the parts list as a CSV file" @onclick="SaveCsv">Parts CSV</button>
+    <button type="button" class="parts-toggle" aria-expanded="@showParts.ToString().ToLowerInvariant()" title="Show the parts list" @onclick="ToggleParts">Parts</button>
+    @if (showParts)
+    {
+        var list = Parts();
+        <section class="parts-panel" aria-label="Parts list">
+            <button type="button" class="parts-close" @onclick="ToggleParts">Close</button>
+            <table class="parts-list">
+                <thead><tr><th>Qty</th><th>Refs</th><th>Value</th><th>Kind</th><th>Footprint</th><th>Buy</th></tr></thead>
+                <tbody>
+                    @foreach (var r in list.Rows)
+                    {
+                        <tr>
+                            <td>@r.Quantity</td>
+                            <td>@r.References</td>
+                            <td>@r.Value</td>
+                            <td>@r.Kind</td>
+                            <td>@r.Footprint</td>
+                            <td><a href="@r.BuyUrl" target="_blank" rel="noopener noreferrer">Search</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
 }
 
 @code {
@@ -17,20 +45,48 @@
     /// <summary>The loads of the editor page. With none the panel loads the netlist itself.</summary>
     [CascadingParameter] public NetlistCache? Loads { get; set; }
 
+    bool showParts;
+
+    LoadedCircuit Circuit() => Loads?.Load(Netlist) ?? NetlistLoader.Load(Netlist);
+
+    PartsList Parts()
+    {
+        var circuit = Circuit();
+        return PartsList.From(circuit, PartMap.Resolve(circuit, SchematicView.Table));
+    }
+
+    void ToggleParts() => showParts = !showParts;
+
     /// <summary>Saves the file, as the button does. Nothing happens when there is no schematic.</summary>
     public async Task Save()
     {
         if (SchematicView.Svg(Netlist) is { } svg)
         {
-            await Download(svg);
+            await Download("schematic.svg", "image/svg+xml", Encoding.UTF8.GetBytes(svg));
         }
     }
 
-    async Task Download(string svg)
+    /// <summary>Saves the PDF of the schematic and its parts list. Nothing happens when there is no schematic.</summary>
+    public async Task SavePdf()
     {
-        await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
-        await module.InvokeVoidAsync("save", "schematic.svg", DataUrl(svg));
+        if (SchematicView.Svg(Netlist) is { } svg)
+        {
+            await Download("schematic.pdf", "application/pdf", SchematicPdf.Build(svg, Parts()));
+        }
     }
 
-    static string DataUrl(string svg) => "data:image/svg+xml;base64," + Convert.ToBase64String(Encoding.UTF8.GetBytes(svg));
+    /// <summary>Saves the parts list as CSV. Nothing happens when there is no schematic.</summary>
+    public async Task SaveCsv()
+    {
+        if (SchematicView.Drawable(Circuit()))
+        {
+            await Download("parts.csv", "text/csv", Encoding.UTF8.GetBytes(Parts().ToCsv()));
+        }
+    }
+
+    async Task Download(string name, string type, byte[] bytes)
+    {
+        await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
+        await module.InvokeVoidAsync("save", name, $"data:{type};base64,{Convert.ToBase64String(bytes)}");
+    }
 }
