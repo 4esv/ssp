@@ -394,15 +394,21 @@ h1[tabindex="-1"]:focus-visible {
 
 .schematic-tools .tool-group {
     display: flex;
-    flex-wrap: wrap;
+    flex: none;
     align-items: center;
-    gap: 0.5rem;
-    padding-right: 1rem;
+    gap: 0.25rem;
+    padding-right: 0.5rem;
 }
 
 .schematic-tools .tool-group + .tool-group {
-    padding-left: 1rem;
+    padding-left: 0.5rem;
     border-left: 1px solid currentColor;
+}
+
+/* NOTE: The palette adds the same parts, so the row of part buttons and the labels do not show. The letter keys still place parts. */
+.schematic-tools .tool-group[aria-label="Parts"],
+.schematic-tools .tool-label {
+    display: none;
 }
 
 .schematic-tools .tool-label {
@@ -410,19 +416,65 @@ h1[tabindex="-1"]:focus-visible {
     opacity: 0.75;
 }
 
+.schematic-status {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    flex: none;
+    height: 1.5rem;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
 .schematic-hint {
-    margin: 0.5rem 0;
-    font-size: 0.9em;
+    flex: none;
+    margin: 0;
 }
 
 .schematic-empty {
     margin: 1rem 0;
 }
 
+/* NOTE: One row over the canvas: the page actions, then the tools. It scrolls sideways if it does not fit. */
 .schematic-tools {
     display: flex;
-    flex-wrap: wrap;
+    flex: none;
     gap: 0.5rem;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding-bottom: 0.125rem;
+}
+
+.schematic-tools .toolbar {
+    flex: none;
+    flex-wrap: nowrap;
+    min-width: 0;
+    margin: 0;
+}
+
+.schematic-tools button {
+    flex: none;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.schematic-tools .live-line {
+    flex: 0 1 12rem;
+    min-width: 5.5em;
+    align-items: center;
+}
+
+.schematic-tools .toolbar-hint {
+    white-space: nowrap;
+}
+
+/* NOTE: The shortcut hint shows only where the row has room for it. The palette (Ctrl+K) and the sheet (?) work at any width. */
+@media (max-width: 100rem) {
+    .schematic-tools .toolbar-hint {
+        display: none;
+    }
 }
 
 .schematic-tools [aria-pressed="true"] {
@@ -572,11 +624,12 @@ h1[tabindex="-1"]:focus-visible {
     overflow: visible;
 }
 
+/* NOTE: The zoom control is in the bottom right corner. Fit keeps the circuit above it. */
 .schematic-zoom {
     position: absolute;
     z-index: 1;
-    top: 0.5rem;
-    right: 0.5rem;
+    bottom: 0.25rem;
+    right: 0.25rem;
     display: flex;
     align-items: center;
     gap: 0.25rem;
@@ -587,8 +640,16 @@ h1[tabindex="-1"]:focus-visible {
 }
 
 .schematic-zoom button {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0 0.25rem;
+}
+
+@media (pointer: coarse) {
+    .schematic-zoom button {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
 }
 
 .schematic-zoom .zoom-level {
@@ -598,25 +659,33 @@ h1[tabindex="-1"]:focus-visible {
     font-variant-numeric: tabular-nums;
 }
 
+/* NOTE: The palette is a narrow column of two beside the canvas. It takes no canvas height. */
 .palette {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, 3.5rem);
+    grid-auto-rows: min-content;
     gap: 0.25rem;
     flex: none;
-    width: 13.25rem;
+    overflow-y: auto;
 }
 
 .palette-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.125rem;
-    flex: 0 0 6.4rem;
-    padding: 0.25rem;
+    padding: 0.125rem;
+    min-width: 0;
     user-select: none;
     -webkit-user-select: none;
-    font-size: 0.75rem;
+    font-size: 0.625rem;
+    line-height: 1.1;
+}
+
+.palette-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .palette-item[aria-pressed="true"] {
@@ -627,8 +696,8 @@ h1[tabindex="-1"]:focus-visible {
 
 .palette-symbol svg {
     display: block;
-    width: 3.5rem;
-    height: 2rem;
+    width: 2.75rem;
+    height: 1.5rem;
 }
 
 .pin-add {
@@ -711,43 +780,43 @@ h1[tabindex="-1"]:focus-visible {
     min-height: 12rem;
 }
 
-/* NOTE: In the dock the schematic fills its panel, so the bar and the menu at the bottom of the canvas are in view. The narrow layout keeps 60vh. */
-@media (min-width: 48.01rem) {
-    .dock-panel:has(.schematic-editor) {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .dock-panel:has(.schematic-editor) .schematic-editor {
-        display: flex;
-        flex: 1;
-        flex-direction: column;
-        min-height: 0;
-    }
-
-    .dock-panel:has(.schematic-editor) .schematic-body {
-        flex: 1;
-        min-height: 0;
-    }
-
-    .dock-panel:has(.schematic-editor) .schematic-body .schematic {
-        height: auto;
-        min-height: 0;
-    }
+/* NOTE: In the dock the schematic fills its panel, so the bar and the menu at the bottom of the canvas are in view. */
+.dock-panel:has(.schematic-editor) {
+    display: flex;
+    flex-direction: column;
+    padding: 0.25rem;
 }
 
+.dock-panel:has(.schematic-editor) .schematic-editor {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.dock-panel:has(.schematic-editor) .schematic-body {
+    flex: 1;
+    min-height: 0;
+    gap: 0.25rem;
+}
+
+.dock-panel:has(.schematic-editor) .schematic-body .schematic {
+    height: auto;
+    min-height: 0;
+}
+
+/* NOTE: On a narrow screen the palette is one row over the canvas that scrolls sideways. */
 @media (max-width: 48rem) {
     .schematic-body {
         flex-direction: column;
     }
 
     .palette {
-        width: auto;
-    }
-
-    .palette-item {
-        flex: none;
-        width: 5rem;
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 3.5rem;
+        overflow-x: auto;
+        overflow-y: hidden;
     }
 }
 
@@ -853,9 +922,19 @@ h1[tabindex="-1"]:focus-visible {
 }
 
 .first-run-hints {
-    margin: 0.5rem 0;
-    padding-left: 1.2rem;
-    font-size: 0.9em;
+    display: flex;
+    gap: 1rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-muted);
+}
+
+.first-run-hints li {
+    flex: none;
 }
 
 .gallery li {
@@ -1043,4 +1122,120 @@ h1[tabindex="-1"]:focus-visible {
 .schematic-pins .knob:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: 1px;
+}
+
+/* NOTE: The editor page is one screen high. The dock takes the height that the bars leave, so the page does not scroll (#163). */
+.editor-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+body:has(.editor) {
+    margin: 0;
+}
+
+.editor {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    height: 100vh;
+    height: 100dvh;
+    padding: var(--space-2);
+}
+
+.editor > .dock-closed {
+    margin-top: 0;
+    font-size: 0.875rem;
+}
+
+.editor > .dock-closed button {
+    padding: 0 0.5rem;
+}
+
+.editor > .dock-layout {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    margin-top: var(--space-1);
+}
+
+.voltages tr.pointed {
+    background: var(--accent-soft);
+}
+
+.panel-bar {
+    display: none;
+}
+
+/* NOTE: On a narrow screen the schematic is the whole screen. The bar at the bottom opens one other panel over it. */
+@media (max-width: 48rem) {
+    .editor > .dock-closed,
+    .schematic-tools .toolbar-hint {
+        display: none;
+    }
+
+    .editor > .dock-layout {
+        position: relative;
+    }
+
+    .editor .dock-panel,
+    .editor .dock-panel[hidden] {
+        display: none;
+    }
+
+    .editor .dock-panel[data-panel="schematic"] {
+        position: absolute;
+        inset: 0 !important;
+        display: flex;
+        width: auto !important;
+        margin: 0;
+        height: auto !important;
+    }
+
+    .editor .dock-panel[data-panel="schematic"] .dock-panel-title {
+        display: none;
+    }
+
+    .editor[data-sheet="text"] .dock-panel[data-panel="text"],
+    .editor[data-sheet="knobs"] .dock-panel[data-panel="knobs"],
+    .editor[data-sheet="results"] .dock-panel[data-panel="results"],
+    .editor[data-sheet="plots"] .dock-panel[data-panel="plots"],
+    .editor[data-sheet="calculators"] .dock-panel[data-panel="calculators"],
+    .editor[data-sheet="dc"] .dock-panel[data-panel="dc"],
+    .editor[data-sheet="compare"] .dock-panel[data-panel="compare"],
+    .editor[data-sheet="clip"] .dock-panel[data-panel="clip"],
+    .editor[data-sheet="monitor"] .dock-panel[data-panel="monitor"],
+    .editor[data-sheet="amp"] .dock-panel[data-panel="amp"] {
+        position: absolute;
+        z-index: 5;
+        inset: auto 0 0 0 !important;
+        display: block;
+        width: auto !important;
+        height: 60% !important;
+        margin: 0;
+        overflow: auto;
+        box-shadow: 0 -2px 8px rgb(0 0 0 / 0.2);
+    }
+
+    .panel-bar {
+        display: flex;
+        flex: none;
+        gap: 0.25rem;
+        overflow-x: auto;
+        padding-top: var(--space-1);
+    }
+
+    .panel-bar button {
+        flex: none;
+        min-height: 2.75rem;
+    }
+
+    .panel-bar button[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+    }
 }

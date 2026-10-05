@@ -38,7 +38,7 @@ public class KnobsTests : BunitContext
         Services.AddSingleton<ISimulationHost>(host);
         var page = Render<Editor>();
         page.Find("textarea").Input(netlist);
-        page.Find("button").Click();
+        page.Find("button.run").Click();
         return (page, host);
     }
 

@@ -8,11 +8,11 @@ namespace Ssp.Web.Tests;
 
 public class DockLayoutTests : BunitContext
 {
-    const string Key = "ssp.dock.editor";
+    const string Key = "ssp.dock.editor.v2";
 
     const string DefaultTree =
-        "row(0.5 column(0.55 tabs(text*), 0.45 tabs(knobs*, calculators, compare, clip)), " +
-        "0.5 column(0.55 tabs(schematic*), 0.45 tabs(results*, plots, dc, monitor, amp)))";
+        "row(0.72 column(0.8 tabs(schematic*), 0.2 tabs(results*, plots, dc, monitor, amp)), " +
+        "0.28 tabs(text*, knobs, calculators, compare, clip))";
 
     static readonly string[] Panels = ["amp", "calculators", "clip", "compare", "dc", "knobs", "monitor", "plots", "results", "schematic", "text"];
 
