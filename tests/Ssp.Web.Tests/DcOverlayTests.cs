@@ -10,7 +10,10 @@ namespace Ssp.Web.Tests;
 
 public class DcOverlayTests : BunitContext
 {
-    public DcOverlayTests() => Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
+    // NOTE: The editor redraws the schematic 100 ms after the last key in the netlist box, so a test that types moves the clock.
+    readonly ManualTimeProvider time = new();
+
+    public DcOverlayTests() => Services.AddSingleton<TimeProvider>(time);
 
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
@@ -77,6 +80,7 @@ public class DcOverlayTests : BunitContext
         Services.AddSingleton<ISimulationHost>(new InProcessSimulationHost());
         var page = Render<Editor>();
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
+        time.Advance(TimeSpan.FromMilliseconds(100));
         page.Find("button").Click();
 
         page.Find(".dock-panel[data-panel=dc] input.dc-toggle").Change(true);

@@ -20,10 +20,13 @@
     public static string? Svg(string netlist)
     {
         var circuit = NetlistLoader.Load(netlist);
-        if (circuit.Diagnostics.Any(d => d.Severity == Severity.Error)) return null;
-        if (!circuit.Circuit.OfType<SpiceComponent>().Any()) return null;
+        if (!Drawable(circuit)) return null;
         return SchematicRenderer.ToSvg(circuit, AutoPlacer.Place(circuit, circuit.Directives), PartMap.Resolve(circuit, Table));
     }
+
+    /// <summary>True when the circuit has no errors and has components, so it has a schematic.</summary>
+    public static bool Drawable(LoadedCircuit circuit) =>
+        circuit.Diagnostics.All(d => d.Severity != Severity.Error) && circuit.Circuit.OfType<SpiceComponent>().Any();
 
     static PartsTable LoadParts()
     {
