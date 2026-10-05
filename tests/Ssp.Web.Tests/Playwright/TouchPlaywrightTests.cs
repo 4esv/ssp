@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.Playwright;
+using Ssp.Web.Sharing;
 using Xunit.Abstractions;
 
 namespace Ssp.Web.Tests.Playwright;
@@ -158,6 +159,99 @@ public partial class TouchPlaywrightTests(ITestOutputHelper output)
         Assert.True(wide[0] <= wide[1] && wide[2] == 0, $"The page scrolls sideways: {wide[0]} px in {wide[1]} px, at {wide[2]}.");
     }
 
+    [PlaywrightFact]
+    public Task A_tap_on_a_part_of_the_fuzz_selects_it_and_never_hits_the_palette() => FuzzTapCore().WaitAsync(Limit);
+
+    // NOTE: #258. On the Transistor fuzz the tap meant for R4 added a resistor. The phone moved the tap onto the Duplicate button of R2,
+    // whose edge lay at the centre of R4. The test prints each box and what lies at each part centre, before the finger-down, while
+    // the finger is down, and after the finger-up. Each tap must reach the part itself, and no control may move while the finger is down.
+    const string Layout = """
+        () => {
+            const box = e => { const r = e.getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}`; };
+            const at = e => e ? `${e.tagName}.${e.getAttribute('class')}.${e.dataset.ref ?? e.dataset.action ?? e.dataset.kind ?? ''}` : 'nothing';
+            const hint = document.querySelector('.schematic-hint').getBoundingClientRect();
+            return {
+                controls: [
+                    `palette ${box(document.querySelector('.palette'))}`,
+                    `canvas ${box(document.querySelector('.schematic-editor .schematic'))}`,
+                    `hint at ${Math.round(hint.x)},${Math.round(hint.y)}`,
+                    ...[...document.querySelectorAll('.part-action')].map(b => `${b.dataset.action} ${box(b)}`),
+                ],
+                parts: ['R2', 'R4', 'R6'].map(ref => {
+                    const e = document.querySelector(`.schematic-pins rect.part[data-ref=${ref}]`);
+                    const r = e.getBoundingClientRect();
+                    const u = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+                    return `${ref} ${box(e)} -> ${u === e ? 'itself' : at(u)}`;
+                }),
+            };
+        }
+        """;
+
+    const string Listen = """
+        () => {
+            window.tapLog = [];
+            for (const t of ['pointerdown', 'click'])
+                document.addEventListener(t, e => tapLog.push(`${t} ${e.target.dataset?.ref ?? `${e.target.tagName}.${e.target.getAttribute('class')}.${e.target.dataset?.action ?? e.target.dataset?.kind ?? ''}`}`), true);
+        }
+        """;
+
+    sealed class Snapshot
+    {
+        public string[] Controls { get; set; } = [];
+        public string[] Parts { get; set; } = [];
+    }
+
+    async Task FuzzTapCore()
+    {
+        var fuzz = File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "library", "fuzz-transistor-diode.cir"));
+        await using var phone = await Phone.Open("#" + ShareCodec.Encode(fuzz));
+        var page = phone.Page;
+        await page.Locator(".schematic[data-view]").WaitForAsync();
+        var before = await Parts(page);
+        await page.Locator("button[data-tool=select]").TapAsync();
+        await page.WaitForTimeoutAsync(300);
+        await page.EvaluateAsync(Listen);
+        var failures = new List<string>();
+
+        async Task<Snapshot> Snap(string when)
+        {
+            var snap = await page.EvaluateAsync<Snapshot>(Layout);
+            output.WriteLine($"{when}: {string.Join(" | ", snap.Controls)} | {string.Join(" | ", snap.Parts)}");
+            failures.AddRange(snap.Parts.Where(p => !p.EndsWith("-> itself")).Select(p => $"{when}: {p}"));
+            return snap;
+        }
+
+        foreach (var reference in new[] { "R2", "R4", "R6" })
+        {
+            var start = await Snap($"before tap {reference}");
+            var part = (await page.Locator($".schematic-pins rect.part[data-ref={reference}]").BoundingBoxAsync())!;
+            await phone.Down(part.X + part.Width / 2, part.Y + part.Height / 2);
+            await page.WaitForTimeoutAsync(100);
+            var down = await Snap($"finger down on {reference}");
+            await phone.Up();
+            await page.WaitForTimeoutAsync(400);
+            var up = await Snap($"after tap {reference}");
+            if (!start.Controls.SequenceEqual(down.Controls)) failures.Add($"a control moved at the finger-down on {reference}");
+            // NOTE: After the finger-up the selection changes, so the action row may move. The palette, the canvas and the hint stay.
+            if (!down.Controls.Take(3).SequenceEqual(up.Controls.Take(3))) failures.Add($"a control moved at the finger-up on {reference}");
+            var events = await page.EvaluateAsync<string[]>("() => tapLog.splice(0)");
+            output.WriteLine($"tap {reference}: events [{string.Join(", ", events)}], selected [{string.Join(", ", await Selected(page))}]");
+            if (!events.SequenceEqual([$"pointerdown {reference}", $"click {reference}"])) failures.Add($"the tap on {reference} reached [{string.Join(", ", events)}]");
+        }
+
+        output.WriteLine($"findings: {failures.Count}");
+        foreach (var f in failures) output.WriteLine("  " + f);
+        Assert.Equal(["R2", "R4", "R6"], await Selected(page));
+        Assert.Equal(before, await Parts(page));
+        Assert.Empty(failures);
+    }
+
+    static Task<string[]> Parts(IPage page) =>
+        page.EvaluateAsync<string[]>("() => [...new Set([...document.querySelectorAll('.schematic-pins rect.part[data-ref]')].map(e => e.dataset.ref))].sort()");
+
+    static Task<string[]> Selected(IPage page) =>
+        page.EvaluateAsync<string[]>("() => [...document.querySelectorAll('.schematic-pins rect.part.selected')].map(e => e.dataset.ref).sort()");
+
     static Task<string> Netlist(IPage page) => page.Locator("textarea[aria-label=Netlist]").InputValueAsync();
 
     [GeneratedRegex(@"^[RCQVDL]\w*\s", RegexOptions.IgnoreCase)]
@@ -170,7 +264,7 @@ public partial class TouchPlaywrightTests(ITestOutputHelper output)
         ICDPSession cdp = null!;
         public IPage Page { get; private set; } = null!;
 
-        public static async Task<Phone> Open()
+        public static async Task<Phone> Open(string hash = "")
         {
             var withDeps = Environment.GetEnvironmentVariable("SSP_PLAYWRIGHT_WITH_DEPS") == "1";
             Assert.Equal(0, Microsoft.Playwright.Program.Main(withDeps ? ["install", "--with-deps", "chromium"] : ["install", "chromium"]));
@@ -191,7 +285,9 @@ public partial class TouchPlaywrightTests(ITestOutputHelper output)
             // NOTE: The test server sometimes drops a connection on the first load, so a page with no editor loads again.
             for (var attempt = 0; ; attempt++)
             {
-                await phone.Page.GotoAsync(baseUrl + "editor");
+                // NOTE: A second GotoAsync to the same address with a hash does not load the page again, so a retry reloads.
+                if (attempt == 0) await phone.Page.GotoAsync(baseUrl + "editor" + hash);
+                else await phone.Page.ReloadAsync();
                 try
                 {
                     await phone.Page.Locator("button[data-action=new]").WaitForAsync(new() { Timeout = 30_000 });
@@ -203,12 +299,19 @@ public partial class TouchPlaywrightTests(ITestOutputHelper output)
             return phone;
         }
 
-        Task Touch(string type, params (double X, double Y)[] at) =>
+        Task Touch(string type, params (double X, double Y)[] at) => Touch(type, 1, at);
+
+        Task Touch(string type, double radius, params (double X, double Y)[] at) =>
             cdp.SendAsync("Input.dispatchTouchEvent", new Dictionary<string, object>
             {
                 ["type"] = type,
-                ["touchPoints"] = at.Select(p => new Dictionary<string, object> { ["x"] = p.X, ["y"] = p.Y }).ToArray(),
+                ["touchPoints"] = at.Select(p => new Dictionary<string, object> { ["x"] = p.X, ["y"] = p.Y, ["radiusX"] = radius, ["radiusY"] = radius }).ToArray(),
             });
+
+        // NOTE: A fingertip is about 8 px in radius, and the phone moves the tap onto a button within it.
+        public Task Down(double x, double y) => Touch("touchStart", 8, (x, y));
+
+        public Task Up() => Touch("touchEnd");
 
         // NOTE: A finger never stays still, so the hold drifts a few pixels.
         public async Task Hold(double x, double y, double drift)
