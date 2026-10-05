@@ -134,7 +134,9 @@ public static partial class SchematicEdits
         lines.InsertRange(end < 0 ? lines.Count : end, added);
 
         var x = layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep;
-        var parts = layout.Parts.Append(new PartPlacement(kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference, x, Row, 0, false)).ToList();
+        // NOTE: A text edit can remove a part and leave its placement. The new part takes the freed reference, so the stale placement goes.
+        var placed = kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference;
+        var parts = layout.Parts.Where(p => !Names.Equals(p.Reference, placed)).Append(new PartPlacement(kind == "pot" || IsSwitch(kind) ? reference + "_1" : reference, x, Row, 0, false)).ToList();
         return new SchematicChange(Join(lines), new LayoutDoc(parts, layout.Wires));
     }
 
