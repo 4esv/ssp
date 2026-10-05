@@ -133,7 +133,7 @@
                 {
                     var k = knob;
                     var shown = turning is { } t && t.Reference == k.Reference ? t.Now : k.Position;
-                    var (px, py) = KnobPointer(k.At, shown);
+                    var (px, py) = KnobPointer(k.At, shown, KnobFace());
                     <g class="@(turning?.Reference == k.Reference ? "knob turning" : "knob")" data-ref="@k.Reference" role="slider" tabindex="0"
                        aria-label="@k.Reference" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Math.Round(shown * 100)" aria-valuetext="@KnobText(k, shown)"
                        @onpointerdown="e => KnobDown(k, e)" @onpointerdown:stopPropagation @onpointermove="KnobMove" @onpointermove:stopPropagation
@@ -141,8 +141,8 @@
                        @onclick:stopPropagation @ondblclick="() => Turn(k.Reference, 0.5)" @ondblclick:stopPropagation
                        @onwheel="e => KnobWheel(k, e)" @onwheel:stopPropagation @onwheel:preventDefault
                        @onkeydown="e => KnobKey(k, e)" @onkeydown:stopPropagation>
-                        <circle class="knob-hit" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(Math.Max(KnobRadius, DotRadius()))" />
-                        <circle class="knob-face" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(KnobRadius)" />
+                        <circle class="knob-hit" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(Math.Max(KnobFace(), DotRadius()))" />
+                        <circle class="knob-face" cx="@N(k.At.X)" cy="@N(k.At.Y)" r="@N(KnobFace())" />
                         <line class="knob-pointer" x1="@N(k.At.X)" y1="@N(k.At.Y)" x2="@N(px)" y2="@N(py)" />
                         <title>@KnobText(k, shown). Drag, scroll or use the arrow keys. Double-click for noon.</title>
                     </g>
@@ -241,6 +241,7 @@
     (string Reference, double FromY, double From, double Now, bool Moved)? turning;
 
     // NOTE: The hit circle of a knob is DotPixels on screen at any zoom, so a finger can turn a knob on a zoomed-out canvas.
+    // NOTE: The face of a knob is at least KnobRadius pixels on screen, so it stays legible on a zoomed-out canvas.
     // NOTE: A drag of this many pixels turns a knob from 0% to 100%. A wheel tick turns it 5%, an arrow key 1%.
     const double KnobTravel = 150, KnobRadius = 9, WheelStep = 0.05, KeyStep = 0.01;
 
@@ -1152,11 +1153,13 @@
 
     string Pressed(Tool t) => t == tool ? "true" : "false";
 
-    static (double X, double Y) KnobPointer(Point at, double position)
+    double KnobFace() => Math.Max(KnobRadius, KnobRadius / Zoom());
+
+    static (double X, double Y) KnobPointer(Point at, double position, double radius)
     {
         // NOTE: The pointer sweeps 270 degrees, from 7 o'clock at 0% through noon at 50% to 5 o'clock at 100%.
         var angle = (-135 + 270 * position) * Math.PI / 180;
-        return (at.X + KnobRadius * Math.Sin(angle), at.Y - KnobRadius * Math.Cos(angle));
+        return (at.X + radius * Math.Sin(angle), at.Y - radius * Math.Cos(angle));
     }
 
     static string KnobText(KnobView k, double position) =>
