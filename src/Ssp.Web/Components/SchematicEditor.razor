@@ -5,6 +5,8 @@
 @using Ssp.Core.Netlist
 @using Ssp.Core.Parts
 @using Ssp.Web.Schematic
+@using Ssp.Web.Library
+@using Ssp.Web.Projects
 @using SpiceComponent = SpiceSharp.Components.IComponent
 @using LayoutDoc = Ssp.Core.Layout.Layout
 @using Point = Ssp.Core.Layout.Point
@@ -61,6 +63,15 @@
                    @onkeydown="ValueKey" @onkeydown:stopPropagation />
         </div>
     }
+    @if (saving is not null)
+    {
+        <form class="block-save" @onsubmit="SaveBlock">
+            <input class="block-name" type="text" autocomplete="off" spellcheck="false" aria-label="Name of the block" value="@savingName"
+                   @oninput="e => savingName = e.Value?.ToString()" @onkeydown:stopPropagation />
+            <button type="submit">Save block</button>
+            <button type="button" @onclick="() => saving = null">Cancel</button>
+        </form>
+    }
     @if (valueError is not null && ValueBox())
     {
         <p class="value-error" role="alert">@valueError</p>
@@ -80,7 +91,32 @@
                 <span class="palette-name">@Label(kind)</span>
             </button>
         }
+        <button type="button" class="palette-item palette-blocks" data-action="blocks" disabled="@hasErrors" aria-expanded="@(blocksOpen ? "true" : "false")"
+                aria-pressed="@(pick is null ? "false" : "true")" title="Insert a ready-made stage or one of My Blocks" @onclick="ToggleBlocks">
+            <span class="palette-symbol" aria-hidden="true">&#x25A6;</span>
+            <span class="palette-name">Blocks</span>
+        </button>
     </div>
+    @if (blocksOpen)
+    {
+        <div class="block-list" role="group" aria-label="Blocks">
+            @if (myBlocks.Count > 0)
+            {
+                <p class="block-heading">My Blocks</p>
+                @foreach (var b in myBlocks)
+                {
+                    var saved = b;
+                    <button type="button" data-block="@("my:" + saved.Id)" @onclick="() => Pick(saved.Name, saved.Netlist, saved.Layout)">@saved.Name</button>
+                }
+            }
+            <p class="block-heading">Stages</p>
+            @foreach (var b in CircuitLibrary.Blocks)
+            {
+                var block = b;
+                <button type="button" data-block="@block.FileName" @onclick="() => Pick(block.Title, block.Netlist, block.Layout)">@block.Title</button>
+            }
+        </div>
+    }
     <figure class="schematic" aria-label="Schematic" tabindex="0" @ref="pane" data-view="@(view is null ? null : "")" style="@StageStyle()"
             @onkeydown="Key" @onkeydown:preventDefault="@(selected is not null || selectedWire is not null || active is not null || group.Count > 0)"
             @onwheel="Wheel" @onwheel:preventDefault @onclick="CanvasClick">
@@ -293,6 +329,9 @@
     /// <summary>Gets the nodes of the part or pin under the pointer, and no nodes when the pointer leaves it.</summary>
     [Parameter] public EventCallback<IReadOnlyCollection<string>> Pointed { get; set; }
 
+    /// <summary>Where My Blocks are kept. With none it is the browser <c>localStorage</c>.</summary>
+    [Parameter] public IKeyValueStore? BlockStorage { get; set; }
+
     /// <summary>The loads of the editor page. With none the editor loads the netlist itself.</summary>
     [CascadingParameter] public NetlistCache? Loads { get; set; }
 
@@ -323,6 +362,15 @@
 
     // What Copy or Cut kept. Paste adds it with fresh references.
     Clip? clip;
+
+    // The block list, My Blocks from storage, and the block that the next tap on the empty canvas inserts.
+    bool blocksOpen;
+    IReadOnlyList<SavedBlock> myBlocks = [];
+    (string Name, Clip Clip)? pick;
+
+    // The selection that the name box saves as a block, and the name.
+    Clip? saving;
+    string? savingName;
 
     // Whether a one-pointer drag on the empty canvas draws a selection box. Shift and a drag draw one too.
     bool boxTool;
@@ -701,12 +749,17 @@
     }
 
     // NOTE: A tap on the empty canvas clears the selected part, the selected wire, the active pin and the picker.
-    void CanvasClick(MouseEventArgs e)
+    async Task CanvasClick(MouseEventArgs e)
     {
         if (press?.Fired == true) return;
         if (panMoved)
         {
             panMoved = false;
+            return;
+        }
+        if (pick is { } p)
+        {
+            await Insert(p.Name, p.Clip, new Point(e.ClientX, e.ClientY));
             return;
         }
         (selected, selectedWire) = (null, null);
@@ -896,6 +949,7 @@
 
     string Hint() =>
         connecting ? "Tap the pin to join. Esc cancels."
+        : pick is { } p ? $"Tap an empty spot to insert {p.Name}. Esc cancels."
         : pointing is not null && status is null && !menuOpen ? pointing
         : status is not null ? status
         : menuOpen ? "Pick a part, Wire, Ground or Connect."
@@ -948,7 +1002,11 @@
     // NOTE: Escape clears the selection, so that Tab can move the focus out of the schematic again.
     async Task Key(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape") ClearActive();
+        if (e.Key == "Escape")
+        {
+            ClearActive();
+            (pick, blocksOpen) = (null, false);
+        }
         switch (e.Key)
         {
             case "+" or "=":
@@ -1158,6 +1216,71 @@
 
     static string Count(int parts) => parts == 1 ? "1 part" : $"{parts} parts";
 
+    BlockStore Blocks() => new(BlockStorage ?? new LocalStorage(Js), Clock);
+
+    async Task ToggleBlocks()
+    {
+        blocksOpen = !blocksOpen;
+        if (!blocksOpen) return;
+        try { myBlocks = await Blocks().List(); }
+        catch (JSException) { myBlocks = []; }
+    }
+
+    // NOTE: A pick arms the block. The next tap on the empty canvas inserts it once.
+    void Pick(string name, string blockNetlist, string? blockLayout)
+    {
+        Clip block;
+        try { block = SchematicEdits.Block(blockNetlist, blockLayout is null ? null : LayoutDoc.Parse(blockLayout)); }
+        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or ArgumentException)
+        {
+            status = $"{name} does not read: {e.Message}";
+            return;
+        }
+        blocksOpen = false;
+        ClearActive();
+        pick = (name, block);
+    }
+
+    // NOTE: The insert is one edit, so one undo takes it back. The block is the new selection, so a drag moves it.
+    async Task Insert(string name, Clip block, Point client)
+    {
+        pick = null;
+        if (hasErrors) return;
+        double[]? b = null;
+        try { b = await PaneBox(); }
+        catch (JSException) { }
+        var at = b is { Length: >= 4 } && b[2] > 0 ? (await ToCanvas(client.X, client.Y)).At : World(client);
+        var (change, fresh) = SchematicEdits.PasteAt(netlist, layout, block, at);
+        await Apply(change);
+        SelectMany(outlines.Where(o => fresh.Contains(o.Reference, StringComparer.OrdinalIgnoreCase)).Select(o => o.Reference));
+        status = $"Inserted {name}: {string.Join(", ", fresh)}.";
+    }
+
+    void StartSave()
+    {
+        if (parts is null || Selection() is not { Count: > 0 } chosen) return;
+        saving = SchematicEdits.Copy(netlist, layout, parts, chosen);
+        savingName = $"My block {myBlocks.Count + 1}";
+    }
+
+    async Task SaveBlock()
+    {
+        if (saving is not { } block) return;
+        var name = string.IsNullOrWhiteSpace(savingName) ? "My block" : savingName.Trim();
+        var alone = SchematicEdits.Alone(block);
+        saving = null;
+        try
+        {
+            await Blocks().Save(name, alone.Netlist, LayoutDoc.Format(alone.Layout));
+            myBlocks = await Blocks().List();
+            status = $"Saved {name} in My Blocks.";
+        }
+        catch (JSException e)
+        {
+            status = $"{name} is not saved: {e.Message}";
+        }
+    }
+
     void SelectWire(int index)
     {
         if (panMoved) return;
@@ -1242,6 +1365,7 @@
         "flip" => "\u21C6",
         "copy" => "\u2398",
         "cut" => "\u2702",
+        "save-block" => "\u2606",
         _ => "\u29C9",
     };
 
@@ -1313,6 +1437,7 @@
             case "duplicate": await DuplicateSelected(); break;
             case "copy": CopySelection(); break;
             case "cut": await CutSelection(); break;
+            case "save-block": StartSave(); break;
         }
     }
 
@@ -1358,7 +1483,7 @@
         if (sized) (a, b) = (view!.WorldToScreen(min), view!.WorldToScreen(max));
         var mx = (a.X + b.X) / 2;
         var names = wire ? new[] { ("delete", "Delete") }
-            : group.Count > 0 ? [("delete", "Delete"), ("copy", "Copy"), ("cut", "Cut")]
+            : group.Count > 0 ? [("delete", "Delete"), ("copy", "Copy"), ("cut", "Cut"), ("save-block", "Save as block")]
             : [("delete", "Delete"), ("rotate", "Rotate"), ("flip", "Flip"), ("duplicate", "Duplicate")];
         if (wire) return [("delete", "Delete", Place(mx, (a.Y + b.Y) / 2))];
 
