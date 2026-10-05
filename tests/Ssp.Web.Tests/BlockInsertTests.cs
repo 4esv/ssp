@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Components.Web;
 using Ssp.Core.Diagnostics;
 using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
+using Ssp.Core.Layout;
 using Ssp.Web.Components;
+using Ssp.Web.Editing;
 using Ssp.Web.Library;
 using Ssp.Web.Projects;
 using Ssp.Web.Schematic;
@@ -162,6 +164,175 @@ public class BlockInsertTests : BunitContext
         // NOTE: One insert per pick. The next tap on the canvas adds nothing.
         editor.Find("figure.schematic").Click(new MouseEventArgs { ClientX = 0, ClientY = 3000 });
         Assert.Single(seen);
+    }
+
+    static Clip Stage(string file)
+    {
+        var block = CircuitLibrary.Blocks.Single(b => b.FileName == file);
+        return SchematicEdits.Block(block.Netlist, block.Layout is null ? null : LayoutDoc.Parse(block.Layout));
+    }
+
+    // The wire from pin 1 of R2 to the supply V2, on net n10.
+    static (WireRoute Wire, Point Middle) SupplyWire(LayoutDoc layout)
+    {
+        Point At(string reference, int pin) => SchematicEdits.Pin(NetlistLoader.Load(Fuzz), layout, Map(Fuzz), new PinRef(reference, pin)).Position;
+        var ends = new[] { At("R2", 1), At("V2", 0) };
+        var wire = layout.Wires.Single(w => w.Net == "n10" && ends.Contains(w.Points[0]) && ends.Contains(w.Points[^1]));
+        var (a, b) = (wire.Points[0], wire.Points[1]);
+        return (wire, new Point((a.X + b.X) / 2, (a.Y + b.Y) / 2));
+    }
+
+    // The node of each pin of each part, by "reference.pin".
+    static Dictionary<string, string> PinNodes(string netlist) =>
+        NetlistLoader.Load(netlist).Circuit.OfType<SpiceSharp.Components.IComponent>()
+            .SelectMany(c => c.Nodes.Select((n, i) => (Key: $"{c.Name}.{i}", Node: n)))
+            .ToDictionary(p => p.Key, p => p.Node, StringComparer.OrdinalIgnoreCase);
+
+    [Fact]
+    public void A_stage_dropped_on_the_wire_between_R2_and_the_supply_lands_in_series()
+    {
+        var layout = Placed(Fuzz);
+        var (wire, middle) = SupplyWire(layout);
+
+        var drop = SchematicEdits.Drop(Fuzz, layout, Map(Fuzz), Stage("clip-shunt-led.cir"), middle);
+
+        Assert.Null(drop.Refused);
+        AssertValidAndClear(Fuzz, layout, drop.Change);
+        Assert.DoesNotContain(wire, drop.Change.Layout.Wires);
+        // NOTE: The stage's own test source V1 stays out. C1, R1, D1, D2 and R2 of the stage land.
+        Assert.Equal(5, drop.References.Count);
+        var old = PinNodes(Fuzz);
+        var now = PinNodes(drop.Change.Netlist);
+        // NOTE: The cut gives one end of the wire, R2 or V2, a new net. Every other pin that was there keeps its net.
+        var moved = Assert.Single(old, p => now[p.Key] != p.Value);
+        Assert.Contains(moved.Key, new[] { "R2.1", "V2.0" });
+        var cut = now[moved.Key];
+        Assert.DoesNotContain(cut, old.Values);
+        // NOTE: The stage sits in series: one end of it on the new net, the other on n10.
+        var c1 = drop.References.Single(r => r.StartsWith('C'));
+        var r = drop.References.Where(x => x.StartsWith('R')).ToList();
+        var ends = new[] { now[c1 + ".0"] }.Concat(r.SelectMany(x => new[] { now[x + ".0"], now[x + ".1"] })).ToHashSet();
+        Assert.Contains(cut, ends);
+        Assert.Contains("n10", ends);
+        Assert.Equal(now[c1 + ".0"] == cut ? "n10" : cut, now[r.Single(x => now[x + ".1"] != "0") + ".1"]);
+        // NOTE: The nets: those of the fuzz, the cut, and the stage net a between C1 and R1.
+        Assert.Equal(NetlistLoader.Load(Fuzz).NodeNames.Count() + 2, NetlistLoader.Load(drop.Change.Netlist).NodeNames.Count());
+        // NOTE: Wires go from the cut ends, on the old wire, to the stage pins.
+        static bool On(WireRoute w, Point p) => w.Points.Zip(w.Points.Skip(1)).Any(s =>
+            (s.First.X - p.X) * (s.Second.Y - p.Y) == (s.Second.X - p.X) * (s.First.Y - p.Y)
+            && p.X >= Math.Min(s.First.X, s.Second.X) && p.X <= Math.Max(s.First.X, s.Second.X)
+            && p.Y >= Math.Min(s.First.Y, s.Second.Y) && p.Y <= Math.Max(s.First.Y, s.Second.Y));
+        var stagePins = drop.Change.Layout.Wires.Where(w => !layout.Wires.Contains(w) && On(wire, w.Points[0]) && !On(wire, w.Points[^1])).ToList();
+        Assert.Contains(stagePins, w => w.Net == cut);
+        Assert.Contains(stagePins, w => w.Net == "n10");
+    }
+
+    [Theory]
+    [InlineData("fixtures/fuzz-drawn.cir")]
+    [InlineData("library/fuzz-transistor-diode.cir")]
+    public void A_stage_dropped_on_any_wire_leaves_no_pin_cut_off(string file)
+    {
+        var netlist = File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", file));
+        var layout = Placed(netlist);
+        var before = PinNodes(netlist);
+        static Dictionary<string, int> Counts(Dictionary<string, string> pins) => pins.Values.GroupBy(n => n).ToDictionary(g => g.Key, g => g.Count());
+        var inserted = 0;
+        for (var i = 0; i < layout.Wires.Count; i++)
+        {
+            var w = layout.Wires[i];
+            var at = new Point((w.Points[0].X + w.Points[1].X) / 2, (w.Points[0].Y + w.Points[1].Y) / 2);
+            var drop = SchematicEdits.Drop(netlist, layout, Map(netlist), Stage("clip-shunt-led.cir"), at, i);
+            if (drop.Refused is not null) continue;
+            inserted++;
+            AssertValidAndClear(netlist, layout, drop.Change);
+            var now = PinNodes(drop.Change.Netlist);
+            var (was, count) = (Counts(before), Counts(now));
+            // NOTE: A pin that shared its net still shares it after the cut.
+            Assert.All(before, p => Assert.True(count[now[p.Key]] >= Math.Min(2, was[p.Value]), $"wire {i}: {p.Key} is cut off on {now[p.Key]}"));
+        }
+        Assert.True(inserted > 0);
+    }
+
+    [Fact]
+    public void A_stage_dropped_on_a_junction_joins_that_net_with_its_output_free()
+    {
+        var layout = Placed(Fuzz);
+        var junction = SchematicEdits.Junctions(layout).First();
+        var net = layout.Wires.First(w => w.Points.Contains(junction)).Net;
+
+        var drop = SchematicEdits.Drop(Fuzz, layout, Map(Fuzz), Stage("clip-shunt-led.cir"), junction);
+
+        Assert.Null(drop.Refused);
+        AssertValidAndClear(Fuzz, layout, drop.Change);
+        Assert.Contains("output is free", drop.Message);
+        var old = PinNodes(Fuzz);
+        var now = PinNodes(drop.Change.Netlist);
+        Assert.All(old, p => Assert.Equal(p.Value, now[p.Key]));
+        var c1 = drop.References.Single(r => r.StartsWith('C'));
+        Assert.Equal(net, now[c1 + ".0"]);
+        // NOTE: No old net joins another: only the stage's own nets a and out are new.
+        Assert.Equal(NetlistLoader.Load(Fuzz).NodeNames.Count() + 2, NetlistLoader.Load(drop.Change.Netlist).NodeNames.Count());
+    }
+
+    [Fact]
+    public void A_loose_group_dropped_on_a_wire_joins_by_its_first_pin()
+    {
+        var layout = Placed(Fuzz);
+        var (_, middle) = SupplyWire(layout);
+        var loose = SchematicEdits.Copy(Fuzz, layout, Map(Fuzz), ["R5"]);
+
+        var drop = SchematicEdits.Drop(Fuzz, layout, Map(Fuzz), loose, middle);
+
+        Assert.Null(drop.Refused);
+        AssertValidAndClear(Fuzz, layout, drop.Change);
+        var now = PinNodes(drop.Change.Netlist);
+        Assert.Equal("n10", now[Assert.Single(drop.References) + ".0"]);
+        Assert.All(PinNodes(Fuzz), p => Assert.Equal(p.Value, now[p.Key]));
+    }
+
+    [Fact]
+    public void A_drop_that_would_short_two_nets_is_refused_with_a_reason()
+    {
+        var layout = Placed(Fuzz);
+        var (_, middle) = SupplyWire(layout);
+        // NOTE: The first pin of D1 is on n8 and the second is on ground. Turned round, the first pin is on ground.
+        var flipped = Fuzz.Replace("D1 n8 0 DGEN", "D1 0 n8 DGEN");
+        var grounded = SchematicEdits.Copy(flipped, layout, Map(flipped), ["D1"]);
+
+        var drop = SchematicEdits.Drop(Fuzz, layout, Map(Fuzz), grounded, middle);
+
+        Assert.NotNull(drop.Refused);
+        Assert.Contains("short", drop.Refused);
+        Assert.Equal((Fuzz, layout), (drop.Change.Netlist, drop.Change.Layout));
+    }
+
+    [Fact]
+    public void A_stage_dropped_on_a_wire_from_the_list_is_one_step_and_undo_restores_it_exactly()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var layout = Placed(Fuzz);
+        var history = new CommandStack();
+        history.Reset(Fuzz, layout);
+        var seen = new List<SchematicChange>();
+        var editor = Render<SchematicEditor>(p => p
+            .Add(c => c.Netlist, Fuzz)
+            .Add(c => c.Layout, layout)
+            .Add(c => c.BlockStorage, new MemoryStore())
+            .Add(c => c.Changed, (SchematicChange c) => { seen.Add(c); history.Do(new ChangeCommand(c)); }));
+        var (wire, _) = SupplyWire(layout);
+
+        editor.Find("button[data-action=blocks]").Click();
+        editor.Find("button[data-block='clip-shunt-led.cir']").Click();
+        Assert.Contains("a wire", editor.Find(".schematic-hint").TextContent);
+        editor.Find($"polyline.wire-hit[data-wire='{layout.Wires.ToList().IndexOf(wire)}']").Click();
+
+        var change = Assert.Single(seen);
+        AssertValidAndClear(Fuzz, layout, change);
+        Assert.DoesNotContain(wire, change.Layout.Wires);
+        Assert.Contains("in series", editor.Find(".schematic-hint").TextContent);
+        history.Undo();
+        Assert.Equal(Fuzz, history.Netlist);
+        Assert.Equal(LayoutDoc.Format(layout), LayoutDoc.Format(history.Layout!));
     }
 
     [Fact]
