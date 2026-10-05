@@ -80,7 +80,8 @@ public partial class TouchPlaywrightTests(ITestOutputHelper output)
         Assert.Contains(elements, e => e.StartsWith('R'));
         Assert.Equal(2, elements.Count(e => e.StartsWith('V')));
 
-        // NOTE: Each part action button is a target too.
+        // NOTE: Each part action button is a target too. The circuit is larger than the pane at the zoom of the build, so Fit brings C1 into view first.
+        await Tap(page.Locator("button[data-zoom=fit]"), "Fit");
         await page.Locator("svg.schematic-pins rect.part[data-ref^=C]").TapAsync();
         foreach (var action in await page.Locator(".part-action").EvaluateAllAsync<string[]>("bs => bs.map(b => b.dataset.action)"))
         {
