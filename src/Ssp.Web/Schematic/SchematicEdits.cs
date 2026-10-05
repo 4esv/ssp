@@ -335,17 +335,22 @@ public static partial class SchematicEdits
         var lines = Lines(netlist);
         var nodes = circuit.Circuit.OfType<IComponent>().ToDictionary(c => c.Name, c => c.Nodes.Count, Names);
         var models = lines.Where(l => ModelName().IsMatch(l)).ToDictionary(l => ModelName().Match(l).Groups[1].Value, l => l, Names);
+        // NOTE: A subcircuit goes with the copy like a model, so a block with an op-amp pastes into any netlist.
+        foreach (var (name, text) in Subcircuits(lines)) models.TryAdd(name, text);
 
         var copied = new List<ClipPart>();
         var used = new List<string>();
+        var instances = circuit.Subcircuits.ToDictionary(x => x.Name, x => x.Pins.Count, Names);
         foreach (var (element, placement) in group)
         {
-            var members = element.Members.Select(m =>
+            // NOTE: The loader flattens a subcircuit instance into X1.Rid and the like. The netlist line is X1.
+            IEnumerable<string> names = instances.ContainsKey(element.Reference) ? [element.Reference] : element.Members;
+            var members = names.Select(m =>
             {
                 var (at, count) = Element(lines, m);
                 var text = string.Join('\n', lines.GetRange(at, count));
                 used.AddRange(Words().Split(lines[at]).Where(w => models.ContainsKey(w)));
-                return new ClipLine(m, text, nodes.GetValueOrDefault(m));
+                return new ClipLine(m, text, instances.TryGetValue(m, out var pins) ? pins : nodes.GetValueOrDefault(m));
             }).ToList();
             var knobs = lines.Where(l => KnobOf(l) is { } k && Names.Equals(k, element.Reference)).ToList();
             copied.Add(new ClipPart(element.Reference, members, knobs, placement));
@@ -356,7 +361,74 @@ public static partial class SchematicEdits
         var wires = layout.Wires.Where(w =>
             new[] { w.Points[0], w.Points[^1] }.All(q => pins.Contains(q) || w.Net == Zero && UnderGround(q))
             && (w.Net != Zero || w.Points.Any(pins.Contains) || w.Points.All(UnderGround))).ToList();
+        // NOTE: A model that only a copied subcircuit uses goes with the copy too.
+        foreach (var m in used.ToList()) used.AddRange(models[m].Split('\n').Skip(1).SelectMany(l => Words().Split(l)).Where(w => models.ContainsKey(w)));
         return new Clip(copied, used.Distinct(Names).Select(m => models[m]).ToList(), wires);
+    }
+
+    /// <summary>All the parts of a netlist as a clip, to insert as a block. With no layout the parts get the auto-placement.</summary>
+    public static Clip Block(string netlist, LayoutDoc? layout)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        layout ??= AutoPlacer.Place(circuit, circuit.Directives);
+        var references = circuit.Circuit.Select(e => e.Name).ToList();
+        return Copy(netlist, layout, PartMap.Resolve(circuit, Components.SchematicView.Table), references);
+    }
+
+    /// <summary>The clip alone: a netlist and a layout with only its parts, as My Blocks keeps it.</summary>
+    public static SchematicChange Alone(Clip clip) => Paste("", new LayoutDoc([], []), clip).Change;
+
+    /// <summary>
+    /// Pastes the clip with its top-left part at the point. If the clip would cover a part, it moves one column to the
+    /// right until it covers none. The parts that are there do not move.
+    /// </summary>
+    public static (SchematicChange Change, IReadOnlyList<string> References) PasteAt(string netlist, LayoutDoc layout, Clip clip, Point at)
+    {
+        if (clip.Parts.Count == 0) return (new SchematicChange(netlist, layout), []);
+        var old = Outlines(NetlistLoader.Load(netlist), layout);
+        var dy = Snap(at.Y - clip.Parts.Min(p => p.Placement.Y));
+        var dx = Snap(at.X - clip.Parts.Min(p => p.Placement.X));
+        // NOTE: Past the right edge of the old parts the clip covers none, so the loop ends.
+        var right = old.Count == 0 ? dx : old.Max(o => o.Max.X) - clip.Parts.Min(p => p.Placement.X) + ColumnStep;
+        while (true)
+        {
+            var pasted = PasteBy(netlist, layout, clip, dx, dy);
+            var added = Outlines(NetlistLoader.Load(pasted.Change.Netlist), pasted.Change.Layout).Where(n => !old.Any(o => Names.Equals(o.Reference, n.Reference)));
+            if (dx >= right || !added.Any(n => old.Any(o => Covers(n, o)))) return pasted;
+            dx += ColumnStep;
+        }
+    }
+
+    // NOTE: Two outlines closer than one grid step cover each other, so the labels of a block do not touch the parts beside it.
+    static bool Covers((string, Point Min, Point Max) a, (string, Point Min, Point Max) b) =>
+        a.Min.X < b.Max.X + Symbols.Grid && b.Min.X < a.Max.X + Symbols.Grid && a.Min.Y < b.Max.Y + Symbols.Grid && b.Min.Y < a.Max.Y + Symbols.Grid;
+
+    // The outline of each placed element.
+    static List<(string Reference, Point Min, Point Max)> Outlines(LoadedCircuit circuit, LayoutDoc layout)
+    {
+        var outlines = new List<(string, Point, Point)>();
+        foreach (var e in SchematicRenderer.Elements(circuit, null))
+        {
+            if (layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])) is not { } placement) continue;
+            var (min, max) = SchematicRenderer.Outline(e, placement);
+            outlines.Add((e.Reference, min, max));
+        }
+        return outlines;
+    }
+
+    // The .subckt blocks of a netlist by name, each with its lines up to and with .ends.
+    static Dictionary<string, string> Subcircuits(List<string> lines)
+    {
+        var found = new Dictionary<string, string>(Names);
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (SubcircuitName().Match(lines[i]) is not { Success: true } m) continue;
+            var end = lines.FindIndex(i, l => l.TrimStart().StartsWith(".ends", StringComparison.OrdinalIgnoreCase));
+            if (end < 0) break;
+            found.TryAdd(m.Groups[1].Value, string.Join('\n', lines.GetRange(i, end - i + 1)));
+            i = end;
+        }
+        return found;
     }
 
     /// <summary>
@@ -366,6 +438,12 @@ public static partial class SchematicEdits
     public static (SchematicChange Change, IReadOnlyList<string> References) Paste(string netlist, LayoutDoc layout, Clip clip)
     {
         if (clip.Parts.Count == 0) return (new SchematicChange(netlist, layout), []);
+        var dx = Snap((layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep) - clip.Parts.Min(p => p.Placement.X));
+        return PasteBy(netlist, layout, clip, dx, 0);
+    }
+
+    static (SchematicChange Change, IReadOnlyList<string> References) PasteBy(string netlist, LayoutDoc layout, Clip clip, double dx, double dy)
+    {
         var circuit = NetlistLoader.Load(netlist);
         var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).SelectMany(n => new[] { n, Pair().Replace(n, "") }).ToHashSet(Names);
         var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
@@ -380,10 +458,11 @@ public static partial class SchematicEdits
 
         var lines = Lines(netlist);
         if (lines.Count == 0) lines.Add("* schematic");
-        var added = clip.Models.Where(m => !lines.Any(l => Names.Equals(l.Trim(), m.Trim()) || ModelName().Match(m) is { Success: true } n && ModelLine(n.Groups[1].Value).IsMatch(l))).ToList();
+        var defined = Subcircuits(lines);
+        var added = clip.Models.Where(m => !lines.Any(l => Names.Equals(l.Trim(), m.Trim()) || ModelName().Match(m) is { Success: true } n && ModelLine(n.Groups[1].Value).IsMatch(l))
+            && !(SubcircuitName().Match(m) is { Success: true } s && defined.ContainsKey(s.Groups[1].Value))).ToList();
         var placements = new List<PartPlacement>();
         var fresh = new List<string>();
-        var dx = Snap((layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep) - clip.Parts.Min(p => p.Placement.X));
         foreach (var part in clip.Parts)
         {
             var reference = Fresh(Prefix().Match(part.Reference).Value, references);
@@ -403,12 +482,12 @@ public static partial class SchematicEdits
             }
             added.AddRange(part.Knobs.Select(k => KnobWord().Replace(k, m => m.Groups[1].Value + reference, 1)));
             var at = part.Placement;
-            placements.Add(at with { Reference = Name(at.Reference), X = at.X + dx });
+            placements.Add(at with { Reference = Name(at.Reference), X = at.X + dx, Y = at.Y + dy });
         }
         var end = lines.FindIndex(1, l => l.Trim().Equals(".end", StringComparison.OrdinalIgnoreCase));
         lines.InsertRange(end < 0 ? lines.Count : end, added);
 
-        var wires = clip.Wires.Select(w => new WireRoute(Node(w.Net), w.Points.Select(p => new Point(p.X + dx, p.Y)).ToList()));
+        var wires = clip.Wires.Select(w => new WireRoute(Node(w.Net), w.Points.Select(p => new Point(p.X + dx, p.Y + dy)).ToList()));
         return (new SchematicChange(Join(lines), new LayoutDoc([.. layout.Parts, .. placements], [.. layout.Wires, .. wires])), fresh);
     }
 
@@ -983,6 +1062,9 @@ public static partial class SchematicEdits
 
     [GeneratedRegex(@"^\s*\.model\s+(\S+)", RegexOptions.IgnoreCase)]
     private static partial Regex ModelName();
+
+    [GeneratedRegex(@"^\s*\.subckt\s+(\S+)", RegexOptions.IgnoreCase)]
+    private static partial Regex SubcircuitName();
 
     [GeneratedRegex(@"^(\s*\*\s*ssp:knob\s+)(\S+)", RegexOptions.IgnoreCase)]
     private static partial Regex KnobWord();
