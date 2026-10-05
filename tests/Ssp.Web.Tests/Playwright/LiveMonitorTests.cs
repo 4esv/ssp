@@ -26,9 +26,10 @@ public class LiveMonitorTests(ITestOutputHelper output)
                 "--use-file-for-fake-audio-capture=" + wav,
                 "--autoplay-policy=no-user-gesture-required",
             ]);
-            await session.Page.Locator(".dock-tab[data-panel=monitor]").ClickAsync();
+            // NOTE: The netlist is a tab of the side strip. Fill it before the monitor tab opens.
             await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(
                 File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", "clipper-bjt-si.cir")));
+            await session.Page.Locator(".dock-tab[data-panel=monitor]").ClickAsync();
 
             var panel = session.Page.Locator(".dock-panel[data-panel=monitor] .live-monitor");
             await Assertions.Expect(panel.Locator(".monitor-note")).ToHaveTextAsync("monitor, not real time");
