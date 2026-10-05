@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace Ssp.Web.Tests.Playwright;
 
-// NOTE: Several parts at once on the fuzz starter (#169): select R2, R4 and R5, copy, paste, and one Undo takes the paste back.
+// NOTE: Several parts at once on the fuzz starter (#169): select R2, R4 and R6, copy, paste, and one Undo takes the paste back.
 // The keys work, and so do the Select, Copy and Paste buttons for a finger.
 [Collection(PlaywrightCollection.Name)]
 public class GroupEditPlaywrightTests(ITestOutputHelper output)
@@ -42,8 +42,8 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
 
         await page.Locator(".schematic-pins rect.part[data-ref=R2]").ClickAsync(new() { Force = true });
         await page.Locator(".schematic-pins rect.part[data-ref=R4]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.Shift] });
-        await page.Locator(".schematic-pins rect.part[data-ref=R5]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.ControlOrMeta] });
-        Assert.Equal(["R2", "R4", "R5"], await Selected(page));
+        await page.Locator(".schematic-pins rect.part[data-ref=R6]").ClickAsync(new() { Force = true, Modifiers = [KeyboardModifier.ControlOrMeta] });
+        Assert.Equal(["R2", "R4", "R6"], await Selected(page));
 
         await page.Keyboard.PressAsync("ControlOrMeta+c");
         await page.Keyboard.PressAsync("ControlOrMeta+v");
@@ -92,11 +92,11 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         var before = await Parts(page);
 
         await page.Locator("button[data-tool=select]").TapAsync();
-        foreach (var r in new[] { "R2", "R4", "R5" })
+        foreach (var r in new[] { "R2", "R4", "R6" })
         {
             await page.Locator($".schematic-pins rect.part[data-ref={r}]").TapAsync(new() { Force = true });
         }
-        Assert.Equal(["R2", "R4", "R5"], await Selected(page));
+        Assert.Equal(["R2", "R4", "R6"], await Selected(page));
         await page.Locator(".part-action[data-action=copy]").TapAsync();
         await page.Locator("button[data-action=paste]").TapAsync();
         await Assertions.Expect(page.Locator(".schematic-pins rect.part[data-ref=R7]")).ToBeAttachedAsync();
