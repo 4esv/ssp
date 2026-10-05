@@ -14,6 +14,7 @@
     <!-- NOTE: The app is static. The gallery reads the library circuits from the assembly. -->
     <EmbeddedResource Include="..\..\circuits\library\*" LogicalName="library/%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\circuits\blocks\*.cir" LogicalName="blocks/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\circuits\blocks\*.layout.toml" LogicalName="blocks/%(Filename)%(Extension)" />
     <!-- NOTE: The editor opens with this circuit when there is no shared link. -->
     <EmbeddedResource Include="..\..\circuits\fixtures\rc-lowpass.cir" LogicalName="starter.cir" />
     <EmbeddedResource Include="..\..\models\parts.toml" LogicalName="parts.toml" />
