@@ -357,3 +357,40 @@ Run it with `scripts/playwright.sh`. The test log shows the time at detailed ver
 |---|---|
 | Previews rendered in the page (loader, placer and renderer on the main thread) | 16281, 16358, 16285 ms |
 | Previews are committed SVG files (`wwwroot/previews`, `<img>`) | 13, 14, 15 ms |
+
+## Edit in the netlist box (#245)
+
+`LiveRunTimingTests` changes one value in the Transistor fuzz starter (`R4 n6 0 1k` to `2.2k`) in the netlist box of the published site, and records the gaps between animation frames until the live result shows. A gap is a time when the page did not answer.
+The edit gap is the longest gap that starts less than 200 ms after the edit: the render of the edit, and the schematic redraw. The solve gap is the longest gap after that: the live solve and the render of its result.
+Run it with `scripts/playwright.sh`. The test log shows the times at detailed verbosity, and the test fails when the edit gap is 100 ms or more.
+
+| Item | Value |
+|---|---|
+| Machine | Apple M3 Pro, macOS |
+| Browser | Chromium, headless (Playwright) |
+| Build | Release, not AOT |
+| Date | 2026-10-04 |
+
+| Build | Edit gap | Solve gap | Edit to result |
+|---|---|---|---|
+| Before (master at 5af83451) | 597, 631 ms | 92, 96 ms | 691, 722 ms |
+| After | 60, 69, 66, 57 ms | 107, 102, 99, 97 ms | 402, 402, 385, 384 ms |
+
+Where the edit gap went before, from Stopwatch timers in the edit render and a Chromium trace of the same edit:
+
+| Step | Time |
+|---|---|
+| Render of the editor page for the edit (all of it is .NET code; the browser layout is 2 ms, the style recalculation under 1 ms) | about 600 ms |
+| `AutoPlacer.Place` in the schematic editor (the text edit dropped the layout) | about 240 ms |
+| `AutoPlacer.Place` again, in the Download SVG button: `SchematicExport` made the SVG on each render | about 270 ms |
+| Three `NetlistLoader.Load` calls (schematic, calculators, compare) | about 60 ms |
+| The render of the panels after the schematic | about 46 ms |
+
+After the change:
+
+- The netlist box redraws the schematic 100 ms after the last key. The schematic, the calculators, the compare panel and the Download SVG button share one load of each netlist.
+- A text edit that keeps the parts and their nodes (a value, a comment) keeps the layout and does not call the placer. A text edit that adds a part keeps the places of the other parts, and places only the new part.
+- The Download SVG button makes the SVG when it is clicked.
+- A live solve on the main thread and the render of its result are two browser tasks.
+
+The solve gap is the live solve on the main thread: 90 to 94 ms in .NET for this circuit. It is not in the limit. Moving it to the worker did not pay (#244).
