@@ -47,6 +47,14 @@ public sealed class DockSplit : DockNode
 /// <summary>A rectangle in fractions of the whole layout.</summary>
 public readonly record struct DockRect(double Left, double Top, double Width, double Height);
 
+/// <summary>A panel in its own window above the tree. The rectangle is in fractions of the whole layout.</summary>
+public sealed class DockFloat(string panel, DockRect rect)
+{
+    public string Panel { get; } = panel;
+
+    public DockRect Rect { get; set; } = rect;
+}
+
 /// <summary>The border between child <see cref="Index"/> and the next child of the split at <see cref="Path"/>.</summary>
 /// <param name="Split">The rectangle of the split.</param>
 /// <param name="Position">The place of the border, as a fraction of the whole layout.</param>
@@ -67,11 +75,21 @@ public sealed class DockModel
     /// <summary>The smallest size that a resize leaves for a child of a split.</summary>
     public const double MinSize = 0.05;
 
-    public DockModel(DockNode? root, IEnumerable<string>? closed = null)
+    /// <summary>The smallest width and height of a floating window, as a fraction of the layout.</summary>
+    public const double MinFloat = 0.1;
+
+    const double FloatWidth = 0.3;
+    const double FloatHeight = 0.4;
+
+    public DockModel(DockNode? root, IEnumerable<string>? closed = null, IEnumerable<DockFloat>? floating = null)
     {
         Root = root is null ? null : Normalize(root);
         Closed = closed?.ToList() ?? [];
+        Floating = floating?.ToList() ?? [];
     }
+
+    /// <summary>The floating windows. The last one is on top.</summary>
+    public List<DockFloat> Floating { get; }
 
     public DockNode? Root { get; private set; }
 
@@ -201,10 +219,52 @@ public sealed class DockModel
         split.Sizes[handle + 1] = total - size;
     }
 
-    /// <summary>Takes the panel out of the tree. <see cref="Open"/> puts it back.</summary>
+    /// <summary>
+    /// Takes the panel out of its group and puts it in a floating window. The window starts at the corner of the layout
+    /// where it covers least of the group of <paramref name="avoid"/>, or at <paramref name="at"/> when given.
+    /// </summary>
+    public void Float(string panel, string? avoid = null, DockRect? at = null)
+    {
+        if (Floating.Any(f => f.Panel == panel))
+        {
+            return;
+        }
+
+        var rect = at ?? Start(avoid);
+        Detach(panel);
+        Floating.Add(new DockFloat(panel, Fit(rect)));
+    }
+
+    /// <summary>Moves the floating window of the panel to the left and top fractions. It stays inside the layout.</summary>
+    public void MoveFloating(string panel, double left, double top)
+    {
+        var floating = FloatOf(panel);
+        floating.Rect = Fit(floating.Rect with { Left = left, Top = top });
+    }
+
+    /// <summary>Gives the floating window of the panel a size. It stays inside the layout.</summary>
+    public void ResizeFloating(string panel, double width, double height)
+    {
+        var floating = FloatOf(panel);
+        var rect = floating.Rect;
+        floating.Rect = Fit(rect with { Width = width, Height = height });
+    }
+
+    /// <summary>Puts the floating window of the panel on top of the others.</summary>
+    public void Raise(string panel)
+    {
+        var floating = FloatOf(panel);
+        if (Floating[^1] != floating)
+        {
+            Floating.Remove(floating);
+            Floating.Add(floating);
+        }
+    }
+
+    /// <summary>Takes the panel out of the tree or out of its window. <see cref="Open"/> puts it back.</summary>
     public void Close(string panel)
     {
-        if (GroupOf(panel) is null)
+        if (GroupOf(panel) is null && !Floating.Any(f => f.Panel == panel))
         {
             return;
         }
@@ -256,6 +316,20 @@ public sealed class DockModel
             }
 
             writer.WriteEndArray();
+
+            writer.WriteStartArray("floating");
+            foreach (var floating in Floating)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("panel", floating.Panel);
+                writer.WriteNumber("left", floating.Rect.Left);
+                writer.WriteNumber("top", floating.Rect.Top);
+                writer.WriteNumber("width", floating.Rect.Width);
+                writer.WriteNumber("height", floating.Rect.Height);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
             writer.WriteEndObject();
         }
 
@@ -284,8 +358,11 @@ public sealed class DockModel
 
             var root = top.GetProperty("root");
             var closed = top.GetProperty("closed").EnumerateArray().Select(ReadString).ToList();
-            var model = new DockModel(root.ValueKind == JsonValueKind.Null ? null : Read(root), closed);
-            var all = model.Panels.Concat(model.Closed).ToList();
+            var floating = top.TryGetProperty("floating", out var windows)
+                ? windows.EnumerateArray().Select(ReadFloat).ToList()
+                : [];
+            var model = new DockModel(root.ValueKind == JsonValueKind.Null ? null : Read(root), closed, floating);
+            var all = model.Panels.Concat(model.Closed).Concat(model.Floating.Select(f => f.Panel)).ToList();
             var known = panels.ToHashSet(StringComparer.Ordinal);
             if (all.Count != known.Count || all.Distinct(StringComparer.Ordinal).Count() != all.Count || !all.All(known.Contains))
             {
@@ -319,12 +396,77 @@ public sealed class DockModel
             text.Append(" closed(").AppendJoin(", ", Closed).Append(')');
         }
 
+        if (Floating.Count > 0)
+        {
+            text.Append(" floating(").AppendJoin(", ", Floating.Select(f => f.Panel)).Append(')');
+        }
+
         return text.ToString();
+    }
+
+    DockFloat FloatOf(string panel) =>
+        Floating.FirstOrDefault(f => f.Panel == panel) ?? throw new ArgumentException($"The panel '{panel}' is not floating.", nameof(panel));
+
+    /// <summary>Keeps the rectangle inside the layout, and at least <see cref="MinFloat"/> wide and high.</summary>
+    static DockRect Fit(DockRect rect)
+    {
+        var width = Math.Clamp(double.IsFinite(rect.Width) ? rect.Width : FloatWidth, MinFloat, 1);
+        var height = Math.Clamp(double.IsFinite(rect.Height) ? rect.Height : FloatHeight, MinFloat, 1);
+        var left = Math.Clamp(double.IsFinite(rect.Left) ? rect.Left : 0, 0, 1 - width);
+        var top = Math.Clamp(double.IsFinite(rect.Top) ? rect.Top : 0, 0, 1 - height);
+        return new DockRect(left, top, width, height);
+    }
+
+    /// <summary>
+    /// Picks where a new window covers none of the group of <paramref name="avoid"/>: beside it or above or below it, with
+    /// the largest room. When the group fills the layout, the corner where it covers least.
+    /// </summary>
+    DockRect Start(string? avoid)
+    {
+        var target = avoid is null ? null : GroupOf(avoid);
+        if (target is null)
+        {
+            return new DockRect(1 - FloatWidth, 0.1, FloatWidth, FloatHeight);
+        }
+
+        var area = GroupRects().First(g => g.Group == target).Rect;
+        var right = area.Left + area.Width;
+        var bottom = area.Top + area.Height;
+        var strips = new[]
+        {
+            new DockRect(right, 0.1, Math.Min(FloatWidth, 1 - right), FloatHeight),
+            new DockRect(Math.Max(0, area.Left - FloatWidth), 0.1, Math.Min(FloatWidth, area.Left), FloatHeight),
+            new DockRect(area.Left, bottom, FloatWidth, Math.Min(FloatHeight, 1 - bottom)),
+            new DockRect(area.Left, Math.Max(0, area.Top - FloatHeight), FloatWidth, Math.Min(FloatHeight, area.Top)),
+        };
+        var free = strips.Where(r => r.Width >= MinFloat && r.Height >= MinFloat).Select(Fit)
+            .Where(r => Overlap(r, area) < 1e-9).ToList();
+        if (free.Count > 0)
+        {
+            return free.MaxBy(r => r.Width * r.Height);
+        }
+
+        var corners = new[]
+        {
+            new DockRect(1 - FloatWidth, 0.1, FloatWidth, FloatHeight),
+            new DockRect(1 - FloatWidth, 1 - FloatHeight - 0.1, FloatWidth, FloatHeight),
+            new DockRect(0, 0.1, FloatWidth, FloatHeight),
+            new DockRect(0, 1 - FloatHeight - 0.1, FloatWidth, FloatHeight),
+        };
+        return corners.MinBy(c => Overlap(c, area));
+    }
+
+    static double Overlap(DockRect a, DockRect b)
+    {
+        var width = Math.Min(a.Left + a.Width, b.Left + b.Width) - Math.Max(a.Left, b.Left);
+        var height = Math.Min(a.Top + a.Height, b.Top + b.Height) - Math.Max(a.Top, b.Top);
+        return width > 0 && height > 0 ? width * height : 0;
     }
 
     void Detach(string panel)
     {
         Closed.Remove(panel);
+        Floating.RemoveAll(f => f.Panel == panel);
         var group = GroupOf(panel);
         if (group is null)
         {
@@ -540,6 +682,21 @@ public sealed class DockModel
         }
 
         return new DockSplit(direction, children, sizes);
+    }
+
+    static DockFloat ReadFloat(JsonElement element)
+    {
+        var panel = ReadString(element.GetProperty("panel"));
+        var rect = new DockRect(
+            element.GetProperty("left").GetDouble(), element.GetProperty("top").GetDouble(),
+            element.GetProperty("width").GetDouble(), element.GetProperty("height").GetDouble());
+        if (!double.IsFinite(rect.Left) || !double.IsFinite(rect.Top) || !double.IsFinite(rect.Width) || !double.IsFinite(rect.Height)
+            || rect.Width <= 0 || rect.Height <= 0)
+        {
+            throw new FormatException("A floating window has a bad rectangle.");
+        }
+
+        return new DockFloat(panel, Fit(rect));
     }
 
     static string ReadString(JsonElement element) =>
