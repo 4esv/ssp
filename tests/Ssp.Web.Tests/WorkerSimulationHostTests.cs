@@ -1,5 +1,6 @@
 using Bunit;
 using Ssp.Core;
+using Ssp.Core.Netlist;
 using Ssp.Web.Hosting;
 
 namespace Ssp.Web.Tests;
@@ -86,5 +87,36 @@ public class WorkerSimulationHostTests : BunitContext
         Assert.True(WorkerExports.StartsOnVariableSteps(fuzz));
         Assert.False(WorkerExports.StartsOnVariableSteps(clipper));
         Assert.Equal(first, WorkerExports.RenderJson(fuzz, input, 44_100, 1));
+    }
+
+    [Fact]
+    public async Task LivePostsTheNetlistToTheWorkerAndReadsTheOperatingPoint()
+    {
+        var divider = Fixture("divider-basic.cir");
+        var module = JSInterop.SetupModule(WorkerSimulationHost.ClientModule);
+        module.Setup<string>("live", _ => true).SetResult(WorkerExports.LiveJson(divider));
+        var host = new WorkerSimulationHost(JSInterop.JSRuntime);
+
+        var result = await host.Live(divider, CancellationToken.None);
+
+        Assert.Equal(divider, Assert.Single(module.Invocations["live"]).Arguments[0]);
+        var expected = InProcessSimulationHost.LiveResult(divider);
+        Assert.Equal(expected.OperatingPoint!.NodeVoltages, result.OperatingPoint!.NodeVoltages);
+        Assert.Equal(expected.OperatingPoint.SourceCurrents, result.OperatingPoint.SourceCurrents);
+        Assert.Equal(expected.Diagnostics, result.Diagnostics);
+        Assert.Null(result.FrequencyResponse);
+    }
+
+    [Fact]
+    public void LiveJsonKeepsTheErrorsAndTheirLines()
+    {
+        var result = WorkerSimulationHost.ReadLive(WorkerExports.LiveJson("R1 in\n"));
+
+        Assert.Null(result.OperatingPoint);
+        Assert.Equal(InProcessSimulationHost.LiveResult("R1 in\n").Diagnostics, result.Diagnostics);
+        Assert.Contains(result.Diagnostics, d => d.Severity == Severity.Error);
+        Assert.Equal(
+            [new Diagnostic(Severity.Warning, "m", 3)],
+            WorkerSimulationHost.ReadLive("""{"diagnostics":[{"severity":"Warning","message":"m","line":3}]}""").Diagnostics);
     }
 }

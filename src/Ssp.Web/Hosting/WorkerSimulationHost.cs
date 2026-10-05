@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.JSInterop;
 using Ssp.Core;
+using Ssp.Core.Analysis;
+using Ssp.Core.Netlist;
 
 namespace Ssp.Web.Hosting;
 
@@ -9,8 +11,8 @@ namespace Ssp.Web.Hosting;
 /// The page posts the netlist to the worker. The worker returns JSON. See <see cref="WorkerExports"/>.
 /// </summary>
 /// <remarks>
-/// NOTE: <see cref="Run"/> and <see cref="Sweep"/> stay on the calling thread. They take milliseconds, and the web app
-/// has no reader for the run result JSON yet.
+/// NOTE: <see cref="Run"/> and <see cref="Sweep"/> stay on the calling thread. The web app has no reader for the run
+/// result JSON yet. <see cref="Live"/> runs in the worker, so an edit never blocks the page while it solves.
 /// </remarks>
 public sealed class WorkerSimulationHost(IJSRuntime js) : ISimulationHost, IMonitorHost
 {
@@ -43,6 +45,46 @@ public sealed class WorkerSimulationHost(IJSRuntime js) : ISimulationHost, IMoni
     }
 
     public Task<RunResult> Run(string netlist, RunOptions options) => inProcess.Run(netlist, options);
+
+    // NOTE: The worker cannot stop a solve without a restart, and a restart also stops the monitor. So a cancelled run
+    // ends in the worker and the result is dropped here. A cancelled render restarts the worker, so the run tries once more.
+    public async Task<RunResult> Live(string netlist, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        string json;
+        try
+        {
+            json = await Call("live", netlist);
+        }
+        catch (JSException)
+        {
+            token.ThrowIfCancellationRequested();
+            json = await Call("live", netlist);
+        }
+
+        token.ThrowIfCancellationRequested();
+        return ReadLive(json);
+    }
+
+    /// <summary>Reads the result that <see cref="WorkerExports.LiveJson"/> writes. A null value is NaN.</summary>
+    public static RunResult ReadLive(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var diagnostics = root.GetProperty("diagnostics").EnumerateArray()
+            .Select(d => new Diagnostic(
+                Enum.Parse<Severity>(d.GetProperty("severity").GetString()!),
+                d.GetProperty("message").GetString()!,
+                d.TryGetProperty("line", out var line) ? line.GetInt32() : null))
+            .ToList();
+        OpResult? op = root.TryGetProperty("operatingPoint", out var o)
+            ? new OpResult(Values(o.GetProperty("nodeVoltages")), Values(o.GetProperty("sourceCurrents")), Values(o.GetProperty("devicePowers")))
+            : null;
+        return new RunResult(op, null, null, null, diagnostics, new Dictionary<string, double>());
+
+        static Dictionary<string, double> Values(JsonElement values) => values.EnumerateObject()
+            .ToDictionary(p => p.Name, p => p.Value.ValueKind == JsonValueKind.Null ? double.NaN : p.Value.GetDouble(), StringComparer.Ordinal);
+    }
 
     public Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample) =>
         Render(netlist, input, sampleRate, oversample, null);

@@ -118,6 +118,10 @@
         {
             <p class="panel-hint">Run to plot. Frequency response, impedance and noise show here.</p>
         }
+        else if (liveOnly && result.OperatingPoint is not null)
+        {
+            <p class="panel-hint">The live run after an edit solves the node voltages only. Press Run to plot.</p>
+        }
         else if (result.FrequencyResponse is null && result.Impedance is null && result.Noise is null)
         {
             <p class="panel-hint">This run gave no plots. Fix the errors in Results, then press Run.</p>
@@ -192,6 +196,7 @@
     CancellationTokenSource? live;
     ITimer? liveTimer;
     bool stale;
+    bool liveOnly;
     string? liveFailure;
 
     // NOTE: The netlist and the schematic are side by side. The panels under them are tabs.
@@ -329,6 +334,7 @@
         result = await Host.Run(netlist, new RunOptions());
         running = false;
         stale = false;
+        liveOnly = false;
         liveFailure = null;
     }
 
@@ -343,7 +349,8 @@
         live = null;
     }
 
-    // NOTE: The run goes through the same host as the Run button. A failed solve keeps the last good result and marks it stale.
+    // NOTE: The run goes through the host, which solves in the worker, so the page answers while it solves.
+    // It runs only the checks and the operating point that the live view shows. A failed solve keeps the last good result and marks it stale.
     void ScheduleLive()
     {
         CancelLive();
@@ -358,7 +365,7 @@
         try
         {
             token.ThrowIfCancellationRequested();
-            var next = await Host.Run(text, new RunOptions());
+            var next = await Host.Live(text, token);
             token.ThrowIfCancellationRequested();
             await InvokeAsync(() =>
             {
@@ -370,6 +377,7 @@
                 if (error is null)
                 {
                     result = next;
+                    liveOnly = true;
                     stale = false;
                     liveFailure = null;
                 }

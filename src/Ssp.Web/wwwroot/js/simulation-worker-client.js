@@ -63,6 +63,10 @@ export function render(netlist, input, sampleRate, oversample, progress = null) 
     return call('Render', [netlist, samples, sampleRate, oversample], [samples.buffer], progress);
 }
 
+export function live(netlist) {
+    return call('Live', [netlist]);
+}
+
 export function versions() {
     return call('Versions', []);
 }

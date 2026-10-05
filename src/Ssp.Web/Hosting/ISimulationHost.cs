@@ -10,6 +10,13 @@ public interface ISimulationHost
     /// <summary>Runs the pipeline on the netlist text. See <see cref="Runner.Run"/>.</summary>
     Task<RunResult> Run(string netlist, RunOptions options);
 
+    /// <summary>
+    /// Runs what the live view shows after an edit: the load, the knobs, the rule checks and the operating point.
+    /// A host that can solve off the page thread does so. A cancelled run ends with an <see cref="OperationCanceledException"/>
+    /// or a result that the caller drops.
+    /// </summary>
+    Task<RunResult> Live(string netlist, CancellationToken token) => Run(netlist, new RunOptions());
+
     /// <summary>Renders the input samples through the circuit and returns the output samples, one for each input sample.</summary>
     Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample);
 

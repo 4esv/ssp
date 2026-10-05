@@ -30,6 +30,66 @@ public static partial class WorkerExports
     [SupportedOSPlatform("browser")]
     public static string Convolve(double[] samples, double[] ir) => SamplesJson(Convolution.Convolve(samples, ir));
 
+    [JSExport]
+    [SupportedOSPlatform("browser")]
+    public static string Live(string netlist) => LiveJson(netlist);
+
+    /// <summary>
+    /// Runs <see cref="InProcessSimulationHost.LiveResult"/> and writes the diagnostics and the operating point.
+    /// <see cref="WorkerSimulationHost.ReadLive"/> reads it back. A value that is not finite is null.
+    /// </summary>
+    public static string LiveJson(string netlist)
+    {
+        var result = InProcessSimulationHost.LiveResult(netlist);
+        return Write(w =>
+        {
+            w.WriteStartObject();
+            w.WriteStartArray("diagnostics");
+            foreach (var d in result.Diagnostics)
+            {
+                w.WriteStartObject();
+                w.WriteString("severity", d.Severity.ToString());
+                w.WriteString("message", d.Message);
+                if (d.Line is int line)
+                {
+                    w.WriteNumber("line", line);
+                }
+
+                w.WriteEndObject();
+            }
+
+            w.WriteEndArray();
+            if (result.OperatingPoint is { } op)
+            {
+                w.WriteStartObject("operatingPoint");
+                Values("nodeVoltages", op.NodeVoltages);
+                Values("sourceCurrents", op.SourceCurrents);
+                Values("devicePowers", op.DevicePowers);
+                w.WriteEndObject();
+            }
+
+            w.WriteEndObject();
+
+            void Values(string name, IReadOnlyDictionary<string, double> values)
+            {
+                w.WriteStartObject(name);
+                foreach (var (key, value) in values)
+                {
+                    if (double.IsFinite(value))
+                    {
+                        w.WriteNumber(key, value);
+                    }
+                    else
+                    {
+                        w.WriteNull(key);
+                    }
+                }
+
+                w.WriteEndObject();
+            }
+        });
+    }
+
     /// <summary>Tells the worker script the seconds of audio done. The script posts it to the page.</summary>
     [JSImport("progress", "worker")]
     [SupportedOSPlatform("browser")]

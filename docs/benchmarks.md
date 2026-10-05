@@ -357,3 +357,26 @@ Run it with `scripts/playwright.sh`. The test log shows the time at detailed ver
 |---|---|
 | Previews rendered in the page (loader, placer and renderer on the main thread) | 16281, 16358, 16285 ms |
 | Previews are committed SVG files (`wwwroot/previews`, `<img>`) | 13, 14, 15 ms |
+
+## Live run after an edit (#243)
+
+`LiveRunTimingTests` opens the Transistor fuzz (`circuits/library/fuzz-transistor-diode.cir`) in the editor of the published site. It changes R4 from 1k to 2.2k in the netlist text, and records the gaps between animation frames until the stale marker goes.
+The edit gap is the longest gap before the stale marker shows: the render of the edit. The solve gap is the longest gap from the stale marker to the live result.
+Run it with `scripts/playwright.sh`. The test fails if the solve gap is 100 ms or more.
+
+| Item | Value |
+|---|---|
+| Date | 2026-10-04 |
+| Machine | Apple M3 Pro, macOS |
+| Browser | Chromium, headless (Playwright) |
+| Build | Release, not AOT |
+| Runs | 3 for each build, one after the other |
+
+| Build | Edit gap | Solve gap | Edit to result |
+|---|---|---|---|
+| Before: the full run (operating point, AC, impedance, noise) on the page thread | 621, 606, 596 ms | 94, 94, 91 ms | 707, 696, 687 ms |
+| After: the operating point and the checks in the worker | 604, 605, 608 ms | 18, 17, 18 ms | 910, 908, 904 ms |
+
+The solve leaves the page thread. The edit gap does not change, and it is the longest block. It is more than 100 ms, so the limit of #243 is not met yet.
+A profile with timers in the published build gave these times for the edit gap: `AutoPlacer.Place` in the schematic editor 238 ms (a text edit drops the layout), three `NetlistLoader.Load` calls (schematic editor, calculators, compare) about 60 ms, and about 330 ms that these timers do not cover (the render and the DOM update).
+The edit to result time grows by about 200 ms. The cause is not measured. The first live run starts the worker runtime, which is a possible cause.
