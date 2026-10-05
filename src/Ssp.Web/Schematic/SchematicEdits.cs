@@ -427,7 +427,227 @@ public static partial class SchematicEdits
         var circuit = NetlistLoader.Load(netlist);
         layout ??= AutoPlacer.Place(circuit, circuit.Directives);
         var references = circuit.Circuit.Select(e => e.Name).ToList();
-        return Copy(netlist, layout, PartMap.Resolve(circuit, Components.SchematicView.Table), references);
+        var clip = Copy(netlist, layout, PartMap.Resolve(circuit, Components.SchematicView.Table), references);
+        return clip with { Input = circuit.Directives.Input, Output = circuit.Directives.Output };
+    }
+
+    /// <summary>
+    /// The points where three or more wires of one net meet. A ground symbol is not a junction, so node 0 has none.
+    /// </summary>
+    public static IReadOnlyList<Point> Junctions(LayoutDoc layout) =>
+        layout.Wires.Where(w => w.Net != Zero).SelectMany(w => w.Points.Select(p => (w.Net, At: p))).Distinct()
+            .Where(x => layout.Wires.Where(w => w.Net == x.Net).SelectMany(w => Leaves(w, x.At)).Distinct().Count() >= 3)
+            .Select(x => x.At).Distinct().ToList();
+
+    /// <summary>
+    /// Inserts a block where it is dropped. On a junction the block's <c>ssp:input</c> node joins that net and its
+    /// output stays free. On a wire the wire is cut: the input joins the net of one cut end and the output the net of
+    /// the other, and wires go from the cut ends to the pins. A block with no input and output (a loose group) joins
+    /// the net of the wire or the junction by its first pin. On a wire or a junction the stage's own test source (a
+    /// voltage source from its input to node 0) stays out. Elsewhere the block goes on the empty spot, as
+    /// <see cref="PasteAt"/>. With a wire index the drop is on that wire. A drop that would short two nets is refused:
+    /// the change is the netlist and the layout as they were, and <see cref="BlockDrop.Refused"/> says why.
+    /// </summary>
+    public static BlockDrop Drop(string netlist, LayoutDoc layout, PartMap parts, Clip clip, Point at, int? wire = null)
+    {
+        var none = new SchematicChange(netlist, layout);
+        BlockDrop Refuse(string why) => new(none, [], "", why);
+        if (clip.Parts.Count == 0) return new(none, [], "");
+        var junction = Junctions(layout).Where(j => Distance(j, at) <= Symbols.Grid).OrderBy(j => Distance(j, at)).Select(j => (Point?)j).FirstOrDefault();
+        wire ??= Enumerable.Range(0, layout.Wires.Count).Where(i => Distance(Project(layout.Wires[i], at), at) <= Symbols.Grid / 2.0)
+            .OrderBy(i => Distance(Project(layout.Wires[i], at), at)).Select(i => (int?)i).FirstOrDefault();
+        if (junction is null && wire is null)
+        {
+            var (placed, fresh) = PasteAt(netlist, layout, clip, at);
+            return new(placed, fresh, "");
+        }
+
+        var stage = clip.Input is not null && clip.Output is not null;
+        if (junction is not null || !stage)
+        {
+            var tap = junction ?? Project(layout.Wires[wire!.Value], at);
+            var net = layout.Wires.First(w => junction is null ? w == layout.Wires[wire!.Value] : w.Points.Contains(tap) && w.Net != Zero).Net;
+            var (pasted, fresh, nodes) = PasteClear(netlist, layout, clip, tap);
+            var pins = PinsOf(pasted.Change, fresh);
+            var first = clip.Input is { } input ? pins.FirstOrDefault(p => p.Net == nodes.GetValueOrDefault(input)) : pins.FirstOrDefault();
+            if (first.Net is null) return Refuse("its input is on no part.");
+            if (first.Net == Zero && net != Zero) return Refuse($"its {(stage ? "input" : "first pin")} is on ground, so net {net} would short to ground.");
+            var joined = Rename(pasted.Change.Netlist, NetlistLoader.Load(pasted.Change.Netlist), pasted.Change.Layout, first.Net, net, [Route(net, tap, first.At)]);
+            return new(joined, fresh, stage ? $"Its input joins net {net}. Its output is free: wire it." : $"Its first pin joins net {net}.");
+        }
+
+        var cutWire = layout.Wires[wire!.Value];
+        if (cutWire.Net == Zero) return Refuse("it is a ground wire. Drop it on a signal wire.");
+        var tapped = Project(cutWire, at);
+        var (cut, a, na, b, nb, why) = Cut(netlist, layout, parts, wire.Value, tapped);
+        if (why is not null) return Refuse(why);
+
+        var (stagePasted, stageFresh, stageNodes) = PasteClear(cut.Netlist, cut.Layout, clip, tapped);
+        var stagePins = PinsOf(stagePasted.Change, stageFresh);
+        var inPin = stagePins.FirstOrDefault(p => p.Net == stageNodes.GetValueOrDefault(clip.Input!));
+        var outPin = stagePins.FirstOrDefault(p => p.Net == stageNodes.GetValueOrDefault(clip.Output!));
+        if (inPin.Net is null || outPin.Net is null) return Refuse("its input or output is on no part.");
+        if (inPin.Net == outPin.Net) return Refuse("its input and output are one net, so the cut ends would short.");
+        // NOTE: The nearer end goes to each pin, so the wires do not cross.
+        if (Distance(b, inPin.At) + Distance(a, outPin.At) < Distance(a, inPin.At) + Distance(b, outPin.At)) (a, b, na, nb) = (b, a, nb, na);
+        if (inPin.Net == Zero && na != Zero || outPin.Net == Zero && nb != Zero) return Refuse("its input or output is on ground, so a net would short to ground.");
+        var change = stagePasted.Change;
+        if (inPin.Net != Zero) change = Rename(change.Netlist, NetlistLoader.Load(change.Netlist), change.Layout, inPin.Net, na, [Route(na, a, inPin.At)]);
+        if (outPin.Net != Zero) change = Rename(change.Netlist, NetlistLoader.Load(change.Netlist), change.Layout, outPin.Net, nb, [Route(nb, b, outPin.At)]);
+        return new(change, stageFresh, $"It sits in series between nets {na} and {nb}.");
+    }
+
+    // Cuts a wire at a point: two pieces stay, one grid step shy of the point on each side. The pins and wires that the
+    // first piece reaches keep the node or get a new one, and those that the second reaches get the other: the group
+    // with fewer pins gets the new node. Gives the open end and the node of each piece, or why the cut cannot be made.
+    static (SchematicChange Change, Point A, string NetA, Point B, string NetB, string? Refused) Cut(
+        string netlist, LayoutDoc layout, PartMap parts, int index, Point at)
+    {
+        var wire = layout.Wires[index];
+        var none = (new SchematicChange(netlist, layout), at, wire.Net, at, wire.Net);
+        var points = wire.Points;
+        var s = Enumerable.Range(1, points.Count - 1).First(i => OnWire(new WireRoute(wire.Net, [points[i - 1], points[i]]), at));
+        Point Back(Point toward)
+        {
+            var d = Distance(at, toward);
+            return d <= Symbols.Grid ? toward : new Point(at.X + (toward.X - at.X) * Symbols.Grid / d, at.Y + (toward.Y - at.Y) * Symbols.Grid / d);
+        }
+        var (ea, eb) = (Back(points[s - 1]), Back(points[s]));
+        if (ea == eb) return (none.Item1, at, wire.Net, at, wire.Net, "the wire is too short to cut there.");
+        var pieceA = new WireRoute(wire.Net, [.. points.Take(s).Where(p => p != ea), ea]);
+        var pieceB = new WireRoute(wire.Net, [eb, .. points.Skip(s).Where(p => p != eb)]);
+
+        var circuit = NetlistLoader.Load(netlist);
+        var pins = new List<(SchematicElement Element, int Pin, Point At)>();
+        foreach (var e in SchematicRenderer.Elements(circuit, parts))
+        {
+            if (layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])) is not { } placement) continue;
+            var all = SchematicRenderer.Pins(e, placement);
+            for (var i = 0; i < all.Count; i++)
+            {
+                if (!all[i].Hidden && all[i].Net == wire.Net) pins.Add((e, i, all[i].At));
+            }
+        }
+        // NOTE: Union-find over the pins, the other wires of the net, and the two pieces. A piece of one point is a probe at that point.
+        var rest = Enumerable.Range(0, layout.Wires.Count).Where(i => i != index && layout.Wires[i].Net == wire.Net).ToList();
+        var routes = rest.Select(i => layout.Wires[i]).Append(pieceA).Append(pieceB).ToList();
+        var parent = Enumerable.Range(0, pins.Count + routes.Count).ToArray();
+        int Find(int x) => parent[x] == x ? x : parent[x] = Find(parent[x]);
+        void Union(int x, int y) => parent[Find(x)] = Find(y);
+        for (var w = 0; w < routes.Count; w++)
+        {
+            for (var k = 0; k < pins.Count; k++)
+            {
+                if (OnWire(routes[w], pins[k].At)) Union(k, pins.Count + w);
+            }
+            for (var v = 0; v < w; v++)
+            {
+                if (routes[w].Points.Any(q => OnWire(routes[v], q)) || routes[v].Points.Any(q => OnWire(routes[w], q))) Union(pins.Count + v, pins.Count + w);
+            }
+        }
+        var (rootA, rootB) = (Find(pins.Count + routes.Count - 2), Find(pins.Count + routes.Count - 1));
+        if (rootA == rootB) return (none.Item1, at, wire.Net, at, wire.Net, $"the two sides of the wire stay on net {wire.Net} by another path, so its input and output would short.");
+        int[] In(int root) => Enumerable.Range(0, pins.Count).Where(k => Find(k) == root).ToArray();
+        var (inA, inB) = (In(rootA), In(rootB));
+        if (inA.Length == 0 || inB.Length == 0) return (none.Item1, at, wire.Net, at, wire.Net, "one side of the wire reaches no pin. Drop it on a wire between two pins.");
+        if (pins.Where((p, k) => OnWire(wire, p.At) && Find(k) != rootA && Find(k) != rootB).Any())
+        {
+            return (none.Item1, at, wire.Net, at, wire.Net, "a pin sits where the wire would be cut.");
+        }
+
+        var moved = inA.Length < inB.Length ? rootA : rootB;
+        var node = Fresh("n", new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal));
+        var lines = Lines(netlist);
+        foreach (var (element, pin, _) in (moved == rootA ? inA : inB).Select(k => pins[k]))
+        {
+            // NOTE: A pot P is P_1 and P_2. The wiper is the second node of P_1 and the first node of P_2.
+            if (element.Kind == "pot" && element.Members.Count == 2)
+            {
+                if (pin < 2) SetNode(lines, element.Members[0], pin, node);
+                if (pin > 0) SetNode(lines, element.Members[1], pin - 1, node);
+            }
+            else SetNode(lines, element.Members[0], pin, node);
+        }
+        var wires = new List<WireRoute>();
+        for (var i = 0; i < layout.Wires.Count; i++)
+        {
+            var w = rest.IndexOf(i);
+            if (i == index)
+            {
+                foreach (var (piece, root) in new[] { (pieceA, rootA), (pieceB, rootB) })
+                {
+                    if (piece.Points.Distinct().Count() > 1) wires.Add(root == moved ? piece with { Net = node } : piece);
+                }
+            }
+            else wires.Add(w >= 0 && Find(pins.Count + w) == moved ? layout.Wires[i] with { Net = node } : layout.Wires[i]);
+        }
+        var (netA, netB) = moved == rootA ? (node, wire.Net) : (wire.Net, node);
+        return (new SchematicChange(Join(lines), new LayoutDoc(layout.Parts, wires)), ea, netA, eb, netB, null);
+    }
+
+    static double Distance(Point a, Point b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
+
+    // A wire from a point to a pin, with one corner at the x of the pin and the y of the point, as Wire draws it.
+    static WireRoute Route(string net, Point from, Point to)
+    {
+        var corner = new Point(to.X, from.Y);
+        return new WireRoute(net, corner == from || corner == to ? [from, to] : [from, corner, to]);
+    }
+
+    // The point of a wire nearest to a point. On a straight segment the point snaps to the grid along it.
+    static Point Project(WireRoute w, Point p)
+    {
+        var best = w.Points[0];
+        for (var i = 1; i < w.Points.Count; i++)
+        {
+            var (a, b) = (w.Points[i - 1], w.Points[i]);
+            var (dx, dy) = (b.X - a.X, b.Y - a.Y);
+            var length = dx * dx + dy * dy;
+            var t = length == 0 ? 0 : Math.Clamp(((p.X - a.X) * dx + (p.Y - a.Y) * dy) / length, 0, 1);
+            var q = new Point(a.X + t * dx, a.Y + t * dy);
+            if (dy == 0) q = new Point(Math.Clamp(Snap(q.X), Math.Min(a.X, b.X), Math.Max(a.X, b.X)), a.Y);
+            else if (dx == 0) q = new Point(a.X, Math.Clamp(Snap(q.Y), Math.Min(a.Y, b.Y), Math.Max(a.Y, b.Y)));
+            if (Distance(q, p) < Distance(best, p)) best = q;
+        }
+        return best;
+    }
+
+    // The shown pins of some parts, in the order of the layout.
+    static List<SchematicRenderer.ElementPin> PinsOf(SchematicChange change, IEnumerable<string> references)
+    {
+        var circuit = NetlistLoader.Load(change.Netlist);
+        return Group(circuit, change.Layout, PartMap.Resolve(circuit, Components.SchematicView.Table), references)
+            .SelectMany(g => SchematicRenderer.Pins(g.Element, g.Placement).Where(p => !p.Hidden)).ToList();
+    }
+
+    // PasteAt for a drop on a wire or a junction: the stage's test source on its input stays out, with its wires.
+    static ((SchematicChange Change, IReadOnlyList<string> References) Pasted, IReadOnlyList<string> Fresh, IReadOnlyDictionary<string, string> Nodes) PasteClear(
+        string netlist, LayoutDoc layout, Clip clip, Point at)
+    {
+        var (change, fresh, nodes) = PasteAtNodes(netlist, layout, clip, at);
+        if (clip.Input is not { } input) return ((change, fresh), fresh, nodes);
+        var kept = fresh.ToList();
+        for (var i = 0; i < clip.Parts.Count; i++)
+        {
+            var line = clip.Parts[i].Members[0].Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (clip.Parts[i].Members.Count != 1 || line.Length < 3 || !line[0].StartsWith('V') && !line[0].StartsWith('v')) continue;
+            if (!(line[1] == input && line[2] == Zero || line[1] == Zero && line[2] == input)) continue;
+
+            var circuit = NetlistLoader.Load(change.Netlist);
+            var element = ElementOf(circuit, PartMap.Resolve(circuit, Components.SchematicView.Table), fresh[i]);
+            var placement = change.Layout.Parts.Single(p => Names.Equals(p.Reference, fresh[i]));
+            var pins = SchematicRenderer.Pins(element, placement).Select(p => p.At).ToList();
+            bool Under(Point q) => pins.Any(p => Math.Abs(q.X - p.X) <= 10 && q.Y >= p.Y && q.Y <= p.Y + 28);
+            // NOTE: Only the pasted wires can go. They come after the wires that were there.
+            var wires = change.Layout.Wires.Where((w, k) => k < layout.Wires.Count
+                || !(pins.Contains(w.Points[0]) || pins.Contains(w.Points[^1]) || w.Net == Zero && w.Points.All(Under))).ToList();
+            var lines = Lines(change.Netlist);
+            var (row, count) = Element(lines, fresh[i]);
+            lines.RemoveRange(row, count);
+            change = new SchematicChange(Join(lines), new LayoutDoc(change.Layout.Parts.Where(p => p != placement).ToList(), wires));
+            kept.Remove(fresh[i]);
+        }
+        return ((change, kept), kept, nodes);
     }
 
     /// <summary>The clip alone: a netlist and a layout with only its parts, as My Blocks keeps it.</summary>
@@ -439,7 +659,14 @@ public static partial class SchematicEdits
     /// </summary>
     public static (SchematicChange Change, IReadOnlyList<string> References) PasteAt(string netlist, LayoutDoc layout, Clip clip, Point at)
     {
-        if (clip.Parts.Count == 0) return (new SchematicChange(netlist, layout), []);
+        var (change, references, _) = PasteAtNodes(netlist, layout, clip, at);
+        return (change, references);
+    }
+
+    // PasteAt with the new name of each node of the clip.
+    static (SchematicChange Change, IReadOnlyList<string> References, IReadOnlyDictionary<string, string> Nodes) PasteAtNodes(string netlist, LayoutDoc layout, Clip clip, Point at)
+    {
+        if (clip.Parts.Count == 0) return (new SchematicChange(netlist, layout), [], new Dictionary<string, string>());
         var old = Outlines(NetlistLoader.Load(netlist), layout);
         var dy = Snap(at.Y - clip.Parts.Min(p => p.Placement.Y));
         var dx = Snap(at.X - clip.Parts.Min(p => p.Placement.X));
@@ -494,10 +721,11 @@ public static partial class SchematicEdits
     {
         if (clip.Parts.Count == 0) return (new SchematicChange(netlist, layout), []);
         var dx = Snap((layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep) - clip.Parts.Min(p => p.Placement.X));
-        return PasteBy(netlist, layout, clip, dx, 0);
+        var (change, references, _) = PasteBy(netlist, layout, clip, dx, 0);
+        return (change, references);
     }
 
-    static (SchematicChange Change, IReadOnlyList<string> References) PasteBy(string netlist, LayoutDoc layout, Clip clip, double dx, double dy)
+    static (SchematicChange Change, IReadOnlyList<string> References, IReadOnlyDictionary<string, string> Nodes) PasteBy(string netlist, LayoutDoc layout, Clip clip, double dx, double dy)
     {
         var circuit = NetlistLoader.Load(netlist);
         var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).SelectMany(n => new[] { n, Pair().Replace(n, "") }).ToHashSet(Names);
@@ -543,7 +771,8 @@ public static partial class SchematicEdits
         lines.InsertRange(end < 0 ? lines.Count : end, added);
 
         var wires = clip.Wires.Select(w => new WireRoute(Node(w.Net), w.Points.Select(p => new Point(p.X + dx, p.Y + dy)).ToList()));
-        return (new SchematicChange(Join(lines), new LayoutDoc([.. layout.Parts, .. placements], [.. layout.Wires, .. wires])), fresh);
+        var drawn = wires.ToList();
+        return (new SchematicChange(Join(lines), new LayoutDoc([.. layout.Parts, .. placements], [.. layout.Wires, .. drawn])), fresh, renamed);
     }
 
     /// <summary>
@@ -1179,4 +1408,11 @@ public sealed record ClipLine(string Name, string Text, int Nodes);
 public sealed record ClipPart(string Reference, IReadOnlyList<ClipLine> Members, IReadOnlyList<string> Knobs, PartPlacement Placement);
 
 /// <summary>What <see cref="SchematicEdits.Copy"/> keeps: the parts, the .model lines they use, and the wires between them.</summary>
-public sealed record Clip(IReadOnlyList<ClipPart> Parts, IReadOnlyList<string> Models, IReadOnlyList<WireRoute> Wires);
+/// <summary>
+/// What <see cref="SchematicEdits.Copy"/> keeps: the parts, the .model lines they use, and the wires between them. A block
+/// has the nodes of its <c>ssp:input</c> and <c>ssp:output</c> lines.
+/// </summary>
+public sealed record Clip(IReadOnlyList<ClipPart> Parts, IReadOnlyList<string> Models, IReadOnlyList<WireRoute> Wires, string? Input = null, string? Output = null);
+
+/// <summary>What <see cref="SchematicEdits.Drop"/> gives: the change, the new references, a note for the status line, and why a drop was refused.</summary>
+public sealed record BlockDrop(SchematicChange Change, IReadOnlyList<string> References, string Message, string? Refused = null);

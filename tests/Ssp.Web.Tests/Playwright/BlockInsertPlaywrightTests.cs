@@ -94,6 +94,68 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
         }
     }
 
+    [PlaywrightFact]
+    public Task AStageDroppedOnAWireOfTheFuzzStarterSitsInSeriesAndRuns() => WireCore().WaitAsync(Limit);
+
+    // The middle of the longest wire segment that a tap there hits, in client pixels, and the wire index.
+    const string WireSpot = """
+        () => {
+            const found = [];
+            for (const p of document.querySelectorAll('.schematic-pins polyline.wire-hit')) {
+                const m = p.getScreenCTM();
+                for (let i = 1; i < p.points.numberOfItems; i++) {
+                    const a = p.points.getItem(i - 1), b = p.points.getItem(i);
+                    const s = new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2).matrixTransform(m);
+                    if (document.elementFromPoint(s.x, s.y) === p) found.push([Math.hypot(b.x - a.x, b.y - a.y), s.x, s.y, +p.dataset.wire]);
+                }
+            }
+            found.sort((x, y) => y[0] - x[0]);
+            return found.length ? found[0].slice(1) : null;
+        }
+        """;
+
+    // NOTE: #265: a stage dropped on a wire cuts it and sits in series. The test prints the netlist lines that changed and the node voltages of a run.
+    async Task WireCore()
+    {
+        Assert.Equal(0, Microsoft.Playwright.Program.Main(["install", "chromium"]));
+        var baseUrl = Environment.GetEnvironmentVariable(PlaywrightFactAttribute.BaseUrlVariable)!;
+        var hash = ShareCodec.Encode(File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "library", "fuzz-transistor-diode.cir")));
+        using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync();
+        var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 1456, Height = 797 } });
+        var page = await context.NewPageAsync();
+        page.SetDefaultTimeout(60_000);
+        await page.RouteAsync(baseUrl + "editor", async route => await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));
+        await page.GotoAsync(baseUrl + "editor#" + hash);
+        await page.Locator(".schematic[data-view]").WaitForAsync();
+        var netlist = page.Locator("textarea[aria-label=Netlist]");
+        var before = await netlist.InputValueAsync();
+
+        await page.Locator("button[data-action=blocks]").ClickAsync();
+        await page.Locator(".block-list button[data-block='clip-shunt-led.cir']").ClickAsync();
+        await Assertions.Expect(page.Locator(".schematic-hint")).ToContainTextAsync("a wire");
+        var spot = await page.EvaluateAsync<double[]?>(WireSpot);
+        Assert.NotNull(spot);
+        await page.Mouse.ClickAsync((float)spot[0], (float)spot[1]);
+        await Assertions.Expect(page.Locator(".schematic-hint")).ToContainTextAsync("in series");
+
+        var after = await netlist.InputValueAsync();
+        var (was, now) = (before.Split('\n'), after.Split('\n'));
+        output.WriteLine($"1456x797: wire {spot[2]} at {spot[0]:0},{spot[1]:0}; hint: {await page.Locator(".schematic-hint").TextContentAsync()}");
+        foreach (var line in was.Except(now)) output.WriteLine("- " + line);
+        foreach (var line in now.Except(was)) output.WriteLine("+ " + line);
+        Assert.NotEqual(before, after);
+
+        await page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).ClickAsync();
+        await Assertions.Expect(page.Locator("table.voltages tbody tr").First).ToBeVisibleAsync(new() { Timeout = 120_000 });
+        var voltages = await page.EvaluateAsync<string[]>("() => [...document.querySelectorAll('table.voltages tbody tr')].map(r => r.innerText.replace('\\t', ' '))");
+        output.WriteLine("Node voltages: " + string.Join("; ", voltages));
+        Assert.Contains(voltages, v => v.StartsWith("n10 "));
+
+        await page.Keyboard.PressAsync("ControlOrMeta+z");
+        await Assertions.Expect(netlist).ToHaveValueAsync(before);
+    }
+
     static async Task Shot(IPage page, string name)
     {
         if (Environment.GetEnvironmentVariable("SSP_SHOTS") is not { Length: > 0 } dir) return;
