@@ -9,7 +9,10 @@ namespace Ssp.Web.Tests;
 
 public class EditorPageTests : BunitContext
 {
-    public EditorPageTests() => Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
+    // NOTE: The editor redraws the schematic 100 ms after the last key in the netlist box, so a test that types moves the clock.
+    readonly ManualTimeProvider time = new();
+
+    public EditorPageTests() => Services.AddSingleton<TimeProvider>(time);
 
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
@@ -18,6 +21,7 @@ public class EditorPageTests : BunitContext
         Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
         var page = Render<Editor>();
         page.Find("textarea").Input(netlist);
+        time.Advance(TimeSpan.FromMilliseconds(100));
         page.Find("button").Click();
         return page;
     }
@@ -87,6 +91,8 @@ public class EditorPageTests : BunitContext
 
         page.Find("textarea").Input(netlist);
 
+        time.Advance(TimeSpan.FromMilliseconds(100));
+
         JSInterop.Mode = JSRuntimeMode.Loose;
         page.Find("button.share").Click();
 
@@ -153,6 +159,8 @@ public class EditorPageTests : BunitContext
 
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
 
+        time.Advance(TimeSpan.FromMilliseconds(100));
+
         // NOTE: In the default layout, the netlist is in the left half and the schematic is in the right half.
         var text = page.Find(".dock-panel[data-panel=text]");
         Assert.NotNull(text.QuerySelector("textarea"));
@@ -172,6 +180,8 @@ public class EditorPageTests : BunitContext
 
         page.Find("textarea").Input("* ssp:part D1 1N4148\nV1 a 0 5\nD1 a b DGEN\nR1 b 0 1k\n.MODEL DGEN D\n.END\n");
 
+        time.Advance(TimeSpan.FromMilliseconds(100));
+
         // NOTE: The diode symbol path. A reference with no part is a box.
         Assert.Contains("M20 -10V10L40 0Z", page.Find(".schematic g[data-ref=\"D1\"]").InnerHtml);
     }
@@ -184,6 +194,8 @@ public class EditorPageTests : BunitContext
 
         page.Find("textarea").Input("R1 a\n.END\n");
 
+        time.Advance(TimeSpan.FromMilliseconds(100));
+
         Assert.Empty(page.FindAll(".schematic svg"));
     }
     IRenderedComponent<Editor> Typed(string netlist)
@@ -191,6 +203,7 @@ public class EditorPageTests : BunitContext
         Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
         var page = Render<Editor>();
         page.Find("textarea").Input(netlist);
+        time.Advance(TimeSpan.FromMilliseconds(100));
         return page;
     }
 
@@ -254,6 +267,8 @@ public class EditorPageTests : BunitContext
         page.Find("button.place[data-kind=resistor]").Click();
 
         page.Find("textarea").Input(Text(page) + "* note\n");
+
+        time.Advance(TimeSpan.FromMilliseconds(100));
 
         Assert.True(page.Find("button.undo").HasAttribute("disabled"));
         Assert.True(page.Find("button.redo").HasAttribute("disabled"));

@@ -1,3 +1,4 @@
+@using Ssp.Web.Editing
 @using System.Globalization
 @using System.Text.RegularExpressions
 @using Ssp.Core.Diagnostics
@@ -229,11 +230,18 @@
     /// <summary>True while the voltages are from before the last edit.</summary>
     [Parameter] public bool Stale { get; set; }
 
+    /// <summary>The loads of the editor page. With none the editor loads the netlist itself.</summary>
+    [CascadingParameter] public NetlistCache? Loads { get; set; }
+
+    /// <summary>The layout on the canvas: the given layout, or the auto-placement.</summary>
+    public LayoutDoc Drawn => layout;
+
     string? seenNetlist;
     LayoutDoc? seenLayout;
     string netlist = "";
     LayoutDoc layout = new([], []);
     LayoutDoc? given;
+    string? shape;
     PartMap? parts;
     bool hasErrors;
     string? svg;
@@ -344,13 +352,17 @@
         pins = [];
         jacks = [];
         outlines = [];
-        var circuit = NetlistLoader.Load(netlist);
+        var circuit = Loads?.Load(netlist) ?? NetlistLoader.Load(netlist);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
         problems = hasErrors ? [] : Problems.Find(circuit);
         if (hasErrors) return;
 
         parts = PartMap.Resolve(circuit, SchematicView.Table);
-        layout = given ?? AutoPlacer.Place(circuit, circuit.Directives);
+        // NOTE: The placer is slow. With no given layout, a netlist with the same parts and nodes as the last auto-placement
+        // (a value edit, a comment) keeps that placement.
+        var next = AutoPlacer.Shape(circuit);
+        layout = given ?? (next == shape ? layout : AutoPlacer.Place(circuit, circuit.Directives));
+        shape = given is null ? next : null;
         if (!circuit.Circuit.OfType<SpiceComponent>().Any()) return;
 
         svg = SchematicRenderer.ToSvg(circuit, layout, parts);

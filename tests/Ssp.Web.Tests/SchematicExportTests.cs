@@ -11,7 +11,10 @@ namespace Ssp.Web.Tests;
 
 public class SchematicExportTests : BunitContext
 {
-    public SchematicExportTests() => Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
+    // NOTE: The editor redraws the schematic 100 ms after the last key in the netlist box, so a test that types moves the clock.
+    readonly ManualTimeProvider time = new();
+
+    public SchematicExportTests() => Services.AddSingleton<TimeProvider>(time);
 
     const string DataPrefix = "data:image/svg+xml;base64,";
 
@@ -30,6 +33,7 @@ public class SchematicExportTests : BunitContext
         Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
         var page = Render<Editor>();
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
+        time.Advance(TimeSpan.FromMilliseconds(100));
 
         JSInterop.Mode = JSRuntimeMode.Loose;
         var save = JSInterop.SetupVoid("save", _ => true);

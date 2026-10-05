@@ -1,3 +1,4 @@
+@using Ssp.Web.Editing
 @using Ssp.Core
 @using Ssp.Core.Netlist
 @using SpiceSharp.Components
@@ -51,6 +52,11 @@
     Dictionary<string, IReadOnlyList<double>> magnitude = [];
     Dictionary<string, IReadOnlyList<double>> phase = [];
 
+    /// <summary>The loads of the editor page. With none the panel loads the netlist itself.</summary>
+    [CascadingParameter] public NetlistCache? Loads { get; set; }
+
+    LoadedCircuit Load() => Loads?.Load(Netlist) ?? NetlistLoader.Load(Netlist);
+
     protected override void OnParametersSet()
     {
         if (Netlist == loadedNetlist)
@@ -60,7 +66,7 @@
         loadedNetlist = Netlist;
 
         // NOTE: Only a resistor, capacitor or inductor value changes the frequency response.
-        parts = NetlistLoader.Load(Netlist).Circuit
+        parts = Load().Circuit
             .Where(e => e is Resistor or Capacitor or Inductor)
             .Select(e => e.Name)
             .Order(StringComparer.Ordinal)
@@ -107,7 +113,7 @@
 
         diagnostics = sweep.Series.SelectMany(s => s.Result.Diagnostics).Distinct().ToList();
         // NOTE: The output node is the ssp:output node, or "out". Analyses.Impedance uses the same rule.
-        var output = NetlistLoader.Load(Netlist).Directives.Output ?? "out";
+        var output = Load().Directives.Output ?? "out";
         for (var i = 0; i < texts.Count; i++)
         {
             if (sweep.Series[i].Result.FrequencyResponse is not { } ac || !ac.MagnitudeDb.ContainsKey(output))
