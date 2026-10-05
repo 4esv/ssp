@@ -1,4 +1,3 @@
-@using Microsoft.AspNetCore.Components.Forms
 @using System.Reflection
 @using Ssp.Core
 @using Ssp.Core.Audio
@@ -9,13 +8,13 @@
 
 <section class="clip-player">
     <h2>Clip</h2>
-    <p class="panel-hint">Play a guitar clip through the circuit. Press Play clip, or load your own WAV file first.</p>
+    <p class="panel-hint">Play a sample through the circuit. Pick the sample, then press Play clip.</p>
 
-    <label>
-        WAV file
-        <InputFile OnChange="Upload" accept=".wav,audio/wav" />
-    </label>
-    <p class="clip-source">@sourceName</p>
+    @if (ShowPicker)
+    {
+        <SamplePicker />
+    }
+    <p class="clip-source">Sample: @Choice.Name</p>
 
     <button type="button" class="clip-play" @onclick="() => Try(Netlist)" disabled="@busy">Play clip</button>
     <button type="button" class="clip-render-again" @onclick="() => Try(Netlist, force: true)" disabled="@busy">Render again</button>
@@ -39,8 +38,6 @@
 </section>
 
 @code {
-    const string BundledName = "Bundled clip";
-    const int MaxUploadBytes = 20 * 1024 * 1024;
     static readonly int[] Oversamples = [1, 2, 4, 8];
 
     // A peak below this level, in dBFS, is silence.
@@ -63,9 +60,15 @@
     /// <summary>The clock for the elapsed time of a render. A test gives a fake clock.</summary>
     [Parameter] public TimeProvider Clock { get; set; } = TimeProvider.System;
 
-    string sourceName = BundledName;
-    double[]? uploaded;
-    int uploadedRate;
+    /// <summary>The choice of the editor. Without a cascading one, the player keeps its own.</summary>
+    [CascadingParameter] public SampleChoice? Shared { get; set; }
+
+    /// <summary>Whether the panel shows the picker. A panel that has its own picker turns this off.</summary>
+    [Parameter] public bool ShowPicker { get; set; } = true;
+
+    readonly SampleChoice ownChoice = new();
+    SampleChoice Choice => Shared ?? ownChoice;
+    SampleChoice? watched;
     RenderCache ownCache = new();
     RenderCache Renders => Cache ?? ownCache;
     (RenderKey Key, RenderedClip Clip)? shown;
@@ -97,10 +100,19 @@
 
     bool OutOfDate => Shown is { } s && s.Key != KeyFor(Netlist);
 
-    // NOTE: The sample id is the source name with the size of the clip. #276 gives samples their own ids.
-    string SampleId => uploaded is null ? sourceName : $"{sourceName}|{uploaded.Length}|{uploadedRate}";
+    RenderKey KeyFor(string netlist) => new(netlist, Choice.Id, Oversamples[0], CabinetId);
 
-    RenderKey KeyFor(string netlist) => new(netlist, SampleId, Oversamples[0], CabinetId);
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(watched, Choice))
+        {
+            if (watched is not null) watched.Changed -= Redraw;
+            watched = Choice;
+            watched.Changed += Redraw;
+        }
+    }
+
+    void Redraw() => _ = InvokeAsync(StateHasChanged);
 
     const string CabinetId = "cab-1x12";
 
@@ -122,7 +134,7 @@
     /// <summary>
     /// Plays the render for this netlist and clip at once when the cache has it. Otherwise, or with <paramref name="force"/>,
     /// renders the clip through the netlist in the worker, applies the cabinet IR, and plays the result.
-    /// The clip is the upload, or the bundled clip. A failure shows in the status text and does not throw.
+    /// The sample is the choice of the editor. A failure shows in the status text and does not throw.
     /// </summary>
     public async Task Try(string netlist, bool force = false)
     {
@@ -148,7 +160,7 @@
         StateHasChanged();
         try
         {
-            var (samples, rate) = uploaded is null ? Load("audio/clip.wav") : (uploaded, uploadedRate);
+            var (samples, rate) = Choice.Samples();
             total = (double)samples.Length / rate;
             ShowProgress();
 
@@ -249,7 +261,11 @@
         Host.CancelRender();
     }
 
-    public void Dispose() => ticker?.Dispose();
+    public void Dispose()
+    {
+        ticker?.Dispose();
+        if (watched is not null) watched.Changed -= Redraw;
+    }
 
     static bool IsSolverFailure(Exception e) =>
         e.Message.Contains("timestep", StringComparison.OrdinalIgnoreCase)
@@ -287,24 +303,6 @@
         {
             // NOTE: The diagnostic is a hint. Without it the status still says the output is silent.
             return "";
-        }
-    }
-
-    async Task Upload(InputFileChangeEventArgs e)
-    {
-        try
-        {
-            await using var file = e.File.OpenReadStream(MaxUploadBytes);
-            using var memory = new MemoryStream();
-            await file.CopyToAsync(memory);
-            memory.Position = 0;
-            (uploaded, uploadedRate) = Mono(Wav.Read(memory));
-            sourceName = e.File.Name;
-            status = "";
-        }
-        catch (Exception ex) when (ex is InvalidDataException or NotSupportedException or IOException or EndOfStreamException)
-        {
-            status = "Upload failed: " + ex.Message;
         }
     }
 
