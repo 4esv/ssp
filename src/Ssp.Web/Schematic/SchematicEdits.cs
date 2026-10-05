@@ -634,6 +634,42 @@ public static partial class SchematicEdits
     }
 
     /// <summary>
+    /// Names a net: the node gets the name, in capitals, in the element lines, the <c>ssp:input</c> and <c>ssp:output</c> lines and the
+    /// layout wires. A net that already has the name joins it, so two flags with one name are one net. The parts and the
+    /// wire points do not change. The name is checked with <see cref="TryNetName"/>.
+    /// </summary>
+    /// <remarks>
+    /// NOTE: The name is the node, not a <c>ssp:net</c> line. A shared link and the chain composer carry the netlist, and
+    /// every SPICE tool joins two nodes of one name.
+    /// </remarks>
+    public static SchematicChange NameNet(string netlist, LayoutDoc layout, string node, string name)
+    {
+        name = name.Trim().ToUpperInvariant();
+        if (!TryNetName(name, out var error)) throw new ArgumentException(error, nameof(name));
+        if (node == Zero) throw new ArgumentException("Ground has no other name.", nameof(node));
+        var change = new SchematicChange(netlist, layout);
+        // NOTE: SPICE reads vref and VREF as one node, but Rename matches the case. Each spelling of the name and the node gets the name.
+        var circuit = NetlistLoader.Load(netlist);
+        foreach (var from in circuit.NodeNames.Where(n => Names.Equals(n, name) || Names.Equals(n, node)).Append(node).Distinct(StringComparer.Ordinal).Where(n => n != name).ToList())
+        {
+            change = Rename(change.Netlist, NetlistLoader.Load(change.Netlist), change.Layout, from, name, []);
+        }
+        return change;
+    }
+
+    /// <summary>True if the text can name a net: one word, not ground, with no character that SPICE reads as syntax.</summary>
+    public static bool TryNetName(string text, out string error)
+    {
+        text = text.Trim();
+        error = text.Length == 0 || !text.Any(char.IsLetterOrDigit) ? "A net name needs a letter or a digit."
+            : text.Any(char.IsWhiteSpace) ? "A net name has no spaces."
+            : text == Zero || Names.Equals(text, "gnd") ? "A net cannot be named 0 or gnd: that is ground."
+            : text.IndexOfAny(['(', ')', '=', ',', '.', '\'', '"']) >= 0 ? "A net name has no ( ) = , . or quote."
+            : "";
+        return error.Length == 0;
+    }
+
+    /// <summary>
     /// The open ends of the wires: ends that no pin and no other wire touches. A wire on node 0 has none, as its free
     /// ends are the ground symbol.
     /// </summary>

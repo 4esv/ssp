@@ -1492,3 +1492,8 @@ body:has(.editor) {
     padding: 0.2rem 0.5rem;
     text-align: left;
 }
+
+/* NOTE: A net name flag (#175) is bold, so it reads as a name and not as a part label. */
+.net-name {
+    font-weight: 600;
+}
