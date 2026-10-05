@@ -26,7 +26,7 @@ public class EditorControlsTests : BunitContext
 
     public EditorControlsTests()
     {
-        Services.AddSingleton(TimeProvider.System);
+        Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
         Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
