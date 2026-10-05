@@ -47,8 +47,14 @@
                     <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
                     <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
                     <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
-                    <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
-                    <SchematicExport @ref="export" Netlist="@drawn" />
+                    @* NOTE: The rarely used actions share one menu, so the tool row fits at laptop widths. The buttons stay in the page and the CSS shows them while the menu is open. *@
+                    <span class="export-menu@(exportOpen ? " open" : "")" @onkeydown="ExportKey">
+                        <button type="button" class="export-toggle" aria-haspopup="true" aria-expanded="@(exportOpen ? "true" : "false")" title="Share, download and the parts list" @onclick="() => exportOpen = !exportOpen">Export</button>
+                        <span class="export-items" role="group" aria-label="Export" @onclick="() => exportOpen = false">
+                            <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
+                            <SchematicExport @ref="export" Netlist="@drawn" />
+                        </span>
+                    </span>
                     @* NOTE: The line has a fixed width, so the marker and the failure text move nothing beside it. *@
                     <span class="live-line">
                         <span class="live-state@(stale ? " stale" : "")" role="status">@LiveText()</span>
@@ -648,6 +654,13 @@
     {
         history.Do(new ChangeCommand(change));
         Show();
+    }
+
+    bool exportOpen;
+
+    void ExportKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") exportOpen = false;
     }
 
     void Undo()
