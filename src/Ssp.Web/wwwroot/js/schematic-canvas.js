@@ -5,6 +5,11 @@ document.addEventListener("pointerdown", e => {
     if (target) target.setPointerCapture(e.pointerId);
 });
 
+// Ctrl+A or Cmd+A on the canvas selects all the parts, not the text of the page.
+document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "a" && e.target.matches?.("figure.schematic")) e.preventDefault();
+});
+
 // The pane box in client pixels: left, top, width, height. The box is the padding box, which is where the stage is positioned.
 export function paneBox(pane) {
     const rect = pane.getBoundingClientRect();

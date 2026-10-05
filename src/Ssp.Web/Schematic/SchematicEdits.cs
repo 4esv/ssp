@@ -299,6 +299,161 @@ public static partial class SchematicEdits
         return Settle(new SchematicChange(netlist, moved), element.Reference);
     }
 
+    /// <summary>
+    /// <see cref="Drag"/> for several parts by one offset. The offset snaps once, so the parts keep their places to each
+    /// other. A wire between two of the parts moves with them. A wire to a part that stays bends to follow.
+    /// </summary>
+    public static SchematicChange DragMany(string netlist, LayoutDoc layout, PartMap parts, IEnumerable<string> references, double dx, double dy)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var group = Group(circuit, layout, parts, references);
+        if (group.Count == 0) return new SchematicChange(netlist, layout);
+        var first = group[0].Placement;
+        var d = (X: Snap(first.X + dx) - first.X, Y: Snap(first.Y + dy) - first.Y);
+        var moved = group.ToDictionary(g => g.Placement, g => g.Placement with { X = g.Placement.X + d.X, Y = g.Placement.Y + d.Y });
+        var before = group.SelectMany(g => SchematicRenderer.Pins(g.Element, g.Placement).Select(p => p.At)).ToList();
+        var after = group.SelectMany(g => SchematicRenderer.Pins(g.Element, moved[g.Placement]).Select(p => p.At)).ToList();
+        var all = SchematicRenderer.Elements(circuit, parts)
+            .SelectMany(e => layout.Parts.Where(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])).Take(1)
+                .SelectMany(p => SchematicRenderer.Pins(e, p).Select(x => x.At)))
+            .ToHashSet();
+
+        var wires = layout.Wires.Select(w => Follow(w, before, after, all, d)).ToList();
+        var change = new SchematicChange(netlist, new LayoutDoc(layout.Parts.Select(p => moved.GetValueOrDefault(p, p)).ToList(), wires));
+        foreach (var g in group) change = Settle(change, g.Element.Reference);
+        return change;
+    }
+
+    /// <summary>
+    /// Copies parts with their lines, their places, and the wires between them. A wire to a part outside the copy is not
+    /// copied. A ground symbol on a copied pin is.
+    /// </summary>
+    public static Clip Copy(string netlist, LayoutDoc layout, PartMap parts, IEnumerable<string> references)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var group = Group(circuit, layout, parts, references);
+        var lines = Lines(netlist);
+        var nodes = circuit.Circuit.OfType<IComponent>().ToDictionary(c => c.Name, c => c.Nodes.Count, Names);
+        var models = lines.Where(l => ModelName().IsMatch(l)).ToDictionary(l => ModelName().Match(l).Groups[1].Value, l => l, Names);
+
+        var copied = new List<ClipPart>();
+        var used = new List<string>();
+        foreach (var (element, placement) in group)
+        {
+            var members = element.Members.Select(m =>
+            {
+                var (at, count) = Element(lines, m);
+                var text = string.Join('\n', lines.GetRange(at, count));
+                used.AddRange(Words().Split(lines[at]).Where(w => models.ContainsKey(w)));
+                return new ClipLine(m, text, nodes.GetValueOrDefault(m));
+            }).ToList();
+            var knobs = lines.Where(l => KnobOf(l) is { } k && Names.Equals(k, element.Reference)).ToList();
+            copied.Add(new ClipPart(element.Reference, members, knobs, placement));
+        }
+
+        var pins = group.SelectMany(g => SchematicRenderer.Pins(g.Element, g.Placement).Where(p => !p.Hidden).Select(p => p.At)).ToHashSet();
+        bool UnderGround(Point q) => pins.Any(p => Math.Abs(q.X - p.X) <= 10 && q.Y >= p.Y && q.Y <= p.Y + 28);
+        var wires = layout.Wires.Where(w =>
+            new[] { w.Points[0], w.Points[^1] }.All(q => pins.Contains(q) || w.Net == Zero && UnderGround(q))
+            && (w.Net != Zero || w.Points.Any(pins.Contains) || w.Points.All(UnderGround))).ToList();
+        return new Clip(copied, used.Distinct(Names).Select(m => models[m]).ToList(), wires);
+    }
+
+    /// <summary>
+    /// Adds a copy. Each part gets the next free reference of its prefix and each node a new name, so the copy joins
+    /// nothing. Node 0 stays node 0. The copy goes one column to the right of the other parts. Gives the new references.
+    /// </summary>
+    public static (SchematicChange Change, IReadOnlyList<string> References) Paste(string netlist, LayoutDoc layout, Clip clip)
+    {
+        if (clip.Parts.Count == 0) return (new SchematicChange(netlist, layout), []);
+        var circuit = NetlistLoader.Load(netlist);
+        var references = circuit.Circuit.Select(e => e.Name.Split('.')[0]).SelectMany(n => new[] { n, Pair().Replace(n, "") }).ToHashSet(Names);
+        var nodes = new HashSet<string>(circuit.NodeNames, StringComparer.Ordinal);
+        var renamed = new Dictionary<string, string>(StringComparer.Ordinal) { [Zero] = Zero };
+        string Node(string node)
+        {
+            if (renamed.TryGetValue(node, out var to)) return to;
+            to = Fresh("n", nodes);
+            nodes.Add(to);
+            return renamed[node] = to;
+        }
+
+        var lines = Lines(netlist);
+        if (lines.Count == 0) lines.Add("* schematic");
+        var added = clip.Models.Where(m => !lines.Any(l => Names.Equals(l.Trim(), m.Trim()) || ModelName().Match(m) is { Success: true } n && ModelLine(n.Groups[1].Value).IsMatch(l))).ToList();
+        var placements = new List<PartPlacement>();
+        var fresh = new List<string>();
+        var dx = Snap((layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep) - clip.Parts.Min(p => p.Placement.X));
+        foreach (var part in clip.Parts)
+        {
+            var reference = Fresh(Prefix().Match(part.Reference).Value, references);
+            references.Add(reference);
+            fresh.Add(reference);
+            string Name(string member) => reference + member[part.Reference.Length..];
+            foreach (var member in part.Members)
+            {
+                references.Add(Name(member.Name));
+                var text = member.Text.Split('\n');
+                var words = Words().Split(text[0]);
+                var first = words[0].Length == 0 && words.Length > 2 ? 2 : 0;
+                words[first] = Name(member.Name);
+                // NOTE: Words has the separators at odd indices.
+                for (var k = 1; k <= member.Nodes && first + 2 * k < words.Length; k++) words[first + 2 * k] = Node(words[first + 2 * k]);
+                added.Add(string.Join('\n', [string.Concat(words), .. text[1..]]));
+            }
+            added.AddRange(part.Knobs.Select(k => KnobWord().Replace(k, m => m.Groups[1].Value + reference, 1)));
+            var at = part.Placement;
+            placements.Add(at with { Reference = Name(at.Reference), X = at.X + dx });
+        }
+        var end = lines.FindIndex(1, l => l.Trim().Equals(".end", StringComparison.OrdinalIgnoreCase));
+        lines.InsertRange(end < 0 ? lines.Count : end, added);
+
+        var wires = clip.Wires.Select(w => new WireRoute(Node(w.Net), w.Points.Select(p => new Point(p.X + dx, p.Y)).ToList()));
+        return (new SchematicChange(Join(lines), new LayoutDoc([.. layout.Parts, .. placements], [.. layout.Wires, .. wires])), fresh);
+    }
+
+    /// <summary>
+    /// <see cref="Copy"/>, then removes the parts, their knob lines, the copied wires, and the wires on nets that the
+    /// netlist no longer has.
+    /// </summary>
+    public static (SchematicChange Change, Clip Clip) Cut(string netlist, LayoutDoc layout, PartMap parts, IEnumerable<string> references)
+    {
+        var clip = Copy(netlist, layout, parts, references);
+        var lines = Lines(netlist);
+        foreach (var part in clip.Parts)
+        {
+            foreach (var member in part.Members)
+            {
+                var (at, count) = Element(lines, member.Name);
+                lines.RemoveRange(at, count);
+            }
+            lines.RemoveAll(l => KnobOf(l) is { } k && Names.Equals(k, part.Reference));
+        }
+        var result = Join(lines);
+        var nets = new HashSet<string>(NetlistLoader.Load(result).NodeNames, StringComparer.Ordinal);
+        var gone = clip.Parts.Select(p => p.Placement).ToHashSet();
+        var kept = layout.Parts.Where(p => !gone.Contains(p)).ToList();
+        var wires = layout.Wires.Where(w => nets.Contains(w.Net) && !clip.Wires.Contains(w)).ToList();
+        return (new SchematicChange(result, new LayoutDoc(kept, wires)), clip);
+    }
+
+    // The elements of some references and their places, once each, in the order of the layout.
+    static List<(SchematicElement Element, PartPlacement Placement)> Group(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, IEnumerable<string> references)
+    {
+        var wanted = references.ToHashSet(Names);
+        var group = new List<(SchematicElement, PartPlacement)>();
+        foreach (var e in SchematicRenderer.Elements(circuit, parts))
+        {
+            if (!wanted.Contains(e.Reference) && !e.Members.Any(wanted.Contains)) continue;
+            if (layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])) is { } placement) group.Add((e, placement));
+        }
+        var order = layout.Parts.ToList();
+        return group.OrderBy(g => order.IndexOf(g.Item2)).ToList();
+    }
+
+    // The part of a ssp:knob line, or null.
+    static string? KnobOf(string line) => KnobWord().Match(line) is { Success: true } m ? m.Groups[2].Value : null;
+
     static SchematicElement ElementOf(LoadedCircuit circuit, PartMap parts, string reference) =>
         SchematicRenderer.Elements(circuit, parts).Single(e => Names.Equals(e.Reference, reference) || Names.Equals(e.Members[0], reference));
 
@@ -825,4 +980,19 @@ public static partial class SchematicEdits
 
     [GeneratedRegex(@"^[A-Za-z]+")]
     private static partial Regex Prefix();
+
+    [GeneratedRegex(@"^\s*\.model\s+(\S+)", RegexOptions.IgnoreCase)]
+    private static partial Regex ModelName();
+
+    [GeneratedRegex(@"^(\s*\*\s*ssp:knob\s+)(\S+)", RegexOptions.IgnoreCase)]
+    private static partial Regex KnobWord();
 }
+
+/// <summary>One netlist line of a copied part: the component name, the text with its continuation lines, and the count of nodes.</summary>
+public sealed record ClipLine(string Name, string Text, int Nodes);
+
+/// <summary>A copied part: its reference, its lines, its knob lines and its place.</summary>
+public sealed record ClipPart(string Reference, IReadOnlyList<ClipLine> Members, IReadOnlyList<string> Knobs, PartPlacement Placement);
+
+/// <summary>What <see cref="SchematicEdits.Copy"/> keeps: the parts, the .model lines they use, and the wires between them.</summary>
+public sealed record Clip(IReadOnlyList<ClipPart> Parts, IReadOnlyList<string> Models, IReadOnlyList<WireRoute> Wires);
