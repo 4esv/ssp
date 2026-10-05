@@ -77,14 +77,14 @@ public sealed record ViewTransform(double Zoom, double X, double Y)
         static double Distance(Point a, Point b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
     }
 
-    /// <summary>Pans by the least that brings a world box inside the pane, with a margin. A box larger than the pane keeps its top left in. The zoom never changes.</summary>
-    public ViewTransform Reveal(Point min, Point max, double paneWidth, double paneHeight, double margin)
+    /// <summary>Pans by the least that brings a world box inside the pane, with a margin. A box larger than the pane keeps its top left in. The zoom never changes. <paramref name="top"/> is a band at the top edge that an overlay covers, so the box stays below it.</summary>
+    public ViewTransform Reveal(Point min, Point max, double paneWidth, double paneHeight, double margin, double top = 0)
     {
         var (a, b) = (WorldToScreen(min), WorldToScreen(max));
-        return Pan(Shift(a.X, b.X, paneWidth, margin), Shift(a.Y, b.Y, paneHeight, margin));
+        return Pan(Shift(a.X, b.X, paneWidth, margin, margin), Shift(a.Y, b.Y, paneHeight, margin + top, margin));
 
-        static double Shift(double lo, double hi, double size, double margin) =>
-            lo < margin ? margin - lo : hi > size - margin ? Math.Max(size - margin - hi, margin - lo) : 0;
+        static double Shift(double lo, double hi, double size, double before, double after) =>
+            lo < before ? before - lo : hi > size - after ? Math.Max(size - after - hi, before - lo) : 0;
     }
 
     /// <summary>The view that centres a world box in a pane, as large as the margin allows, within the zoom limits and never past <paramref name="maxZoom"/> (200 percent unless given).</summary>

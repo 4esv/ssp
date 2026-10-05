@@ -89,6 +89,17 @@ public class SchematicViewStabilityTests : BunitContext
     }
 
     [Fact]
+    public void Reveal_keeps_a_box_below_a_band_at_the_top_that_an_overlay_covers()
+    {
+        var view = new ViewTransform(1, 0, 0);
+
+        var below = view.Reveal(new Point(100, 60), new Point(160, 80), PaneWidth, PaneHeight, 24, top: 100);
+
+        Assert.Equal((1d, 0d, 64d), (below.Zoom, below.X, below.Y));
+        Assert.Equal(view, view.Reveal(new Point(100, 200), new Point(160, 240), PaneWidth, PaneHeight, 24, top: 100));
+    }
+
+    [Fact]
     public void Reveal_pans_by_the_least_and_never_zooms()
     {
         var view = new ViewTransform(1, 0, 0);

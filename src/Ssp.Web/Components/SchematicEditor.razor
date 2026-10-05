@@ -485,10 +485,14 @@
 
     // NOTE: The zoom control sits in the bottom right corner. Fit keeps the circuit above this band, so the control covers no part.
     const double ZoomBand = 56;
+    // NOTE: The problem list floats at the top of the pane, up to 6 rem and a 0.25 rem gap. A dot revealed in the pane stays below it.
+    const double ProblemsBand = 100;
     ViewTransform? view;
     ViewTransform? savedView;
     bool viewTouched;
     bool zoomMenu;
+    // NOTE: A new active pin brings its + dots into the pane after the next render. At 200 percent the circuit can grow past the pane.
+    bool revealActive;
     (double X, double Y, double W, double H) box;
 
     // The pointers that are down on the empty canvas, by id, in client pixels. One pans, two pan and pinch.
@@ -655,6 +659,21 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         still = false;
+        if (revealActive)
+        {
+            revealActive = false;
+            if (active is { } spot && view is not null && free.Count > 0)
+            {
+                var dots = free.Select(d => SchematicEdits.Toward(spot.At, d)).Append(spot.At).ToList();
+                var before = view;
+                await Reveal(new Point(dots.Min(q => q.X), dots.Min(q => q.Y)), new Point(dots.Max(q => q.X), dots.Max(q => q.Y)), problems.Count > 0 ? ProblemsBand : 0);
+                if (view != before)
+                {
+                    viewTouched = true;
+                    StateHasChanged();
+                }
+            }
+        }
         if (viewTouched && view is not null)
         {
             viewTouched = false;
@@ -667,14 +686,14 @@
     }
 
     // NOTE: The least that brings a world box in view. The zoom does not change.
-    async Task Reveal(Point min, Point max)
+    async Task Reveal(Point min, Point max, double top = 0)
     {
         if (view is null || svg is null) return;
         double[] b;
         try { b = await PaneBox(); }
         catch (JSException) { return; }
         if (b is not { Length: >= 4 } || b[2] <= 0) return;
-        view = view.Reveal(min, max, b[2], b[3], FitMargin);
+        view = view.Reveal(min, max, b[2], b[3], FitMargin, top);
     }
 
     // The world point of a client position, and whether the position is on the canvas.
@@ -930,6 +949,7 @@
         ClearActive();
         active = spot;
         free = SchematicEdits.Directions(netlist, layout, parts, spot).ToList();
+        revealActive = true;
     }
 
     void OpenMenu(Direction direction)
