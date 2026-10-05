@@ -1,7 +1,9 @@
 @using System.Reflection
+@implements IDisposable
 @using Ssp.Core.Chains
 @using Ssp.Core.Netlist
 
+<CascadingValue Value="Choice">
 <section class="virtual-amp">
     <h2>Virtual amp</h2>
     <p class="panel-hint">Pick a block for each stage, set the knobs, then press Try to hear the chain.</p>
@@ -28,16 +30,27 @@
     }
     </div>
 
+    <SamplePicker />
+
     <Knobs Netlist="@netlist" NetlistChanged="Tune" />
 
     <button type="button" class="amp-try" disabled="@(error is not null)" @onclick="Try">Try</button>
+    <span class="amp-sample">Sample: @Choice.Name</span>
     <p class="amp-error" role="alert">@(error is null ? null : "The chain cannot be built. " + error)</p>
     <textarea class="amp-netlist" aria-label="Chain netlist" readonly rows="6">@netlist</textarea>
 
-    <ClipPlayer @ref="player" Netlist="@netlist" Cache="Cache" />
+    <ClipPlayer @ref="player" Netlist="@netlist" Cache="Cache" ShowPicker="false" />
 </section>
+</CascadingValue>
 
 @code {
+    /// <summary>The choice of the editor. Without a cascading one, the panel keeps its own and shares it with its player.</summary>
+    [CascadingParameter] public SampleChoice? Shared { get; set; }
+
+    readonly SampleChoice ownChoice = new();
+    SampleChoice Choice => Shared ?? ownChoice;
+    SampleChoice? watched;
+
     sealed record Section(string Name, string Label);
 
     // NOTE: A block file name starts with the name of its section. The chain runs in this order.
@@ -78,6 +91,12 @@
 
     protected override void OnParametersSet()
     {
+        if (!ReferenceEquals(watched, Choice))
+        {
+            if (watched is not null) watched.Changed -= Redraw;
+            watched = Choice;
+            watched.Changed += Redraw;
+        }
         if (Pedal == pedalSeen && netlist.Length > 0)
         {
             return;
@@ -89,6 +108,13 @@
         if (usable && !pedalUsable) pedalOn = true;
         pedalUsable = usable;
         Build();
+    }
+
+    void Redraw() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (watched is not null) watched.Changed -= Redraw;
     }
 
     void UsePedal(ChangeEventArgs e)

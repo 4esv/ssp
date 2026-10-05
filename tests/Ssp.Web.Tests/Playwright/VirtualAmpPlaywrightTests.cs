@@ -14,7 +14,8 @@ public class VirtualAmpPlaywrightTests(ITestOutputHelper output)
         await using var session = await ClipPlayerTests.Session.Start(output);
         await session.Page.Locator(".dock-tab[data-panel=amp]").ClickAsync();
 
-        await session.Page.Locator(".virtual-amp .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
+        await session.Page.Locator(".virtual-amp .sample-select").SelectOptionAsync("__load");
+        await session.Page.Locator(".virtual-amp .sample-picker input[type=file]").SetInputFilesAsync(new FilePayload
         {
             Name = "sine.wav",
             MimeType = "audio/wav",

@@ -10,6 +10,8 @@
     <h2>Compare values</h2>
     <p class="panel-hint">Pick a part, list values with commas, then press Compare to overlay the gain from the input to the output. Freeze keeps a result on the plot while you change the circuit.</p>
 
+    <SamplePicker />
+
     <select class="part" @bind="part" aria-label="Part">
         @foreach (var reference in parts)
         {
