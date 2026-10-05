@@ -36,7 +36,11 @@ public static class AutoPlacer
     /// no wires: the renderer draws a symbol at each of its pins. The other nets are wires with orthogonal segments
     /// that go around the parts. The layout is the same for the same netlist.
     /// </summary>
-    public static LayoutDoc Place(LoadedCircuit circuit, Directives directives, PartMap? partMap = null)
+    /// <remarks>
+    /// With a layout to keep, each part that has a placement in it keeps that placement, and only the other parts are
+    /// placed. The wires are routed again. A netlist edit that adds a part keeps the hand layout of the parts before it.
+    /// </remarks>
+    public static LayoutDoc Place(LoadedCircuit circuit, Directives directives, PartMap? partMap = null, LayoutDoc? keep = null)
     {
         var all = SchematicRenderer.Elements(circuit, partMap);
         var rails = all.Where(e => e.Kind == "rail").ToList();
@@ -57,13 +61,10 @@ public static class AutoPlacer
         var sheet = new Sheet();
         var placements = new List<PartPlacement>();
         var railAt = new Dictionary<string, Point>(Names);
+        var kept = (keep?.Parts ?? []).GroupBy(p => p.Reference, Names).ToDictionary(g => g.Key, g => g.First(), Names);
 
-        for (var index = 0; index < parts.Count; index++)
+        void Put(SchematicElement e, PartPlacement placement)
         {
-            var e = parts[index];
-            var reference = Reference(e, references);
-            var (rotation, flip) = Orientation(e, reference, index, onNet, railNets);
-            var placement = Fit(sheet, e, new PartPlacement(reference, 0, 0, rotation, flip), railNets);
             placements.Add(placement);
             sheet.Add(e, placement, railNets);
             foreach (var pin in SchematicRenderer.Pins(e, placement).Where(p => !p.Hidden && railNets.ContainsKey(p.Net)))
@@ -72,17 +73,48 @@ public static class AutoPlacer
             }
         }
 
+        // NOTE: The kept parts go on the sheet first, so each new part keeps clear of all of them.
+        var fresh = new List<int>();
+        for (var index = 0; index < parts.Count; index++)
+        {
+            if (kept.TryGetValue(Reference(parts[index], references), out var placement)) Put(parts[index], placement);
+            else fresh.Add(index);
+        }
+        var moved = fresh.Count == parts.Count;
+
+        foreach (var index in fresh)
+        {
+            var e = parts[index];
+            var reference = Reference(e, references);
+            var (rotation, flip) = Orientation(e, reference, index, onNet, railNets);
+            Put(e, Fit(sheet, e, new PartPlacement(reference, 0, 0, rotation, flip), railNets));
+        }
+
         // A rail element sits on the first pin of its net, so the pin has no second symbol.
         var spare = sheet.Right + 2 * Grid;
         foreach (var rail in rails)
         {
+            var reference = Reference(rail, references);
+            if (kept.TryGetValue(reference, out var placement))
+            {
+                placements.Add(placement);
+                continue;
+            }
             var at = railAt.TryGetValue(rail.Nodes[0], out var found) ? found : new Point(spare += 4 * Grid, 0);
-            placements.Add(new PartPlacement(Reference(rail, references), at.X, at.Y, 0, !railNets[rail.Nodes[0]]));
+            placements.Add(new PartPlacement(reference, at.X, at.Y, 0, !railNets[rail.Nodes[0]]));
         }
 
         var wires = Wires(sheet, railNets);
-        return Shift(placements, wires, sheet);
+        return Shift(placements, wires, moved ? sheet : null);
     }
+
+    /// <summary>
+    /// The parts of the schematic and the nets of their pins. Two netlists with the same shape have the same drawing
+    /// but for the labels: an edit of a value or a comment keeps the shape, and so it keeps the layout.
+    /// </summary>
+    public static string Shape(LoadedCircuit circuit) => string.Join('\n', SchematicRenderer.Elements(circuit, null)
+        .Select(e => $"{e.Kind} {e.Reference} {string.Join(' ', e.Members)} : {string.Join(' ', e.Nodes)}{(e.Kind == "rail" && e.Value.StartsWith('-') ? " -" : "")}")
+        .Order(StringComparer.Ordinal));
 
     // The reference of the placement of an element. A pot is placed by its first half, like the netlist names it.
     // NOTE: A subcircuit that the netlist does not define has no members. It is placed by its own reference.
@@ -251,10 +283,11 @@ public static class AutoPlacer
     }
 
     // Moves everything so that the top left of the drawing is at (2 grid, 2 grid) and every coordinate is on the grid.
-    static LayoutDoc Shift(List<PartPlacement> placements, List<WireRoute> wires, Sheet sheet)
+    // NOTE: With no sheet nothing moves: a kept part stays where the hand put it.
+    static LayoutDoc Shift(List<PartPlacement> placements, List<WireRoute> wires, Sheet? sheet)
     {
-        var dx = Margin - Math.Floor(sheet.Left / Grid) * Grid;
-        var dy = Margin - Math.Floor(sheet.Top / Grid) * Grid;
+        var dx = sheet is null ? 0 : Margin - Math.Floor(sheet.Left / Grid) * Grid;
+        var dy = sheet is null ? 0 : Margin - Math.Floor(sheet.Top / Grid) * Grid;
         return new LayoutDoc(
             placements.Select(p => p with { X = p.X + dx, Y = p.Y + dy }).OrderBy(p => p.Reference, Names).ThenBy(p => p.Reference, StringComparer.Ordinal).ToList(),
             wires.Select(w => new WireRoute(w.Net, w.Points.Select(pt => new Point(pt.X + dx, pt.Y + dy)).ToList())).ToList());

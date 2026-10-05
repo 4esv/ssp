@@ -1,15 +1,21 @@
+@using Ssp.Web.Editing
+@using Ssp.Core.Netlist
 @using System.Text
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
 
-@if (SchematicView.Svg(Netlist) is { } svg)
+@* NOTE: The button needs only a load. The SVG needs the placer, which is slow, so it is made on a click and not on each render. *@
+@if (SchematicView.Drawable(Loads?.Load(Netlist) ?? NetlistLoader.Load(Netlist)))
 {
     @* NOTE: The file is the same SVG that the schematic shows. A data URL needs no server. *@
-    <button type="button" class="svg-download" title="Save the schematic as an SVG file" @onclick="() => Download(svg)">Download SVG</button>
+    <button type="button" class="svg-download" title="Save the schematic as an SVG file" @onclick="Save">Download SVG</button>
 }
 
 @code {
     [Parameter] public string Netlist { get; set; } = "";
+
+    /// <summary>The loads of the editor page. With none the panel loads the netlist itself.</summary>
+    [CascadingParameter] public NetlistCache? Loads { get; set; }
 
     /// <summary>Saves the file, as the button does. Nothing happens when there is no schematic.</summary>
     public async Task Save()

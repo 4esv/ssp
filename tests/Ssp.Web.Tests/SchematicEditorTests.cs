@@ -13,7 +13,10 @@ namespace Ssp.Web.Tests;
 
 public class SchematicEditorTests : BunitContext
 {
-    public SchematicEditorTests() => Services.AddSingleton<TimeProvider>(new ManualTimeProvider());
+    // NOTE: The editor redraws the schematic 100 ms after the last key in the netlist box, so a test that types moves the clock.
+    readonly ManualTimeProvider time = new();
+
+    public SchematicEditorTests() => Services.AddSingleton<TimeProvider>(time);
 
     // NOTE: R2 is not on the flow from node a.
     const string TwoResistors = "* two resistors\nV1 in 0 1\nR1 in a 1k\nR2 b 0 1k\n.END\n";
@@ -142,6 +145,7 @@ public class SchematicEditorTests : BunitContext
         var page = Render<Editor>();
         // NOTE: The editor opens with the starter circuit. This test places parts on an empty netlist.
         page.Find("textarea").Input("");
+        time.Advance(TimeSpan.FromMilliseconds(100));
 
         page.Find("button.place[data-kind=resistor]").Click();
         page.Find("button.place[data-kind=resistor]").Click();

@@ -19,12 +19,13 @@
 <h1>Editor</h1>
 
 <div class="editor" tabindex="-1" @ref="root" @onkeydown="Hotkey">
+<CascadingValue Value="loads" IsFixed="true">
 <div class="toolbar" role="toolbar" aria-label="Editor actions">
     <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
     <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
     <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
     <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
-    <SchematicExport @ref="export" Netlist="@netlist" />
+    <SchematicExport @ref="export" Netlist="@drawn" />
     <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
     <span class="toolbar-status" role="status">@toolbarStatus</span>
 </div>
@@ -52,11 +53,11 @@
 
 <DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor">
     <DockPanel Id="text" Title="Netlist">
-        <textarea @bind="netlist" @bind:event="oninput" @bind:after="ResetLayout" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+        <textarea @bind="netlist" @bind:event="oninput" @bind:after="Typed" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">
-        <SchematicEditor Netlist="@netlist" Layout="schematicLayout" Changed="Edit" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" />
+        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" />
     </DockPanel>
 
     <DockPanel Id="dc" Title="DC overlay">
@@ -68,7 +69,7 @@
     </DockPanel>
 
     <DockPanel Id="calculators" Title="Calculators">
-        <CalculatorPanel Netlist="@netlist" Layout="schematicLayout" Changed="Edit" />
+        <CalculatorPanel Netlist="@drawn" Layout="schematicLayout" Changed="Edit" />
     </DockPanel>
 
     <DockPanel Id="results" Title="Results">
@@ -153,7 +154,7 @@
     </DockPanel>
 
     <DockPanel Id="compare" Title="Compare">
-        <Compare Netlist="@netlist" />
+        <Compare Netlist="@drawn" />
     </DockPanel>
 
     <DockPanel Id="clip" Title="Clip">
@@ -168,6 +169,7 @@
         <VirtualAmp Pedal="@netlist" />
     </DockPanel>
 </DockLayout>
+</CascadingValue>
 </div>
 
 @code {
@@ -176,6 +178,14 @@
 
     string netlist = "";
     LayoutDoc? schematicLayout;
+
+    // NOTE: The panels that load the netlist show the drawn netlist. It follows the box when the typing stops for
+    // DrawDebounce, so a key in the box does not redraw the schematic. The panels share one load of each netlist.
+    static readonly TimeSpan DrawDebounce = TimeSpan.FromMilliseconds(100);
+    readonly NetlistCache loads = new();
+    string drawn = "";
+    string? drawnShape;
+    ITimer? drawTimer;
     readonly CommandStack history = new();
     bool running;
     ClipPlayer? clipPlayer;
@@ -289,13 +299,13 @@
         var hash = new Uri(Nav.Uri).Fragment.TrimStart('#');
         if (hash.Length == 0)
         {
-            netlist = Starter();
+            netlist = drawn = Starter();
             history.Reset(netlist, null);
             return;
         }
         try
         {
-            netlist = ShareCodec.Decode(hash);
+            netlist = drawn = ShareCodec.Decode(hash);
             history.Reset(netlist, null);
         }
         catch (FormatException e)
@@ -358,8 +368,12 @@
         try
         {
             token.ThrowIfCancellationRequested();
-            var next = await Host.Run(text, new RunOptions());
+            var run = Host.Run(text, new RunOptions());
+            var solvedHere = run.IsCompleted;
+            var next = await run;
             token.ThrowIfCancellationRequested();
+            // NOTE: A solve on this thread and the render of its result are two tasks, so the browser draws a frame between them.
+            if (solvedHere) await NextTask();
             await InvokeAsync(() =>
             {
                 if (token.IsCancellationRequested)
@@ -385,24 +399,61 @@
         }
     }
 
-    public void Dispose() => CancelLive();
+    Task NextTask()
+    {
+        var done = new TaskCompletionSource();
+        ITimer? timer = null;
+        timer = Time.CreateTimer(_ =>
+        {
+            timer?.Dispose();
+            done.TrySetResult();
+        }, null, TimeSpan.Zero, Timeout.InfiniteTimeSpan);
+        return done.Task;
+    }
+
+    public void Dispose()
+    {
+        CancelLive();
+        drawTimer?.Dispose();
+    }
 
     // NOTE: A knob change runs the operating point and the frequency response again.
     async Task Retune(string tuned)
     {
         netlist = tuned;
-        history.Reset(netlist, schematicLayout);
+        Draw();
         await Analyse();
     }
 
-    // NOTE: A text edit can rename or remove parts, so the schematic goes back to the auto-placement.
-    // A text edit or a knob change is not in the history, so it clears the history.
-    void ResetLayout()
+    void Typed()
     {
-        schematicLayout = null;
-        history.Reset(netlist, null);
         ScheduleLive();
+        drawTimer?.Dispose();
+        drawTimer = Time.CreateTimer(_ => _ = InvokeAsync(() =>
+        {
+            Draw();
+            StateHasChanged();
+        }), null, DrawDebounce, Timeout.InfiniteTimeSpan);
     }
+
+    // NOTE: A text edit that keeps the parts and their nodes (a value, a comment) keeps the layout. Any other text edit
+    // keeps the places of the parts that stay, and places only the new parts. A netlist with errors changes nothing
+    // until it is fixed. A text edit or a knob change is not in the history, so it clears the history.
+    void Draw()
+    {
+        drawTimer?.Dispose();
+        drawTimer = null;
+        drawn = netlist;
+        var circuit = loads.Load(drawn);
+        if (ShapeOf(circuit) is { } shape)
+        {
+            if (shape != drawnShape && schematicLayout is not null) schematicLayout = AutoPlacer.Place(circuit, circuit.Directives, keep: schematicLayout);
+            drawnShape = shape;
+        }
+        history.Reset(netlist, schematicLayout);
+    }
+
+    static string? ShapeOf(LoadedCircuit circuit) => circuit.Diagnostics.All(d => d.Severity != Severity.Error) ? AutoPlacer.Shape(circuit) : null;
 
     // NOTE: Each edit from the schematic editor and the calculator panel goes on the one history.
     void Edit(SchematicChange change)
@@ -425,8 +476,11 @@
 
     void Show()
     {
-        netlist = history.Netlist;
+        drawTimer?.Dispose();
+        drawTimer = null;
+        netlist = drawn = history.Netlist;
         schematicLayout = history.Layout;
+        drawnShape = ShapeOf(loads.Load(drawn)) ?? drawnShape;
         ScheduleLive();
     }
 
