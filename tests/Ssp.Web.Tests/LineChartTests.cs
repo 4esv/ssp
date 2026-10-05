@@ -17,6 +17,23 @@ public class LineChartTests : BunitContext
 
     static int Vertices(string d) => Regex.Matches(d, "[ML]").Count;
 
+    [Fact]
+    public void DashedSeriesTakeTheColorsOfTheSolidSeriesInOrder()
+    {
+        var line = new List<double> { 1, 2 };
+        var chart = Render<LineChart>(p => p
+            .Add(c => c.X, new List<double> { 10, 20 })
+            .Add(c => c.Series, new Dictionary<string, IReadOnlyList<double>> { ["a"] = line, ["b"] = line, ["a (frozen)"] = line, ["b (frozen)"] = line })
+            .Add(c => c.Dashed, ["a (frozen)", "b (frozen)"])
+            .Add(c => c.XLabel, "Frequency")
+            .Add(c => c.XUnit, "Hz")
+            .Add(c => c.YLabel, "Magnitude")
+            .Add(c => c.YUnit, "dB"));
+
+        Assert.Equal(["series series-0", "series series-1", "series series-0 frozen", "series series-1 frozen"],
+            chart.FindAll("path.series").Select(p => p.GetAttribute("class")));
+    }
+
     [Theory]
     [InlineData(2)]
     [InlineData(7)]

@@ -3,10 +3,12 @@
 @using Ssp.Core.Netlist
 @using SpiceSharp.Components
 @inject ISimulationHost Host
+@inject TimeProvider Time
+@implements IDisposable
 
 <section class="compare">
     <h2>Compare values</h2>
-    <p class="panel-hint">Pick a part, list values with commas, then press Compare to overlay the responses.</p>
+    <p class="panel-hint">Pick a part, list values with commas, then press Compare to overlay the gain from the input to the output. Freeze keeps a result on the plot while you change the circuit.</p>
 
     <select class="part" @bind="part" aria-label="Part">
         @foreach (var reference in parts)
@@ -16,6 +18,11 @@
     </select>
     <input class="values" @bind="values" @bind:event="oninput" placeholder="1k, 4k7, 10k" aria-label="Values" />
     <button class="compare" @onclick="Run" disabled="@(running || parts.Count == 0)">Compare</button>
+    <button class="freeze" @onclick="Freeze" disabled="@(magnitude.Count == 0)">Freeze</button>
+    @if (frozenMagnitude.Count > 0)
+    {
+        <button class="unfreeze" @onclick="Unfreeze">Clear frozen</button>
+    }
 
     @if (diagnostics.Count > 0)
     {
@@ -27,13 +34,28 @@
         </ul>
     }
 
-    @if (magnitude.Count > 0)
+    @if (magnitude.Count + frozenMagnitude.Count > 0)
     {
         <div class="magnitude">
-            <LineChart X="frequencies" Series="magnitude" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
+            <LineChart X="frequencies" Series="All(magnitude, frozenMagnitude)" Dashed="frozenMagnitude.Keys" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Gain" YUnit="dB" />
         </div>
+        <table class="series">
+            <thead><tr><th scope="col">Series</th><th scope="col">Peak gain</th><th scope="col">At</th><th scope="col">Gain at 1 kHz</th></tr></thead>
+            <tbody>
+                @foreach (var (name, gains) in All(magnitude, frozenMagnitude))
+                {
+                    var peak = Peak(gains);
+                    <tr class="@(frozenMagnitude.ContainsKey(name) ? "frozen" : null)">
+                        <th scope="row">@name</th>
+                        <td class="peak">@Db(gains[peak])</td>
+                        <td class="at">@Eng.Format(frequencies[peak], "Hz")</td>
+                        <td class="gain">@Db(gains[Nearest(1000)])</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
         <div class="phase">
-            <LineChart X="frequencies" Series="phase" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
+            <LineChart X="frequencies" Series="All(phase, frozenPhase)" Dashed="frozenPhase.Keys" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
         </div>
     }
 </section>
@@ -52,6 +74,18 @@
     Dictionary<string, IReadOnlyList<double>> magnitude = [];
     Dictionary<string, IReadOnlyList<double>> phase = [];
 
+    // NOTE: A frozen series keeps its curve while the circuit changes. Each run uses the default sweep, so the
+    // frozen series and the live series have the same frequencies.
+    Dictionary<string, IReadOnlyList<double>> frozenMagnitude = [];
+    Dictionary<string, IReadOnlyList<double>> frozenPhase = [];
+
+    // NOTE: After a Compare, a change to the netlist (an edit or a knob) runs the sweep again when the changes stop for
+    // LiveDebounce. The sweep is AC only and goes through the host, so in the browser it runs off the page thread.
+    static readonly TimeSpan LiveDebounce = TimeSpan.FromMilliseconds(250);
+    ITimer? liveTimer;
+    (string Part, List<string> Texts, List<double> Values)? shown;
+    int version;
+
     /// <summary>The loads of the editor page. With none the panel loads the netlist itself.</summary>
     [CascadingParameter] public NetlistCache? Loads { get; set; }
 
@@ -63,6 +97,7 @@
         {
             return;
         }
+        var changed = loadedNetlist is not null;
         loadedNetlist = Netlist;
 
         // NOTE: Only a resistor, capacitor or inductor value changes the frequency response.
@@ -75,10 +110,57 @@
         {
             part = parts.FirstOrDefault() ?? "";
         }
+        if (changed && shown is not null)
+        {
+            ScheduleLive();
+        }
     }
+
+    void ScheduleLive()
+    {
+        liveTimer?.Dispose();
+        liveTimer = Time.CreateTimer(_ => _ = InvokeAsync(async () =>
+        {
+            if (shown is { } s)
+            {
+                await Sweep(s.Part, s.Texts, s.Values);
+                StateHasChanged();
+            }
+        }), null, LiveDebounce, Timeout.InfiniteTimeSpan);
+    }
+
+    public void Dispose() => liveTimer?.Dispose();
+
+    void Freeze()
+    {
+        foreach (var name in magnitude.Keys)
+        {
+            frozenMagnitude[$"{name} (frozen)"] = magnitude[name];
+            frozenPhase[$"{name} (frozen)"] = phase[name];
+        }
+    }
+
+    void Unfreeze()
+    {
+        frozenMagnitude = [];
+        frozenPhase = [];
+    }
+
+    static IReadOnlyDictionary<string, IReadOnlyList<double>> All(Dictionary<string, IReadOnlyList<double>> live, Dictionary<string, IReadOnlyList<double>> frozen) =>
+        live.Concat(frozen.Where(kv => !live.ContainsKey(kv.Key))).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+    static int Peak(IReadOnlyList<double> gains) =>
+        Enumerable.Range(0, gains.Count).Where(i => double.IsFinite(gains[i])).DefaultIfEmpty(0).MaxBy(i => double.IsFinite(gains[i]) ? gains[i] : double.MinValue);
+
+    int Nearest(double frequency) =>
+        Enumerable.Range(0, frequencies.Count).MinBy(i => Math.Abs(Math.Log10(frequencies[i] / frequency)));
+
+    static string Db(double value) => value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " dB";
 
     async Task Run()
     {
+        liveTimer?.Dispose();
+        shown = null;
         diagnostics = [];
         magnitude = [];
         phase = [];
@@ -107,13 +189,39 @@
             return;
         }
 
+        shown = (part, texts, overrides);
+        await Sweep(part, texts, overrides);
+    }
+
+    // NOTE: Each series name holds the value, so a frozen series still says which value made it.
+    async Task Sweep(string reference, List<string> texts, List<double> overrides)
+    {
+        var mine = ++version;
+        var netlist = Netlist;
+        if (!parts.Contains(reference))
+        {
+            magnitude = [];
+            phase = [];
+            diagnostics = [new Diagnostic(Severity.Error, $"The circuit has no part {reference}. Pick a part and press Compare.", null)];
+            return;
+        }
+
         running = true;
-        var sweep = await Host.Sweep(Netlist, part, overrides, new RunOptions());
+        var sweep = await Host.Sweep(netlist, reference, overrides, new RunOptions());
         running = false;
+        if (mine != version)
+        {
+            return;
+        }
 
         diagnostics = sweep.Series.SelectMany(s => s.Result.Diagnostics).Distinct().ToList();
-        // NOTE: The output node is the ssp:output node, or "out". Analyses.Impedance uses the same rule.
-        var output = Load().Directives.Output ?? "out";
+        magnitude = [];
+        phase = [];
+        // NOTE: The output node is the ssp:output node, or "out". Analyses.Impedance uses the same rule. The gain is
+        // from the ssp:input node, or "in", to the output node. A circuit with neither input node shows the output node.
+        var directives = Load().Directives;
+        var output = directives.Output ?? "out";
+        var input = directives.Input ?? "in";
         for (var i = 0; i < texts.Count; i++)
         {
             if (sweep.Series[i].Result.FrequencyResponse is not { } ac || !ac.MagnitudeDb.ContainsKey(output))
@@ -121,8 +229,17 @@
                 continue;
             }
             frequencies = ac.Frequencies;
-            magnitude[$"{part} = {texts[i]}"] = ac.MagnitudeDb[output];
-            phase[$"{part} = {texts[i]}"] = ac.PhaseDegrees[output];
+            var name = $"{reference} = {texts[i]}";
+            if (ac.MagnitudeDb.TryGetValue(input, out var inDb) && ac.PhaseDegrees.TryGetValue(input, out var inDegrees))
+            {
+                magnitude[name] = ac.MagnitudeDb[output].Select((v, k) => v - inDb[k]).ToList();
+                phase[name] = ac.PhaseDegrees[output].Select((v, k) => v - inDegrees[k]).ToList();
+            }
+            else
+            {
+                magnitude[name] = ac.MagnitudeDb[output];
+                phase[name] = ac.PhaseDegrees[output];
+            }
         }
         if (magnitude.Count == 0 && !diagnostics.Any(d => d.Severity == Severity.Error))
         {
