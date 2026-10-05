@@ -66,6 +66,7 @@ public sealed class PartMap
         var (kinds, model) = entity switch
         {
             Diode d => (new[] { "diode", "led", "zener", "schottky" }, d.Model),
+            JFET j => (new[] { "njf", "pjf" }, j.Model),
             BipolarJunctionTransistor q => (new[] { "bjt" }, q.Model),
             _ => (Array.Empty<string>(), null),
         };
