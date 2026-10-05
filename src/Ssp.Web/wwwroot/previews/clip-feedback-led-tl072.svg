@@ -26,7 +26,7 @@
 <polyline data-net="in" points="80,180 80,220"/>
 <polyline data-net="o" points="250,170 250,100 200,100"/>
 <polyline data-net="o" points="250,170 250,140 320,140 320,170"/>
-<polyline data-net="o" points="200,100 200,60 20,60 20,160"/>
+<polyline data-net="o" points="250,170 250,300 20,300 20,160"/>
 <polyline data-net="out" points="310,170 310,200"/>
 <g fill="currentColor" stroke="none" font-family="sans-serif" font-size="10" text-anchor="middle">
 <text x="238" y="48" text-anchor="start">CG</text>
