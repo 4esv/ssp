@@ -57,6 +57,49 @@ public class ClipPlayerTests(ITestOutputHelper output)
     }
 
     [PlaywrightFact]
+    public async Task SecondPlayOfAnUnchangedCircuitStartsAudioWithin200Ms()
+    {
+        await using var session = await Session.Start(output);
+        // NOTE: The page records the time of each click and of each AudioBufferSourceNode.start call on one clock.
+        await session.Page.EvaluateAsync("""
+            () => {
+                globalThis.sspClicks = [];
+                globalThis.sspStarts = [];
+                document.addEventListener('click', () => globalThis.sspClicks.push(performance.now()), true);
+                const start = AudioBufferSourceNode.prototype.start;
+                AudioBufferSourceNode.prototype.start = function (...args) {
+                    globalThis.sspStarts.push(performance.now());
+                    return start.apply(this, args);
+                };
+            }
+            """);
+        await session.Page.Locator("textarea[aria-label=Netlist]").FillAsync(Clipper);
+        await session.Page.Locator(".dock-tab[data-panel=clip]").ClickAsync();
+        await session.Page.Locator(".dock-panel[data-panel=clip] .clip-player input[type=file]").SetInputFilesAsync(new FilePayload
+        {
+            Name = "sine.wav",
+            MimeType = "audio/wav",
+            Buffer = Sine(),
+        });
+        var play = session.Page.Locator(".dock-panel[data-panel=clip] .clip-player button.clip-play");
+
+        await play.ClickAsync();
+        await session.Page.WaitForFunctionAsync("() => globalThis.sspStarts.length >= 1", null, new() { Timeout = 180_000 });
+        await session.Page.WaitForFunctionAsync("() => !document.querySelector('.dock-panel[data-panel=clip] .clip-play').disabled");
+        await play.ClickAsync();
+        await session.Page.WaitForFunctionAsync("() => globalThis.sspStarts.length >= 2", null, new() { Timeout = 10_000 });
+
+        var times = await session.Page.EvaluateAsync<JsonElement>("() => ({ clicks: globalThis.sspClicks.slice(-2), starts: globalThis.sspStarts })");
+        var clicks = times.GetProperty("clicks").EnumerateArray().Select(e => e.GetDouble()).ToArray();
+        var starts = times.GetProperty("starts").EnumerateArray().Select(e => e.GetDouble()).ToArray();
+        var first = starts[0] - clicks[0];
+        var second = starts[1] - clicks[1];
+        output.WriteLine($"first Play: {first:0} ms, second Play: {second:0} ms");
+
+        Assert.True(second < 200, $"The second Play started audio after {second:0} ms. The first took {first:0} ms.");
+    }
+
+    [PlaywrightFact]
     public async Task DownloadIsAWavFileThatWavReadAccepts()
     {
         await using var session = await Session.Start(output);
