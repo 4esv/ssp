@@ -1239,3 +1239,32 @@ body:has(.editor) {
         background: var(--accent-soft);
     }
 }
+
+/* NOTE: The toolbar scrolls and clips, so the parts list is a sheet fixed to the bottom of the window. */
+.parts-panel {
+    position: fixed;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    z-index: 20;
+    max-height: 50vh;
+    overflow: auto;
+    background: var(--bg);
+    border: 1px solid currentColor;
+}
+
+.parts-panel .parts-close {
+    float: right;
+    margin: 0.25rem;
+}
+
+.parts-list {
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.parts-list th,
+.parts-list td {
+    padding: 0.2rem 0.5rem;
+    text-align: left;
+}

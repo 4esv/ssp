@@ -3,17 +3,20 @@ using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
 using Ssp.Web.Components;
 using Ssp.Web.Schematic;
+using PartsApi = Ssp.Core.Parts.Parts;
 
 namespace Ssp.Web.Tests;
 
 public class PartsListTests
 {
+    static readonly PartsTable Table = PartsApi.Load(Path.Combine(RepoPaths.Root, "models", "parts.toml"));
+
     const string Netlist = "* ssp:title Test pedal\nV1 in 0 9\nR1 in a 10k\nR2 a b 10k\nR3 b 0 4.7k\nC1 a 0 100n\nC2 b 0 100n\nD1 a b DGEN\n.MODEL DGEN D\n.END\n";
 
     static PartsList Build(string netlist)
     {
         var circuit = NetlistLoader.Load(netlist);
-        return PartsList.From(circuit, PartMap.Resolve(circuit, SchematicView.Table));
+        return PartsList.From(circuit, PartMap.Resolve(circuit, Table));
     }
 
     [Fact]

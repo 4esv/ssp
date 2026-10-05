@@ -3,17 +3,20 @@ using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
 using Ssp.Web.Components;
 using Ssp.Web.Schematic;
+using PartsApi = Ssp.Core.Parts.Parts;
 
 namespace Ssp.Web.Tests;
 
 public class SchematicPdfTests
 {
+    static readonly PartsTable Table = PartsApi.Load(Path.Combine(RepoPaths.Root, "models", "parts.toml"));
+
     static string Fixture(string name) => File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", name));
 
     static string Pdf(string netlist)
     {
         var circuit = NetlistLoader.Load(netlist);
-        var list = PartsList.From(circuit, PartMap.Resolve(circuit, SchematicView.Table));
+        var list = PartsList.From(circuit, PartMap.Resolve(circuit, Table));
         return Encoding.Latin1.GetString(SchematicPdf.Build(SchematicView.Svg(netlist)!, list));
     }
 
@@ -53,7 +56,7 @@ public class SchematicPdfTests
     public void XrefOffsetsPointAtTheirObjects()
     {
         var pdf = Pdf(Fixture("divider-basic.cir"));
-        var xref = pdf.LastIndexOf("xref\n", StringComparison.Ordinal);
+        var xref = pdf.LastIndexOf("\nxref\n", StringComparison.Ordinal) + 1;
         var lines = pdf[xref..].Split('\n').Skip(3).TakeWhile(l => l.EndsWith(" n ", StringComparison.Ordinal)).ToList();
 
         Assert.NotEmpty(lines);
