@@ -955,3 +955,7 @@ h1[tabindex="-1"]:focus-visible {
     text-align: left;
     padding: 0.25rem 0.5rem;
 }
+
+.editor:focus {
+    outline: none;
+}

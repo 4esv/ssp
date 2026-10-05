@@ -16,7 +16,7 @@
 
 <h1>Editor</h1>
 
-<div class="editor" @onkeydown="Hotkey">
+<div class="editor" tabindex="-1" @ref="root" @onkeydown="Hotkey">
 <div class="toolbar" role="toolbar" aria-label="Editor actions">
     <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
     <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
@@ -169,6 +169,7 @@
     bool running;
     ClipPlayer? clipPlayer;
     SchematicExport? export;
+    ElementReference root;
     IJSObjectReference? keys;
     CommandPalette.PaletteMode mode;
     RunResult? result;
@@ -225,6 +226,8 @@
         {
             try
             {
+                // NOTE: The key handler is on this div, so the div holds the focus until a control takes it.
+                await root.FocusAsync();
                 await (await KeysModule()).InvokeVoidAsync("guard", Shortcuts.All.Select(s => new { s.Key, s.Shift, s.Bare, Plain = s.Id is "undo" or "redo" }));
             }
             catch (Exception)
