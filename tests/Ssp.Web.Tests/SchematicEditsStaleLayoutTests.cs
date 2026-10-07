@@ -101,6 +101,31 @@ public class SchematicEditsStaleLayoutTests : BunitContext
         foreach (var method in EditFunctions()) Call(method, After, layout);
     }
 
+    // NOTE: Seed 16 on buffer-bootstrap-tl072.cir (#288, reopened). The loaded circuit has one capacitor. The layout still holds
+    // the parts of the pre-removal netlist, so a drag of one of them found no element.
+    [Fact]
+    public void A_drag_of_a_part_that_the_loaded_circuit_lacks_does_not_throw_on_a_reconciled_layout()
+    {
+        const string Left = "* schematic\nCOUT1 n2 n3 10u\n";
+        var stale = new LayoutDoc([.. Stale().Parts, new PartPlacement("COUT1", 200, 200, 0, false)], []);
+        var layout = SchematicEdits.Reconcile(Left, stale);
+        var parts = PartMap.Resolve(NetlistLoader.Load(Left), Table);
+
+        Assert.Equal(["COUT1"], layout.Parts.Select(p => p.Reference));
+        foreach (var reference in stale.Parts.Select(p => p.Reference))
+            SchematicEdits.Drag(Left, layout, parts, reference, 20, 20);
+    }
+
+    // NOTE: R_1 is a resistor. Without an R_2 it is no pot R, so a layout part R has no element.
+    [Fact]
+    public void Reconcile_drops_a_part_that_has_a_component_but_no_element()
+    {
+        const string Text = "* x\nV1 a 0 1\nR_1 a b 1k\nR1 b 0 1k\n.END\n";
+        var stale = new LayoutDoc([new PartPlacement("R", 0, 0, 0, false), new PartPlacement("R1", 100, 0, 0, false)], []);
+
+        Assert.Equal(["R1"], SchematicEdits.Reconcile(Text, stale).Parts.Select(p => p.Reference));
+    }
+
     // NOTE: The mutation check: remove the Reconcile call in SchematicEditor.Build and this test fails.
     [Fact]
     public void The_editor_reconciles_a_layout_when_the_netlist_text_changes_and_drops_the_selection()
@@ -114,6 +139,23 @@ public class SchematicEditsStaleLayoutTests : BunitContext
         editor.Render(p => p.Add(c => c.Netlist, After).Add(c => c.Layout, stale));
 
         Assert.DoesNotContain(editor.Instance.Drawn.Parts, p => p.Reference == "Q1");
+        Assert.Empty(editor.FindAll("rect[data-ref='Q1']"));
+        Assert.DoesNotContain("Q1 selected", editor.Markup);
+    }
+
+    // NOTE: #300: the netlist can lose every part. The reconcile then leaves an empty layout and Build returns before
+    // the outline pass, so the selection must go at the reconcile or the shortcut path still sees a stale name.
+    [Fact]
+    public void The_editor_drops_the_selection_when_the_reconciled_layout_is_empty()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var stale = Stale();
+        var editor = Render<SchematicEditor>(p => p.Add(c => c.Netlist, Before).Add(c => c.Layout, stale));
+        editor.Find("rect[data-ref='Q1']").Click();
+        Assert.Contains("Q1 selected", editor.Markup);
+
+        editor.Render(p => p.Add(c => c.Netlist, "* schematic\n.END\n").Add(c => c.Layout, stale));
+
         Assert.Empty(editor.FindAll("rect[data-ref='Q1']"));
         Assert.DoesNotContain("Q1 selected", editor.Markup);
     }
