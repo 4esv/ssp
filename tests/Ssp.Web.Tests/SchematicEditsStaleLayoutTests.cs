@@ -142,4 +142,21 @@ public class SchematicEditsStaleLayoutTests : BunitContext
         Assert.Empty(editor.FindAll("rect[data-ref='Q1']"));
         Assert.DoesNotContain("Q1 selected", editor.Markup);
     }
+
+    // NOTE: #300: the netlist can lose every part. The reconcile then leaves an empty layout and Build returns before
+    // the outline pass, so the selection must go at the reconcile or the shortcut path still sees a stale name.
+    [Fact]
+    public void The_editor_drops_the_selection_when_the_reconciled_layout_is_empty()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var stale = Stale();
+        var editor = Render<SchematicEditor>(p => p.Add(c => c.Netlist, Before).Add(c => c.Layout, stale));
+        editor.Find("rect[data-ref='Q1']").Click();
+        Assert.Contains("Q1 selected", editor.Markup);
+
+        editor.Render(p => p.Add(c => c.Netlist, "* schematic\n.END\n").Add(c => c.Layout, stale));
+
+        Assert.Empty(editor.FindAll("rect[data-ref='Q1']"));
+        Assert.DoesNotContain("Q1 selected", editor.Markup);
+    }
 }
