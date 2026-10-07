@@ -44,6 +44,8 @@ public static partial class SchematicEdits
         ["zener"] = ("D", "DZ_5V1"),
         ["schottky"] = ("D", "DSCHOTTKY"),
         ["led"] = ("D", "LED_RED"),
+        ["njf"] = ("J", "JN"),
+        ["pjf"] = ("J", "JP"),
         ["pot"] = ("RV", "10k"),
         ["switch-1"] = ("RSW", ""),
         ["switch-2"] = ("RSW", ""),
@@ -63,6 +65,8 @@ public static partial class SchematicEdits
         ["LED_RED"] = ".model LED_RED D(Is=4.2555e-19 N=2)",
         ["DZ_5V1"] = ".model DZ_5V1 D(Is=1e-14 N=1.9 BV=4.5 IBV=5m)",
         ["DSCHOTTKY"] = ".model DSCHOTTKY D(Is=3e-7 N=1.05)",
+        ["JN"] = ".model JN NJF(Beta=1.25m Vto=-2 Lambda=2m)",
+        ["JP"] = ".model JP PJF(Beta=1.25m Vto=-2 Lambda=2m)",
     };
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
@@ -92,11 +96,15 @@ public static partial class SchematicEdits
         }
 
         var added = new List<string>();
-        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" or "zener" or "schottky" ? value : null;
+        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" or "zener" or "schottky" or "njf" or "pjf" ? value : null;
         switch (kind)
         {
             case "npn" or "pnp":
                 added.Add($"{reference} {Node()} {Node()} {Node()} {Zero} {value}");
+                break;
+            case "njf" or "pjf":
+                // NOTE: drain, gate, source: the SPICE order.
+                added.Add($"{reference} {Node()} {Node()} {Node()} {value}");
                 break;
             case "diode" or "led" or "zener" or "schottky":
                 added.Add($"{reference} {Node()} {Node()} {value}");
