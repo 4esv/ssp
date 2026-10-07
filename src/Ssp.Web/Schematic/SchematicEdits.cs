@@ -354,9 +354,11 @@ public static partial class SchematicEdits
     public static SchematicChange Drag(string netlist, LayoutDoc layout, PartMap parts, string reference, double dx, double dy)
     {
         var circuit = NetlistLoader.Load(netlist);
-        var element = ElementOf(circuit, parts, reference);
+        // NOTE: A reference that the loaded circuit or the layout lacks (the text was edited) has nothing to move.
+        var element = SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => Names.Equals(e.Reference, reference) || Names.Equals(e.Members[0], reference));
         // NOTE: A pot is placed by its first half, P_1.
-        var start = layout.Parts.Single(p => Names.Equals(p.Reference, element.Reference) || Names.Equals(p.Reference, element.Members[0]));
+        var start = element is null ? null : layout.Parts.SingleOrDefault(p => Names.Equals(p.Reference, element.Reference) || Names.Equals(p.Reference, element.Members[0]));
+        if (element is null || start is null) return new SchematicChange(netlist, layout);
         var to = start with { X = Snap(start.X + dx), Y = Snap(start.Y + dy) };
         var before = SchematicRenderer.Pins(element, start).Select(p => p.At).ToList();
         var after = SchematicRenderer.Pins(element, to).Select(p => p.At).ToList();
@@ -1151,8 +1153,9 @@ public static partial class SchematicEdits
     public static LayoutDoc Reconcile(LoadedCircuit circuit, LayoutDoc layout)
     {
         if (circuit.Diagnostics.Any(d => d.Severity == Severity.Error)) return layout;
-        var names = circuit.Circuit.OfType<IComponent>().Select(c => c.Name).ToHashSet(Names);
-        var kept = layout.Parts.Where(p => names.Contains(p.Reference) || names.Contains(p.Reference + "_1")).ToList();
+        // NOTE: Compare with the elements, not the components. A part S has a component S_1 but no element without a switch directive.
+        var elements = SchematicRenderer.Elements(circuit, null);
+        var kept = layout.Parts.Where(p => elements.Any(e => Names.Equals(e.Reference, p.Reference) || Names.Equals(e.Members[0], p.Reference))).ToList();
         return kept.Count == layout.Parts.Count ? layout : new LayoutDoc(kept, layout.Wires);
     }
 
