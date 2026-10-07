@@ -1,0 +1,10 @@
+* ssp:title MOSFET common-source operating point
+* Output: VGS = 3 V, VTO = 2 V, KP = 1e-3, W/L = 10u/1u = 10 -> Id = KP/2 * (W/L) * (VGS - VTO)^2 = 5 mA
+* Vd = VDD - Id * R1 = 10 - 5m * 1k = 5 V, in saturation because Vds = 5 V > VGS - VTO = 1 V
+* ssp:output d
+VDD vdd 0 10
+VG g 0 3
+R1 vdd d 1k
+M1 d g 0 0 NMOS W=10u L=1u
+.model NMOS NMOS (VTO=2 KP=1e-3)
+.END

@@ -44,6 +44,8 @@ public static partial class SchematicEdits
         ["zener"] = ("D", "DZ_5V1"),
         ["schottky"] = ("D", "DSCHOTTKY"),
         ["led"] = ("D", "LED_RED"),
+        ["njf"] = ("J", "JN"),
+        ["pjf"] = ("J", "JP"),
         ["pot"] = ("RV", "10k"),
         ["switch-1"] = ("RSW", ""),
         ["switch-2"] = ("RSW", ""),
@@ -63,6 +65,8 @@ public static partial class SchematicEdits
         ["LED_RED"] = ".model LED_RED D(Is=4.2555e-19 N=2)",
         ["DZ_5V1"] = ".model DZ_5V1 D(Is=1e-14 N=1.9 BV=4.5 IBV=5m)",
         ["DSCHOTTKY"] = ".model DSCHOTTKY D(Is=3e-7 N=1.05)",
+        ["JN"] = ".model JN NJF(Beta=1.25m Vto=-2 Lambda=2m)",
+        ["JP"] = ".model JP PJF(Beta=1.25m Vto=-2 Lambda=2m)",
     };
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
@@ -92,11 +96,15 @@ public static partial class SchematicEdits
         }
 
         var added = new List<string>();
-        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" or "zener" or "schottky" ? value : null;
+        var model = Models.ContainsKey(value) && kind is "npn" or "pnp" or "diode" or "led" or "zener" or "schottky" or "njf" or "pjf" ? value : null;
         switch (kind)
         {
             case "npn" or "pnp":
                 added.Add($"{reference} {Node()} {Node()} {Node()} {Zero} {value}");
+                break;
+            case "njf" or "pjf":
+                // NOTE: drain, gate, source: the SPICE order.
+                added.Add($"{reference} {Node()} {Node()} {Node()} {value}");
                 break;
             case "diode" or "led" or "zener" or "schottky":
                 added.Add($"{reference} {Node()} {Node()} {value}");
@@ -346,9 +354,11 @@ public static partial class SchematicEdits
     public static SchematicChange Drag(string netlist, LayoutDoc layout, PartMap parts, string reference, double dx, double dy)
     {
         var circuit = NetlistLoader.Load(netlist);
-        var element = ElementOf(circuit, parts, reference);
+        // NOTE: A reference that the loaded circuit or the layout lacks (the text was edited) has nothing to move.
+        var element = SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => Names.Equals(e.Reference, reference) || Names.Equals(e.Members[0], reference));
         // NOTE: A pot is placed by its first half, P_1.
-        var start = layout.Parts.Single(p => Names.Equals(p.Reference, element.Reference) || Names.Equals(p.Reference, element.Members[0]));
+        var start = element is null ? null : layout.Parts.SingleOrDefault(p => Names.Equals(p.Reference, element.Reference) || Names.Equals(p.Reference, element.Members[0]));
+        if (element is null || start is null) return new SchematicChange(netlist, layout);
         var to = start with { X = Snap(start.X + dx), Y = Snap(start.Y + dy) };
         var before = SchematicRenderer.Pins(element, start).Select(p => p.At).ToList();
         var after = SchematicRenderer.Pins(element, to).Select(p => p.At).ToList();
@@ -1143,8 +1153,9 @@ public static partial class SchematicEdits
     public static LayoutDoc Reconcile(LoadedCircuit circuit, LayoutDoc layout)
     {
         if (circuit.Diagnostics.Any(d => d.Severity == Severity.Error)) return layout;
-        var names = circuit.Circuit.OfType<IComponent>().Select(c => c.Name).ToHashSet(Names);
-        var kept = layout.Parts.Where(p => names.Contains(p.Reference) || names.Contains(p.Reference + "_1")).ToList();
+        // NOTE: Compare with the elements, not the components. A part S has a component S_1 but no element without a switch directive.
+        var elements = SchematicRenderer.Elements(circuit, null);
+        var kept = layout.Parts.Where(p => elements.Any(e => Names.Equals(e.Reference, p.Reference) || Names.Equals(e.Members[0], p.Reference))).ToList();
         return kept.Count == layout.Parts.Count ? layout : new LayoutDoc(kept, layout.Wires);
     }
 
@@ -1358,6 +1369,14 @@ public static partial class SchematicEdits
         var parts = layout.Parts.Select(p => Names.Equals(p.Reference, reference) ? edit(p) : p).ToList();
         return new SchematicChange(netlist, new LayoutDoc(parts, layout.Wires));
     }
+
+    /// <summary>
+    /// The reference of the part that an edit added, or <c>null</c> when the edit added none. The editor selects this
+    /// reference after a place, a paste or a duplicate, instead of assuming the last part is the new one: an edit on a
+    /// reference that the netlist no longer has returns the layout unchanged, and the layout can then be empty (#300).
+    /// </summary>
+    public static string? Added(LayoutDoc before, SchematicChange change) =>
+        change.Layout.Parts.Count > before.Parts.Count ? change.Layout.Parts[^1].Reference : null;
 
     // The first line and the count of lines of an element: its line and the continuation lines after it.
     // NOTE: Lines in a .subckt block are not elements of the circuit. The first line is the title.

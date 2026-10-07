@@ -465,7 +465,7 @@
     {
         ["r"] = "resistor", ["c"] = "capacitor", ["q"] = "npn", ["d"] = "diode", ["p"] = "pot", ["b"] = "battery",
         ["s"] = "source", ["i"] = "jack-in", ["o"] = "jack-out", ["l"] = "led", ["n"] = "pnp",
-        ["e"] = "electrolytic", ["h"] = "inductor", ["z"] = "zener", ["k"] = "schottky",
+        ["e"] = "electrolytic", ["h"] = "inductor", ["z"] = "zener", ["k"] = "schottky", ["j"] = "njf", ["y"] = "pjf",
         ["g"] = GroundChoice, ["w"] = WireChoice,
     };
 
@@ -564,6 +564,14 @@
         // (a value edit, a comment) keeps that placement.
         var next = AutoPlacer.Shape(circuit);
         layout = given is null ? (next == shape ? layout : AutoPlacer.Place(circuit, circuit.Directives)) : SchematicEdits.Reconcile(circuit, given);
+        // NOTE: A reconcile drops the parts that the netlist no longer has. A key edit can run before the render pass clears
+        // a stale selection (#300), so drop a selection that the reconciled layout no longer holds here as well.
+        if (given is not null)
+        {
+            bool Held(string r) => layout.Parts.Any(p => string.Equals(p.Reference, r, StringComparison.OrdinalIgnoreCase) || string.Equals(p.Reference, r + "_1", StringComparison.OrdinalIgnoreCase));
+            if (selected is { } stale && !Held(stale)) selected = null;
+            group.RemoveWhere(r => !Held(r));
+        }
         shape = given is null ? next : null;
         if (!circuit.Circuit.OfType<SpiceComponent>().Any()) return;
 
@@ -1046,9 +1054,10 @@
     async Task PlaceAt(string kind, Point at)
     {
         var change = SchematicEdits.PlaceAt(netlist, layout, kind, at);
+        var before = layout;
         await Apply(change);
-        // NOTE: Place puts the new part last in the layout.
-        selected = change.Layout.Parts[^1].Reference;
+        // NOTE: Place puts the new part last in the layout. A place that adds nothing keeps the selection.
+        if (SchematicEdits.Added(before, change) is { } added) selected = added;
         if (outlines.FirstOrDefault(o => o.Reference == selected) is { } outline) await Reveal(outline.Min, outline.Max);
     }
 
@@ -1110,9 +1119,10 @@
     {
         _ = Done("place");
         var change = SchematicEdits.Place(netlist, layout, kind);
+        var before = layout;
         await Apply(change);
-        // NOTE: Place puts the new part last in the layout.
-        selected = change.Layout.Parts[^1].Reference;
+        // NOTE: Place puts the new part last in the layout. A place that adds nothing keeps the selection.
+        if (SchematicEdits.Added(before, change) is { } added) selected = added;
         if (outlines.FirstOrDefault(o => o.Reference == selected) is { } outline) await Reveal(outline.Min, outline.Max);
     }
 
@@ -1231,9 +1241,10 @@
         if (e.Key == "Escape") selected = null;
         if (change is null) return;
 
+        var before = layout;
         await Apply(change);
-        // NOTE: Duplicate puts the copy last in the layout.
-        if (e.Key is "d" or "D") selected = change.Layout.Parts[^1].Reference;
+        // NOTE: Duplicate puts the copy last in the layout. A duplicate of a stale part adds nothing and keeps the selection.
+        if (e.Key is "d" or "D" && SchematicEdits.Added(before, change) is { } copy) selected = copy;
     }
 
     // NOTE: With an active pin an arrow picks a direction, a letter picks what goes there, and Tab moves the pin. Ground needs no direction.
@@ -1544,8 +1555,9 @@
     {
         if (selected is not { } part) return;
         var change = SchematicEdits.Duplicate(netlist, layout, part);
+        var before = layout;
         await Apply(change);
-        selected = change.Layout.Parts[^1].Reference;
+        if (SchematicEdits.Added(before, change) is { } copy) selected = copy;
         if (outlines.FirstOrDefault(o => o.Reference == selected) is { } outline) await Reveal(outline.Min, outline.Max);
     }
 

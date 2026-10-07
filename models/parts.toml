@@ -99,3 +99,21 @@ symbol = "schottky"
 footprint = "DO-35"
 buy_url = "https://www.mouser.com/c/?q={id}"
 provenance = "models/diodes.lib, generic Schottky small-signal diode, typical values"
+
+[[part]]
+id = "JFET-N"
+kind = "njf"
+model = "JN"
+symbol = "njf"
+footprint = "TO-92"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/jfets.lib, generic N-channel JFET, typical values"
+
+[[part]]
+id = "JFET-P"
+kind = "pjf"
+model = "JP"
+symbol = "pjf"
+footprint = "TO-92"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "models/jfets.lib, generic P-channel JFET, typical values"
