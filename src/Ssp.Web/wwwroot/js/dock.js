@@ -4,6 +4,12 @@ export function size(element) {
     return [rect.width, rect.height];
 }
 
+// Gives the left, top, width and height of an element in pixels. A floating window needs them to turn pointer places into fractions.
+export function bounds(element) {
+    const rect = element.getBoundingClientRect();
+    return [rect.left, rect.top, rect.width, rect.height];
+}
+
 // Sets drag data on a tab. Firefox starts no drag without it.
 export function allowDrag(element) {
     element.addEventListener("dragstart", e => {
