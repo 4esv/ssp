@@ -7,8 +7,7 @@ p { max-width: 65ch; }
 /* NOTE: Every control shows a ring with keyboard navigation. Blazor focuses the page heading, which is not a control. */
 :focus-visible { outline: 2px solid; outline-offset: 2px; }
 h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
-.dock-tab:focus-visible, .dock-close:focus-visible { outline-offset: -2px; }
-.dock-splitter:focus-visible { outline-offset: 0; }
+.dock-tab:focus-visible, .dock-close:focus-visible { outline-offset: -2px; } .dock-splitter:focus-visible { outline-offset: 0; }
 .schematic-pins .pin:focus-visible, .schematic-pins .part:focus-visible, .schematic-pins .knob:focus-visible { outline-offset: 1px; }
 .project-import:focus-within, .command-palette li.active button { outline: 2px solid; }
 #blazor-error-ui { display: none; position: fixed; bottom: 0; left: 0; width: 100%; padding: 0.5rem; background: var(--bg); border-top: 1px solid; }
@@ -36,21 +35,22 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .dock-close { padding: 0 0.5rem; min-width: 1.5rem; }
 .dock-help { flex-basis: 100%; font-size: 0.875rem; }
 .dock-panel { position: absolute; box-sizing: border-box; overflow: auto; padding: 0.5rem; border: 1px solid; background: var(--bg); }
-.dock-panel > textarea { box-sizing: border-box; width: 100%; height: 100%; resize: none; }
-.dock-panel-title { display: none; margin: 0 0 0.5rem; font-size: 1rem; }
+.dock-panel > textarea { box-sizing: border-box; width: 100%; height: 100%; resize: none; } .dock-panel-title { display: none; margin: 0 0 0.5rem; font-size: 1rem; }
 .dock-splitter { position: absolute; z-index: 2; }
-.dock-splitter.row { width: 6px; transform: translateX(-3px); cursor: col-resize; }
-.dock-splitter.column { height: 6px; transform: translateY(-3px); cursor: row-resize; }
+.dock-splitter.row { width: 6px; transform: translateX(-3px); cursor: col-resize; } .dock-splitter.column { height: 6px; transform: translateY(-3px); cursor: row-resize; }
 .dock-splitter:hover, .dock-splitter:focus-visible { background: currentColor; }
 .dock-drop { position: absolute; display: none; z-index: 3; }
 .dock-layout.dragging .dock-drop { display: block; }
 .dock-zone { position: absolute; }
-.dock-zone:hover { background: currentColor; opacity: 0.25; }
+.dock-zone:hover, .dock-zone.hover { background: currentColor; opacity: 0.25; }
 .dock-zone.center { inset: 25%; }
-.dock-zone.left { left: 0; top: 0; bottom: 0; width: 25%; }
-.dock-zone.right { right: 0; top: 0; bottom: 0; width: 25%; }
-.dock-zone.top { top: 0; left: 25%; right: 25%; height: 25%; }
-.dock-zone.bottom { bottom: 0; left: 25%; right: 25%; height: 25%; }
+.dock-zone.left { left: 0; top: 0; bottom: 0; width: 25%; } .dock-zone.right { right: 0; top: 0; bottom: 0; width: 25%; }
+.dock-zone.top { top: 0; left: 25%; right: 25%; height: 25%; } .dock-zone.bottom { bottom: 0; left: 25%; right: 25%; height: 25%; }
+/* NOTE: A floating window is a bar and a corner grip over its panel. Its z-index comes from its order. */
+.dock-float-bar { position: absolute; box-sizing: border-box; height: var(--dock-tab-height); display: flex; align-items: center; border: 1px solid; background: var(--bg); cursor: move; touch-action: none; user-select: none; }
+.dock-float-title { flex: 1; padding: 0 0.4rem; font-size: 0.875rem; font-weight: 600; overflow: hidden; white-space: nowrap; } .dock-float-dock, .dock-float-btn { padding: 0 0.5rem; min-width: 1.5rem; }
+.dock-float-grip { position: absolute; width: 1rem; height: 1rem; box-sizing: border-box; border-right: 3px solid; border-bottom: 3px solid; cursor: nwse-resize; touch-action: none; }
+.dock-layout.floating-drag { user-select: none; } .dock-layout.floating-drag .dock-drop { display: block; pointer-events: none; }
 .dock-closed { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
 .dc-nodes { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; list-style: none; }
 .dc-label { margin-left: 0.25rem; font-variant-numeric: tabular-nums; }
@@ -219,12 +219,12 @@ body:has(.editor) { margin: 0; }
 @media (pointer: coarse) {
     .schematic-zoom button, .schematic-tools button { min-width: 2.75rem; min-height: 2.75rem; }
     .palette-item, .schematic-editor .problem-item { min-height: 2.75rem; }
-    .dock-close, .dock-tab, .dock-bar button { min-width: 2.75rem; min-height: 2.75rem; }
+    .dock-close, .dock-tab, .dock-float-btn, .dock-float-dock, .dock-bar button { min-width: 2.75rem; min-height: 2.75rem; }
 }
 /* NOTE: On a narrow screen the schematic is the whole screen, the palette is one row, and the bottom bar opens one other panel over it. */
 @media (max-width: 48rem) {
     .dock-layout { height: auto; min-height: 0; }
-    .dock-tabs, .dock-splitter, .dock-drop { display: none !important; }
+    .dock-tabs, .dock-splitter, .dock-drop, .dock-float-bar, .dock-float-grip, .dock-float-btn { display: none !important; }
     .dock-panel, .dock-panel[hidden] { position: static; display: block; width: auto !important; height: auto !important; margin-bottom: 0.5rem; }
     .dock-panel-title { display: block; }
     .dock-panel > textarea { height: 16rem; }

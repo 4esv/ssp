@@ -22,7 +22,7 @@
 </div>
 
 <div class="@LayoutClass" @ref="element" data-tree="@model"
-     @onpointermove="Drag" @onpointerup="EndResize" @onpointerleave="EndResize">
+     @onpointermove="Drag" @onpointerup="EndPointer" @onpointerleave="EndPointer">
     <CascadingValue Value="this" IsFixed="true">
         @ChildContent
     </CascadingValue>
@@ -37,7 +37,8 @@
                     <button type="button" role="tab" class="dock-tab" data-panel="@panel" aria-selected="@(shown ? "true" : "false")"
                             draggable="true" title="@KeyHelp" @ref="tabs[panel]"
                             @onclick="() => Show(panel)" @ondblclick="() => Close(panel)" @onkeydown="e => Key(panel, e)"
-                            @ondragstart="() => StartDrag(panel)" @ondragend="() => dragging = null">@Title(panel)</button>
+                            @ondragstart="() => StartDrag(panel)" @ondragend="EndTabDrag">@Title(panel)</button>
+                    <button type="button" class="dock-float-btn" aria-label="Float @Title(panel)" title="Float @Title(panel)" @onclick="() => Float(panel)">↗</button>
                     <button type="button" class="dock-close" aria-label="Hide @Title(panel)" title="Hide @Title(panel)" @onclick="() => Close(panel)">–</button>
                 </span>
             }
@@ -45,9 +46,24 @@
         <div class="dock-drop" style="@Place(rect)">
             @foreach (var zone in Zones)
             {
-                <div class="dock-zone @zone.ToString().ToLowerInvariant()" @ondragover:preventDefault="true" @ondrop="() => Drop(group, zone)"></div>
+                <div class="@ZoneClass(group, zone)" @ondragover:preventDefault="true" @ondrop="() => Drop(group, zone)"></div>
             }
         </div>
+    }
+
+    @foreach (var (window, layer) in model.Floating.Select((w, i) => (w, i)))
+    {
+        var panel = window.Panel;
+        <div class="dock-float-bar" data-panel="@panel" style="@FloatStrip(window, layer)" @key="@("bar-" + panel)"
+             @onpointerdown="e => StartFloatDrag(window, FloatMode.Move, e)">
+            <span class="dock-float-title">@Title(panel)</span>
+            <button type="button" class="dock-float-dock" aria-label="Dock @Title(panel)" title="Dock @Title(panel)"
+                    @onpointerdown:stopPropagation="true" @onclick="() => Open(panel)">Dock</button>
+            <button type="button" class="dock-close" aria-label="Hide @Title(panel)" title="Hide @Title(panel)"
+                    @onpointerdown:stopPropagation="true" @onclick="() => Close(panel)">–</button>
+        </div>
+        <div class="dock-float-grip" data-panel="@panel" style="@FloatGrip(window, layer)" @key="@("grip-" + panel)" aria-hidden="true"
+             @onpointerdown="e => StartFloatDrag(window, FloatMode.Resize, e)"></div>
     }
 
     @foreach (var handle in model.Handles())
@@ -68,6 +84,15 @@
 
     // NOTE: Center puts the panel in the group as a tab. An edge splits the group.
     enum Zone { Center, Left, Right, Top, Bottom }
+
+    // NOTE: A floating window moves by its bar and resizes by its corner.
+    enum FloatMode { Move, Resize }
+
+    // NOTE: A window dropped in the middle of a group docks as a tab. At the edge of a group it docks there.
+    const double EdgeShare = 0.25;
+
+    // NOTE: A floating window is above the splitters and the drop zones.
+    const int FloatLayer = 4;
 
     static readonly Zone[] Zones = Enum.GetValues<Zone>();
 
@@ -91,6 +116,12 @@
     DockHandle? resizing;
     double pointer;
     double splitPixels;
+    DockFloat? moving;
+    double lastX;
+    double lastY;
+    FloatMode floatMode;
+    double[] box = [0, 0, 1, 1];
+    (DockTabs Group, Zone Zone)? hint;
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,10 +184,18 @@
             }
         }
 
+        var index = model.Floating.FindIndex(f => f.Panel == id);
+        if (index >= 0)
+        {
+            var rect = model.Floating[index].Rect;
+            return (Place(rect, Percent(rect.Top), "var(--dock-tab-height)") + $" z-index: {FloatLayer + (2 * index)};", true);
+        }
+
         return null;
     }
 
-    string LayoutClass => "dock-layout" + (dragging is null ? "" : " dragging") + (resizing is null ? "" : " resizing");
+    string LayoutClass => "dock-layout" + (dragging is null ? "" : " dragging") + (resizing is null ? "" : " resizing")
+        + (moving is null ? "" : " floating-drag");
 
     string Title(string id) => titles.GetValueOrDefault(id, id);
 
@@ -213,6 +252,120 @@
         await Save();
     }
 
+    async Task Float(string panel)
+    {
+        model.Float(panel, "schematic");
+        await Save();
+    }
+
+    async Task StartFloatDrag(DockFloat window, FloatMode mode, PointerEventArgs e)
+    {
+        model.Raise(window.Panel);
+        module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/dock.js");
+        box = await module.InvokeAsync<double[]>("bounds", element);
+        lastX = e.ClientX;
+        lastY = e.ClientY;
+        floatMode = mode;
+        moving = window;
+    }
+
+    // NOTE: The tab was dragged and no group took it. A drop outside every group, inside the layout, makes a window there.
+    async Task EndTabDrag(DragEventArgs e)
+    {
+        var panel = dragging;
+        dragging = null;
+        if (panel is null)
+        {
+            return;
+        }
+
+        module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/dock.js");
+        box = await module.InvokeAsync<double[]>("bounds", element);
+        if (box[2] <= 0 || box[3] <= 0)
+        {
+            return;
+        }
+
+        var x = (e.ClientX - box[0]) / box[2];
+        var y = (e.ClientY - box[1]) / box[3];
+        if (x < 0 || x > 1 || y < 0 || y > 1 || model.GroupRects().Any(g => Inside(g.Rect, x, y)))
+        {
+            return;
+        }
+
+        model.Float(panel, "schematic", new DockRect(x - 0.15, y, 0.3, 0.4));
+        await Save();
+    }
+
+    string ZoneClass(DockTabs group, Zone zone) =>
+        "dock-zone " + zone.ToString().ToLowerInvariant() + (hint is { } h && h.Group == group && h.Zone == zone ? " hover" : "");
+
+    static bool Inside(DockRect rect, double x, double y) =>
+        x >= rect.Left && x <= rect.Left + rect.Width && y >= rect.Top && y <= rect.Top + rect.Height;
+
+    (DockTabs, Zone)? ZoneAt(double x, double y)
+    {
+        foreach (var (group, rect) in model.GroupRects())
+        {
+            if (!Inside(rect, x, y))
+            {
+                continue;
+            }
+
+            var u = (x - rect.Left) / rect.Width;
+            var v = (y - rect.Top) / rect.Height;
+            var zone = u < EdgeShare ? Zone.Left
+                : u > 1 - EdgeShare ? Zone.Right
+                : v < EdgeShare ? Zone.Top
+                : v > 1 - EdgeShare ? Zone.Bottom
+                : Zone.Center;
+            return (group, zone);
+        }
+
+        return null;
+    }
+
+    void MoveWindow(PointerEventArgs e)
+    {
+        if (moving is not { } window || box[2] <= 0 || box[3] <= 0)
+        {
+            return;
+        }
+
+        var dx = (e.ClientX - lastX) / box[2];
+        var dy = (e.ClientY - lastY) / box[3];
+        lastX = e.ClientX;
+        lastY = e.ClientY;
+        var rect = window.Rect;
+        if (floatMode == FloatMode.Move)
+        {
+            model.MoveFloating(window.Panel, rect.Left + dx, rect.Top + dy);
+            hint = ZoneAt((e.ClientX - box[0]) / box[2], (e.ClientY - box[1]) / box[3]);
+        }
+        else
+        {
+            model.ResizeFloating(window.Panel, rect.Width + dx, rect.Height + dy);
+        }
+    }
+
+    async Task EndFloatDrag()
+    {
+        if (moving is not { } window)
+        {
+            return;
+        }
+
+        moving = null;
+        var target = hint;
+        hint = null;
+        if (floatMode == FloatMode.Move && target is { } drop)
+        {
+            DockTo(window.Panel, drop.Group, drop.Zone);
+        }
+
+        await Save();
+    }
+
     async Task StartDrag(string panel)
     {
         // NOTE: Chromium cancels a drag when the page changes the DOM inside dragstart. Wait one tick before the render.
@@ -228,6 +381,12 @@
         }
 
         dragging = null;
+        DockTo(panel, group, zone);
+        await Save();
+    }
+
+    void DockTo(string panel, DockTabs group, Zone zone)
+    {
         var target = group.Panels[0];
         switch (zone)
         {
@@ -237,8 +396,6 @@
             case Zone.Top: model.Dock(panel, DockEdge.Top, target); break;
             case Zone.Bottom: model.Dock(panel, DockEdge.Bottom, target); break;
         }
-
-        await Save();
     }
 
     async Task ResizeKey(DockHandle handle, KeyboardEventArgs e)
@@ -271,6 +428,12 @@
 
     void Drag(PointerEventArgs e)
     {
+        if (moving is not null)
+        {
+            MoveWindow(e);
+            return;
+        }
+
         if (resizing is not { } handle || splitPixels <= 0)
         {
             return;
@@ -281,8 +444,14 @@
         pointer = position;
     }
 
-    async Task EndResize()
+    async Task EndPointer()
     {
+        if (moving is not null)
+        {
+            await EndFloatDrag();
+            return;
+        }
+
         if (resizing is null)
         {
             return;
@@ -312,6 +481,12 @@
         $"left: {Percent(rect.Left)}; top: calc({top} + {offset}); width: {Percent(rect.Width)}; height: calc({Percent(rect.Height)} - {offset});";
 
     static string Strip(DockRect rect) => $"left: {Percent(rect.Left)}; top: {Percent(rect.Top)}; width: {Percent(rect.Width)};";
+
+    static string FloatStrip(DockFloat window, int layer) =>
+        $"left: {Percent(window.Rect.Left)}; top: {Percent(window.Rect.Top)}; width: {Percent(window.Rect.Width)}; z-index: {FloatLayer + (2 * layer) + 1};";
+
+    static string FloatGrip(DockFloat window, int layer) =>
+        $"left: calc({Percent(window.Rect.Left + window.Rect.Width)} - 1rem); top: calc({Percent(window.Rect.Top + window.Rect.Height)} - 1rem); z-index: {FloatLayer + (2 * layer) + 1};";
 
     static string Splitter(DockHandle handle) => handle.Direction == SplitDirection.Row
         ? $"left: {Percent(handle.Position)}; top: {Percent(handle.Split.Top)}; height: {Percent(handle.Split.Height)};"
