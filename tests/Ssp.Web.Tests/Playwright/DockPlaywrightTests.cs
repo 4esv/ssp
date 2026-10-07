@@ -10,6 +10,47 @@ public class DockPlaywrightTests
     [PlaywrightFact]
     public Task HideAndRestoreTakeOneClickEach() => HideAndRestoreCore().WaitAsync(Limit);
 
+    [PlaywrightFact]
+    public Task FloatDragAndDockAsTab() => FloatDragAndDockCore().WaitAsync(Limit);
+
+    static async Task FloatDragAndDockCore()
+    {
+        var withDeps = Environment.GetEnvironmentVariable("SSP_PLAYWRIGHT_WITH_DEPS") == "1";
+        var install = withDeps ? new[] { "install", "--with-deps", "chromium" } : new[] { "install", "chromium" };
+        Assert.Equal(0, Program.Main(install));
+
+        using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync();
+        var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        page.SetDefaultTimeout(30_000);
+
+        await ClipPlayerTests.Session.OpenEditor(page);
+        await page.Locator(".dock-tab[data-panel=text]").WaitForAsync(new() { Timeout = 60_000 });
+        var tabs = page.Locator(".dock-tab");
+        var before = await tabs.CountAsync();
+
+        await page.Locator(".dock-float-btn[aria-label='Float Netlist']").ClickAsync();
+        var bar = page.Locator(".dock-float-bar[data-panel=text]");
+        await bar.WaitForAsync();
+        Assert.Equal(before - 1, await tabs.CountAsync());
+        var schematicBox = (await page.Locator(".dock-panel[data-panel=schematic]").BoundingBoxAsync())!;
+        var started = (await bar.BoundingBoxAsync())!;
+        Assert.True(started.X >= schematicBox.X + schematicBox.Width - 1 || started.Y >= schematicBox.Y + schematicBox.Height - 1,
+            "The floating window starts over the schematic.");
+
+        // NOTE: Drag the bar by the title to the middle of the schematic group, then release.
+        await page.Mouse.MoveAsync((float)(started.X + 20), (float)(started.Y + started.Height / 2));
+        await page.Mouse.DownAsync();
+        await page.Mouse.MoveAsync((float)(schematicBox.X + schematicBox.Width / 2), (float)(schematicBox.Y + schematicBox.Height / 2), new() { Steps = 8 });
+        await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "dock-float-1280.png") });
+        await page.Mouse.UpAsync();
+
+        await Assertions.Expect(page.Locator(".dock-float-bar")).ToHaveCountAsync(0);
+        await Assertions.Expect(tabs).ToHaveCountAsync(before);
+        var group = page.Locator(".dock-tabs", new() { Has = page.Locator(".dock-tab[data-panel=schematic]") });
+        await Assertions.Expect(group.Locator(".dock-tab")).ToHaveCountAsync(2);
+    }
+
     static async Task HideAndRestoreCore()
     {
         var withDeps = Environment.GetEnvironmentVariable("SSP_PLAYWRIGHT_WITH_DEPS") == "1";

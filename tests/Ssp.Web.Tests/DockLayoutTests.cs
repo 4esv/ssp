@@ -1,6 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Ssp.Web.Docking;
 using Ssp.Web.Hosting;
 using Ssp.Web.Pages;
 
@@ -172,5 +173,61 @@ public class DockLayoutTests : BunitContext
         Assert.Contains("Alt+Shift+Arrow", page.Find(".dock-help").TextContent);
         page.Find(".dock-bar .dock-help-toggle").Click();
         Assert.Empty(page.FindAll(".dock-help"));
+    }
+
+    static string Saved(BunitContext context) => (string)context.JSInterop.Invocations["localStorage.setItem"].Last().Arguments[1]!;
+
+    [Fact]
+    public void FloatMoveResizeAndDockRoundTripTheSavedLayout()
+    {
+        var page = Open(this, null);
+
+        page.Find(".dock-float-btn[aria-label='Float Netlist']").Click();
+        Assert.Contains(" floating(text)", Tree(page));
+        Assert.Single(page.FindAll(".dock-float-bar[data-panel=text]"));
+        Assert.DoesNotContain(page.FindAll(".dock-tab"), t => t.GetAttribute("data-panel") == "text");
+        Assert.Contains("z-index", page.Find(".dock-panel[data-panel=text]").GetAttribute("style"));
+
+        var floating = DockModel.Parse(Saved(this), Panels)!.Floating.Single();
+        Assert.Equal("text", floating.Panel);
+
+        using var reload = new BunitContext();
+        var reloaded = Open(reload, Saved(this));
+        Assert.Equal(Tree(page), Tree(reloaded));
+        Assert.Equal(Places(page), Places(reloaded));
+        Assert.Single(reloaded.FindAll(".dock-float-bar[data-panel=text]"));
+    }
+
+    [Fact]
+    public void DockButtonReturnsAFloatingPanelToTheTree()
+    {
+        var page = Open(this, null);
+        page.Find(".dock-float-btn[aria-label='Float Netlist']").Click();
+
+        page.Find(".dock-float-bar .dock-float-dock").Click();
+
+        Assert.Empty(page.FindAll(".dock-float-bar"));
+        Assert.DoesNotContain("floating", Tree(page));
+        Assert.Single(page.FindAll(".dock-tab[data-panel=text]"));
+    }
+
+    [Fact]
+    public void FloatingPanelCanBeHidden()
+    {
+        var page = Open(this, null);
+        page.Find(".dock-float-btn[aria-label='Float Netlist']").Click();
+
+        page.Find(".dock-float-bar .dock-close").Click();
+
+        Assert.Empty(page.FindAll(".dock-float-bar"));
+        Assert.Single(page.FindAll(".dock-open[data-panel=text]"));
+    }
+
+    [Fact]
+    public void FloatButtonIsOnEachTab()
+    {
+        var page = Open(this, null);
+
+        Assert.Equal(Panels.Length, page.FindAll(".dock-float-btn").Count);
     }
 }

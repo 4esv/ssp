@@ -175,4 +175,92 @@ public class DockModelTests
         Assert.Equal(new DockRect(0.5, 0, 0.5, 0.5), rects["schematic"]);
         Assert.Equal(new DockRect(0.5, 0.5, 0.5, 0.5), rects["plots"]);
     }
+
+    static DockModel Two() => new(new DockSplit(SplitDirection.Row, [new DockTabs(["a"]), new DockTabs(["b", "c"])]));
+
+    [Fact]
+    public void FloatTakesThePanelOutOfTheTreeAndKeepsItAcrossSerialize()
+    {
+        var model = Two();
+        model.Float("c");
+
+        Assert.Equal(["a", "b"], model.Panels);
+        Assert.Equal("c", model.Floating.Single().Panel);
+        var parsed = DockModel.Parse(model.Serialize(), ["a", "b", "c"])!;
+        Assert.Equal(model.ToString(), parsed.ToString());
+        Assert.Equal(model.Floating.Single().Rect, parsed.Floating.Single().Rect);
+    }
+
+    [Fact]
+    public void FloatStartsAwayFromTheAvoidedPanel()
+    {
+        var model = Two();
+        model.Float("c", "a");
+
+        var avoid = model.GroupRects().First(g => g.Group.Panels.Contains("a")).Rect;
+        var rect = model.Floating.Single().Rect;
+        Assert.True(rect.Left >= avoid.Left + avoid.Width - 1e-9 || rect.Left + rect.Width <= avoid.Left + 1e-9
+            || rect.Top >= avoid.Top + avoid.Height - 1e-9 || rect.Top + rect.Height <= avoid.Top + 1e-9);
+    }
+
+    [Fact]
+    public void MoveAndResizeStayInsideTheLayout()
+    {
+        var model = Two();
+        model.Float("c");
+
+        model.MoveFloating("c", 5, -5);
+        var rect = model.Floating.Single().Rect;
+        Assert.Equal(1 - rect.Width, rect.Left, 9);
+        Assert.Equal(0, rect.Top);
+
+        model.ResizeFloating("c", 9, 0);
+        rect = model.Floating.Single().Rect;
+        Assert.Equal(1, rect.Left + rect.Width, 9);
+        Assert.True(rect.Height >= DockModel.MinFloat);
+    }
+
+    [Fact]
+    public void FloatingPanelDocksAsTabOrAtEdge()
+    {
+        var model = Two();
+        model.Float("c");
+        model.MoveToTabs("c", "a");
+        Assert.Empty(model.Floating);
+        Assert.Equal(["a", "c"], model.GroupOf("a")!.Panels);
+
+        model.Float("c");
+        model.Dock("c", DockEdge.Bottom, "a");
+        Assert.Empty(model.Floating);
+        Assert.StartsWith("row(", model.ToString());
+        Assert.Contains("column(", model.ToString());
+    }
+
+    [Fact]
+    public void FloatingPanelCloses()
+    {
+        var model = Two();
+        model.Float("c");
+        model.Close("c");
+
+        Assert.Empty(model.Floating);
+        Assert.Equal(["c"], model.Closed);
+    }
+
+    [Fact]
+    public void SavedLayoutWithoutFloatingStillParses()
+    {
+        var model = DockModel.Parse("""{"version":1,"root":{"tabs":["a"],"active":0},"closed":["b"]}""", ["a", "b"]);
+
+        Assert.NotNull(model);
+        Assert.Empty(model.Floating);
+    }
+
+    [Fact]
+    public void BadFloatingEntriesGiveNull()
+    {
+        const string head = """{"version":1,"root":{"tabs":["a"],"active":0},"closed":[],"floating":""";
+        Assert.Null(DockModel.Parse(head + """[{"panel":"a","left":0,"top":0,"width":0.3,"height":0.3}]}""", ["a"]));
+        Assert.Null(DockModel.Parse(head + """[{"panel":"b","left":0,"top":0,"width":0,"height":0.3}]}""", ["a", "b"]));
+    }
 }
