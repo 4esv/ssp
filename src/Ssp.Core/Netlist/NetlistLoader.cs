@@ -72,7 +72,7 @@ public static class NetlistLoader
         x.PinsAndParameters.OfType<SingleParameter>().Select(p => p.Value)
             .TakeWhile(v => !v.Equals("params:", StringComparison.OrdinalIgnoreCase)).ToList();
 
-    // NOTE: the parser leaves BipolarJunctionTransistor.Model, Diode.Model and JFET.Model unset, so a BJT simulation throws. Bind them from the netlist.
+    // NOTE: the parser leaves BipolarJunctionTransistor.Model, Diode.Model, JFET.Model and Mosfet1/2/3.Model unset, so a simulation throws. Bind them from the netlist.
     // A part inside a subcircuit is flattened to X1.D1, and a .model inside the subcircuit to X1.NAME, so walk the X lines to find both.
     private static void BindModels(IEnumerable<Statement> statements, Circuit circuit)
     {
@@ -97,6 +97,13 @@ public static class NetlistLoader
             if (string.IsNullOrEmpty(jfet.Model) && parts.TryGetValue(jfet.Name, out var part))
             {
                 jfet.Model = ModelName(part.Statement, part.Scope, circuit);
+            }
+        }
+        foreach (var mosfet in circuit.OfType<IComponent>().Where(c => c is Mosfet1 or Mosfet2 or Mosfet3))
+        {
+            if (string.IsNullOrEmpty(mosfet.Model) && parts.TryGetValue(mosfet.Name, out var part))
+            {
+                mosfet.Model = MosfetModelName(part.Statement, part.Scope, circuit);
             }
         }
     }
@@ -128,9 +135,15 @@ public static class NetlistLoader
     }
 
     // NOTE: the innermost .model wins. X1.X2.NAME, then X1.NAME, then NAME.
-    private static string ModelName(ParsedComponent statement, string scope, Circuit circuit)
+    private static string ModelName(ParsedComponent statement, string scope, Circuit circuit) =>
+        ResolveModel(statement.PinsAndParameters[^1].Value, scope, circuit);
+
+    // NOTE: on an M line the model is the fifth token (M1 d g s b MODEL …), not the last one, which is W, L or its value.
+    private static string MosfetModelName(ParsedComponent statement, string scope, Circuit circuit) =>
+        ResolveModel(statement.PinsAndParameters[4].Value, scope, circuit);
+
+    private static string ResolveModel(string model, string scope, Circuit circuit)
     {
-        var model = statement.PinsAndParameters[statement.PinsAndParameters.Count - 1].Value;
         while (scope.Length > 0)
         {
             if (circuit.Contains(scope + model))
