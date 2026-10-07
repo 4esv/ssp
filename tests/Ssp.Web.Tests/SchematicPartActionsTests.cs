@@ -118,4 +118,23 @@ public class SchematicPartActionsTests : BunitContext
         editor.Find("figure.schematic").KeyDown(new KeyboardEventArgs { Key = "d" });
         Assert.Equal(Chain.Split('\n').Count(l => l.StartsWith('R')) + 1, seen[^1].Netlist.Split('\n').Count(l => l.StartsWith('R')));
     }
+
+    // NOTE: #300: the netlist text can lose the selected part before the render pass clears the selection. A duplicate of a
+    // part that the netlist no longer has returns the layout unchanged, and an empty layout made the last-part index throw.
+    [Fact]
+    public void The_d_key_on_a_stale_selection_does_not_throw_or_show_an_error()
+    {
+        var seen = new List<SchematicChange>();
+        var editor = Editor(seen);
+        editor.Find("rect.part[data-ref=\"R3\"]").Click();
+
+        editor.Render(p => p.Add(c => c.Netlist, "* schematic\n.END\n"));
+
+        var thrown = Record.Exception(() => editor.Find("figure.schematic").KeyDown(new KeyboardEventArgs { Key = "d" }));
+
+        Assert.Null(thrown);
+        Assert.Empty(editor.FindAll("ul.problems"));
+        Assert.Empty(editor.FindAll(".value-error"));
+        Assert.Contains("Tap a part in the palette", editor.Find("p.schematic-empty").TextContent);
+    }
 }
