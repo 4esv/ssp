@@ -1370,6 +1370,14 @@ public static partial class SchematicEdits
         return new SchematicChange(netlist, new LayoutDoc(parts, layout.Wires));
     }
 
+    /// <summary>
+    /// The reference of the part that an edit added, or <c>null</c> when the edit added none. The editor selects this
+    /// reference after a place, a paste or a duplicate, instead of assuming the last part is the new one: an edit on a
+    /// reference that the netlist no longer has returns the layout unchanged, and the layout can then be empty (#300).
+    /// </summary>
+    public static string? Added(LayoutDoc before, SchematicChange change) =>
+        change.Layout.Parts.Count > before.Parts.Count ? change.Layout.Parts[^1].Reference : null;
+
     // The first line and the count of lines of an element: its line and the continuation lines after it.
     // NOTE: Lines in a .subckt block are not elements of the circuit. The first line is the title.
     // The element lines of a part: the part itself, or the lines P_1 to P_3 of a pot or a switch P.
