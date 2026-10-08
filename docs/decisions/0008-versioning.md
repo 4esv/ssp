@@ -19,7 +19,7 @@ The CLI packs as a dotnet global tool.
 `EngineInfo` removes the `+<commit>` build metadata from the version (`src/Ssp.Core/EngineInfo.cs:32-38`).
 `tests/Ssp.Cli.Tests/VersionTests.cs:14-15` checks that text.
 
-The web app deploys on each push to `master`.
+The web app deploys on each push to `main`.
 `.github/workflows/web.yml:3-5` triggers the `deploy` job (`:16`).
 The job publishes `src/Ssp.Web` (`:26`), copies `publish/wwwroot` to the static host (`:41-65`) and smoke-checks the live site (`:67-76`).
 The web app prints the same version lines in its footer (`src/Ssp.Web/Pages/Home.razor:17-18`).
@@ -48,7 +48,7 @@ For example, `v3.2.3` points to commit `34484fa6`, and the author of that commit
 No tag name holds `ssp`.
 (A git ref is not a worktree file. This fact comes from `git for-each-ref refs/tags` and `git show -s`.)
 
-CI checks each pull request and each push to `master` (`.github/workflows/ci.yml:3-6`).
+CI checks each pull request and each push to `main` (`.github/workflows/ci.yml:3-6`).
 The steps are restore, build and test (`:26-30`), run each circuit in `circuits/library/` (`:32-40`) and publish the web app (`:42-49`).
 CI does not pack the tool. Nothing in `.github/workflows/` runs `dotnet pack`.
 
@@ -88,9 +88,9 @@ Recommendation: **option A**.
 One property holds the version for every project (`Directory.Build.props:9`).
 So the assembly of `Ssp.Core`, the CLI package and the web app carry one number today.
 The CLI is the packed artifact (`src/Ssp.Cli/Ssp.Cli.csproj:6-7`).
-The web app deploys from `master` (`.github/workflows/web.yml:3-5`).
+The web app deploys from `main` (`.github/workflows/web.yml:3-5`).
 
-The relation between the two is: **the web app version is the source version of the deployed master commit**.
+The relation between the two is: **the web app version is the source version of the deployed main commit**.
 The web app is not tagged and not released.
 The tag names the CLI release only.
 The footer of the live site states the version of the code that is live (`src/Ssp.Web/Pages/Home.razor:17-18`).
@@ -168,7 +168,7 @@ The recommended release step, done by the owner:
    - `dotnet test` passes, including the schema lock (`tests/Ssp.Core.Tests/RunResultJsonTests.cs:110-113`).
 5. Check the live site. The footer shows `ssp <version>` (`src/Ssp.Web/Pages/Home.razor:17-18`).
 
-The web app is not part of the release. The `web` workflow deploys it on the master push (`.github/workflows/web.yml:3-5`, `:63-65`) and smoke-checks it (`:67-76`).
+The web app is not part of the release. The `web` workflow deploys it on the main push (`.github/workflows/web.yml:3-5`, `:63-65`) and smoke-checks it (`:67-76`).
 
 ### Options
 
@@ -185,7 +185,7 @@ Recommendation: **option A** for the first release, **option B** for the release
 Recommended policy:
 
 - **1.0 is the day the text contracts freeze**: the netlist, the layout, the CLI and the run-result schema. The editor is not part of the bar.
-- **One version covers the source tree.** The tag and the CLI package carry it. The web app deploys from `master` and prints the same number.
+- **One version covers the source tree.** The tag and the CLI package carry it. The web app deploys from `main` and prints the same number.
 - **Semantic Versioning.** A break in any contract raises the major.
 - **One CHANGELOG section for each release**, written in the release pull request.
 - **The owner releases by hand**: pack, tag and GitHub release, checked by a script.
