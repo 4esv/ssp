@@ -51,7 +51,8 @@ public static class SchematicRenderer
         var labels = new StringBuilder();
         var elements = Elements(circuit, parts);
         var levers = circuit.Directives.Switches.DistinctBy(s => s.Part, Names).ToDictionary(s => s.Part, s => s.Position, Names);
-        var rails = elements.Where(e => e.Kind == "rail").ToDictionary(e => e.Nodes[0], e => e.Value, Names);
+        // NOTE: An edit can merge the pins of two rails onto one node. The first rail in element order wins the lookup.
+        var rails = elements.Where(e => e.Kind == "rail").GroupBy(e => e.Nodes[0], Names).ToDictionary(g => g.Key, g => g.First().Value, Names);
         var named = new List<(string Net, Point At)>();
         var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
             .Select(p => (p.X, p.Y)).ToHashSet();
