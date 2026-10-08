@@ -61,3 +61,6 @@ Status values: planned, in progress, done.
 | web | Dockable panels | done |
 | core | Amp chain | done |
 | web | Virtual amp panel | done |
+| core | MOSFET element runs | done |
+| web | Editor parts: electrolytic, inductor, Zener, Schottky, JFET n/p | done |
+| web | Editor parts: MOSFET, op-amp, transformer, triode | planned |

@@ -36,7 +36,7 @@ Run the circuit:
 ssp run lowpass.cir
 ```
 
-The `run` command is not available yet. See [docs/features.md](docs/features.md) for the status of each feature.
+The CLI runs circuits. See [docs/features.md](docs/features.md) for the status of each feature.
 
 ## Documentation
 
