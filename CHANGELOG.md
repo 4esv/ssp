@@ -1,13 +1,9 @@
 # Changelog
 
-All notable changes to this project are recorded in this file.
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-The project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+This changelog is not maintained yet, and it lists no history.
 
-## [Unreleased]
+The project has no release. Every project carries the version `0.1.0` (`Directory.Build.props`), and there are no `ssp` release tags.
 
-### Added
+The changelog starts at the first release. From then it will follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). No decision record fixes the versioning scheme yet.
 
-- Application skeleton: `Ssp.Core`, `Ssp.Cli`, `Ssp.Web`, and one test project for each.
-- `ssp --version` prints the ssp version and the engine package versions.
-- CI on Linux, macOS, and Windows.
+Until the first release, the commit log and the merged pull requests are the record of the changes.
