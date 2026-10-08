@@ -33,7 +33,7 @@ Status values: planned, in progress, done.
 | web | Plots | done |
 | web | Share by URL | done |
 | web | Symbol library | done |
-| web | Schematic renderer | in progress |
+| web | Schematic renderer | done |
 | web | Auto-placement | done |
 | web | DC overlay and probes | done |
 | web | Place and wire | done |
