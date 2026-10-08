@@ -2,10 +2,10 @@
 
 ## Status
 
-Proposed. This record changes [0003](0003-netlist-source-of-truth.md). The owner decides.
-The owner must write the decision in a comment on [#280](https://github.com/4esv/ssp/issues/280) and on this line.
+Accepted (option A), 2026-10-07. This record changes [0003](0003-netlist-source-of-truth.md).
+The owner accepted via the orchestration decision form on 2026-10-07. The acceptance is recorded in a comment on [#280](https://github.com/4esv/ssp/issues/280).
 
-Owner decision: Accepted / Rejected: ____ (owner, date)
+Owner decision: Accepted (option A), 2026-10-07
 
 ## Context
 
@@ -162,7 +162,7 @@ It is not the working format.
 
 ## Decision
 
-Recommended: **option A**. It is Proposed until the owner accepts it.
+Recommended: **option A**. The owner accepted it on 2026-10-07.
 
 Keep the SPICE netlist as the source of truth.
 Move the Netlist panel out of the default layout. It becomes the Import/Export panel.
