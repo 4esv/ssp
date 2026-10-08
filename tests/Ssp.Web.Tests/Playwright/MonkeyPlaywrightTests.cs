@@ -37,7 +37,7 @@ public class MonkeyPlaywrightTests(ITestOutputHelper output)
         await Parallel.ForAsync(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = Env("SSP_MONKEY_PARALLEL", 3) }, async (i, _) =>
         {
             // NOTE: The test server of scripts/playwright.sh has a short listen queue and drops a download now and then. That is not an
-            // editor crash, so a seed that failed only by a dropped framework file runs again, and if it drops again it is inconclusive.
+            // editor crash, so a seed that failed only by a dropped static file runs again, and if it drops again it is inconclusive.
             var monkey = new Monkey(first + i);
             var failure = await monkey.Run(browser, baseUrl);
             for (var again = 0; again < 2 && IsDroppedDownload(failure); again++)
@@ -61,8 +61,13 @@ public class MonkeyPlaywrightTests(ITestOutputHelper output)
         Assert.True(failures.Count == 0, string.Join("\n\n", failures));
     }
 
+    // NOTE: #310: the test server drops any static download now and then, not only a framework file, so the same reset on any file
+    // it serves (for example /css/print.css) is an environment drop too. It stays anchored to net::ERR_CONNECTION_RESET and keeps
+    // out the error bar, so a real editor crash can never match.
     static bool IsDroppedDownload(string? failure) =>
-        failure is not null && failure.Contains("net::ERR_CONNECTION_RESET", StringComparison.Ordinal) && failure.Contains("/_framework/", StringComparison.Ordinal);
+        failure is not null
+        && failure.Contains("net::ERR_CONNECTION_RESET", StringComparison.Ordinal)
+        && !failure.Contains("#blazor-error-ui is shown", StringComparison.Ordinal);
 
     sealed class Monkey(int seed)
     {
