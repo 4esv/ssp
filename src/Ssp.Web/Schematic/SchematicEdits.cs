@@ -199,7 +199,7 @@ public static partial class SchematicEdits
     public static SchematicChange PlaceJack(string netlist, LayoutDoc layout, PartMap parts, string kind, Spot spot)
     {
         var directive = kind switch { "jack-in" => "input", "jack-out" => "output", _ => throw new ArgumentException("Not a jack.", nameof(kind)) };
-        var node = NodeOf(NetlistLoader.Load(netlist), layout, parts, spot);
+        if (!TryNodeOf(NetlistLoader.Load(netlist), layout, parts, spot, out var node)) return new SchematicChange(netlist, layout);
         var lines = Lines(netlist);
         var line = $"* ssp:{directive} {node}";
         var at = lines.FindIndex(l => Regex.IsMatch(l, $@"^\s*\*\s*ssp:{directive}\b", RegexOptions.IgnoreCase));
@@ -279,12 +279,20 @@ public static partial class SchematicEdits
             ? to.X > from.X ? Direction.Right : Direction.Left
             : to.Y > from.Y ? Direction.Down : Direction.Up;
 
-    // The node of a spot: the node of its pin, or the net of the wire that it sits on.
-    static string NodeOf(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, Spot spot) =>
-        spot.Pin is { } pin
-            ? Pin(circuit, layout, parts, pin).Node
-            : layout.Wires.FirstOrDefault(w => OnWire(w, spot.At))?.Net
-                ?? throw new ArgumentException("The spot is on no pin and no wire.", nameof(spot));
+    // The node of a spot: the node of its pin, or the net of the wire that it sits on. A pin that the netlist no longer
+    // has no node: the caller treats it as a no-op. A spot that is on no pin and no wire is still an argument error.
+    static bool TryNodeOf(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, Spot spot, out string node)
+    {
+        if (spot.Pin is { } pin)
+        {
+            if (TryPin(circuit, layout, parts, pin, out node, out _)) return true;
+            node = "";
+            return false;
+        }
+        node = layout.Wires.FirstOrDefault(w => OnWire(w, spot.At))?.Net
+            ?? throw new ArgumentException("The spot is on no pin and no wire.", nameof(spot));
+        return true;
+    }
 
     // The near pin joins the spot, the far pin is the next spot. A transistor is wired at its base and goes on at its collector.
     static (int Near, int Far) Ends(string kind) => kind switch
@@ -301,7 +309,7 @@ public static partial class SchematicEdits
     /// </summary>
     public static (SchematicChange Change, Spot Far) PlaceNext(string netlist, LayoutDoc layout, PartMap parts, string kind, Spot from, Direction direction)
     {
-        var node = NodeOf(NetlistLoader.Load(netlist), layout, parts, from);
+        if (!TryNodeOf(NetlistLoader.Load(netlist), layout, parts, from, out var node)) return (new SchematicChange(netlist, layout), from);
         var placed = Place(netlist, layout, kind);
         var circuit = NetlistLoader.Load(placed.Netlist);
         var element = ElementOf(circuit, PartMap.Resolve(circuit, Ssp.Web.Components.SchematicView.Table), placed.Layout.Parts[^1].Reference);
@@ -334,7 +342,7 @@ public static partial class SchematicEdits
     /// <summary>Adds a wire one <see cref="Step"/> from a spot in a direction. The wire ends in an open spot. The netlist does not change.</summary>
     public static (SchematicChange Change, Spot Open) ExtendWire(string netlist, LayoutDoc layout, PartMap parts, Spot from, Direction direction)
     {
-        var node = NodeOf(NetlistLoader.Load(netlist), layout, parts, from);
+        if (!TryNodeOf(NetlistLoader.Load(netlist), layout, parts, from, out var node)) return (new SchematicChange(netlist, layout), from);
         var end = Toward(from.At, direction);
         var wire = new WireRoute(node, [from.At, end]);
         return (new SchematicChange(netlist, new LayoutDoc(layout.Parts, [.. layout.Wires, wire])), new Spot(end));
@@ -344,7 +352,9 @@ public static partial class SchematicEdits
     public static SchematicChange Ground(string netlist, LayoutDoc layout, PartMap parts, Spot spot)
     {
         var circuit = NetlistLoader.Load(netlist);
-        return Ground(netlist, circuit, layout, NodeOf(circuit, layout, parts, spot), spot.At);
+        return TryNodeOf(circuit, layout, parts, spot, out var node)
+            ? Ground(netlist, circuit, layout, node, spot.At)
+            : new SchematicChange(netlist, layout);
     }
 
     /// <summary>
@@ -921,14 +931,16 @@ public static partial class SchematicEdits
     /// The layout gets a wire between the two pins.
     /// </summary>
     public static SchematicChange Wire(string netlist, LayoutDoc layout, PartMap parts, PinRef from, PinRef to) =>
-        Wire(netlist, layout, parts, new Spot(Pin(NetlistLoader.Load(netlist), layout, parts, from).Position, from), to);
+        TryPin(NetlistLoader.Load(netlist), layout, parts, from, out _, out var at)
+            ? Wire(netlist, layout, parts, new Spot(at, from), to)
+            : new SchematicChange(netlist, layout);
 
     /// <summary><see cref="Wire(string, LayoutDoc, PartMap, PinRef, PinRef)"/> from a pin or an open wire end.</summary>
     public static SchematicChange Wire(string netlist, LayoutDoc layout, PartMap parts, Spot from, PinRef to)
     {
         var circuit = NetlistLoader.Load(netlist);
-        var a = NodeOf(circuit, layout, parts, from);
-        var (b, pb) = Pin(circuit, layout, parts, to);
+        if (!TryNodeOf(circuit, layout, parts, from, out var a)) return new SchematicChange(netlist, layout);
+        if (!TryPin(circuit, layout, parts, to, out var b, out var pb)) return new SchematicChange(netlist, layout);
         var pa = from.At;
         var (keep, drop) = b == Zero ? (b, a) : (a, b);
 
@@ -999,8 +1011,9 @@ public static partial class SchematicEdits
     public static SchematicChange Ground(string netlist, LayoutDoc layout, PartMap parts, PinRef pin)
     {
         var circuit = NetlistLoader.Load(netlist);
-        var (node, p) = Pin(circuit, layout, parts, pin);
-        return Ground(netlist, circuit, layout, node, p);
+        return TryPin(circuit, layout, parts, pin, out var node, out var p)
+            ? Ground(netlist, circuit, layout, node, p)
+            : new SchematicChange(netlist, layout);
     }
 
     static SchematicChange Ground(string netlist, LoadedCircuit circuit, LayoutDoc layout, string node, Point p)
@@ -1127,19 +1140,40 @@ public static partial class SchematicEdits
     private static partial Regex ValueText();
 
     /// <summary>The node and schematic position of a pin.</summary>
-    public static (string Node, Point Position) Pin(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, PinRef pin)
+    public static (string Node, Point Position) Pin(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, PinRef pin) =>
+        TryPin(circuit, layout, parts, pin, out var node, out var position)
+            ? (node, position)
+            : throw new InvalidOperationException($"The netlist has no pin {pin.Reference}.{pin.Pin}.");
+
+    /// <summary>
+    /// The node and schematic position of a pin, or false when the netlist, the layout or the part has no such pin. The
+    /// reference of a <see cref="PinRef"/> goes stale when the netlist text changes from outside the schematic.
+    /// </summary>
+    public static bool TryPin(LoadedCircuit circuit, LayoutDoc layout, PartMap parts, PinRef pin, out string node, out Point position)
     {
         // NOTE: A pot P is the resistors P_1 and P_2. The layout places it as P_1. Its pins are the top, the wiper and the bottom.
         // NOTE: A switch S is S_1 to S_n and is placed as S_1 in the same way.
         if (SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => (e.Kind == "pot" || IsSwitch(e.Kind)) && Names.Equals(e.Reference, pin.Reference)) is { } pot)
         {
-            var at = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference) || Names.Equals(p.Reference, pot.Members[0]));
-            return (pot.Nodes[pin.Pin], SchematicRenderer.Pins(pot, at)[pin.Pin].At);
+            var at = layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, pin.Reference) || Names.Equals(p.Reference, pot.Members[0]));
+            if (at is null || pin.Pin < 0 || pin.Pin >= pot.Nodes.Count)
+            {
+                (node, position) = ("", default);
+                return false;
+            }
+            (node, position) = (pot.Nodes[pin.Pin], SchematicRenderer.Pins(pot, at)[pin.Pin].At);
+            return true;
         }
-        var placement = layout.Parts.Single(p => Names.Equals(p.Reference, pin.Reference));
-        var component = circuit.Circuit.OfType<IComponent>().Single(c => Names.Equals(c.Name, pin.Reference));
+        var placement = layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, pin.Reference));
+        var component = circuit.Circuit.OfType<IComponent>().FirstOrDefault(c => Names.Equals(c.Name, pin.Reference));
+        if (placement is null || component is null || pin.Pin < 0 || pin.Pin >= component.Nodes.Count)
+        {
+            (node, position) = ("", default);
+            return false;
+        }
         var positions = SchematicRenderer.Pins(component, placement, parts.Parts.GetValueOrDefault(component.Name));
-        return (component.Nodes[pin.Pin], positions[pin.Pin]);
+        (node, position) = (component.Nodes[pin.Pin], positions[pin.Pin]);
+        return true;
     }
 
     /// <summary>
