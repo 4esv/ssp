@@ -183,7 +183,9 @@ public static class SchematicRenderer
         {
             var members = components.Keys.Where(n => Names.Equals(n.Split('.')[0], x.Name)).ToList();
             done.UnionWith(members);
-            elements.Add(new SchematicElement(x.Name, SubcircuitKind(x), x.Pins, x.Model, members));
+            // NOTE: An instance of an empty .subckt draws no components. Its own reference stands in as the single member, so the
+            // layout lookups that fall back to Members[0] still find it instead of indexing an empty list (#305).
+            elements.Add(new SchematicElement(x.Name, SubcircuitKind(x), x.Pins, x.Model, members.Count > 0 ? members : [x.Name]));
         }
 
         // NOTE: Switch.cs names the throws of switch S as S_1 to S_n, each from the common to its throw. The nodes are the
