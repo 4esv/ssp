@@ -14,6 +14,7 @@ public static class NetlistLoader
         var diagnostics = new List<Diagnostic>();
         var circuit = new Circuit();
         var subcircuits = new List<SubcircuitInstance>();
+        var subcircuitPins = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         try
         {
             var parsed = new SpiceNetlistParser().ParseNetlist(netlist);
@@ -26,7 +27,7 @@ public static class NetlistLoader
             {
                 var model = new SpiceSharpReader().Read(parsed.FinalModel);
                 circuit = model.Circuit;
-                BindModels(parsed.FinalModel.Statements, circuit);
+                BindModels(parsed.FinalModel.Statements, circuit, subcircuitPins);
                 subcircuits.AddRange(Subcircuits(parsed.FinalModel.Statements.OfType<ParsedComponent>()));
                 foreach (var error in model.ValidationResult.Errors)
                 {
@@ -50,7 +51,7 @@ public static class NetlistLoader
 
         var directives = DirectiveParser.Parse(netlist);
 
-        return new LoadedCircuit(circuit, nodes, diagnostics, directives.Directives, subcircuits);
+        return new LoadedCircuit(circuit, nodes, diagnostics, directives.Directives, subcircuits, subcircuitPins);
     }
 
     // NOTE: the reader flattens each X line into the parts of its subcircuit. Keep the X line, so a rule can find the pins of the instance.
@@ -74,10 +75,10 @@ public static class NetlistLoader
 
     // NOTE: the parser leaves BipolarJunctionTransistor.Model, Diode.Model, JFET.Model and Mosfet1/2/3.Model unset, so a simulation throws. Bind them from the netlist.
     // A part inside a subcircuit is flattened to X1.D1, and a .model inside the subcircuit to X1.NAME, so walk the X lines to find both.
-    private static void BindModels(IEnumerable<Statement> statements, Circuit circuit)
+    private static void BindModels(IEnumerable<Statement> statements, Circuit circuit, Dictionary<string, IReadOnlyList<string>> subcircuitPins)
     {
         var parts = new Dictionary<string, (ParsedComponent Statement, string Scope)>(StringComparer.OrdinalIgnoreCase);
-        Collect(statements.ToList(), "", [], new HashSet<SubCircuit>(), parts);
+        Collect(statements.ToList(), "", [], new HashSet<SubCircuit>(), parts, subcircuitPins);
         foreach (var bjt in circuit.OfType<BipolarJunctionTransistor>())
         {
             if (string.IsNullOrEmpty(bjt.Model) && parts.TryGetValue(bjt.Name, out var part))
@@ -113,10 +114,17 @@ public static class NetlistLoader
         string scope,
         IReadOnlyList<IReadOnlyDictionary<string, SubCircuit>> outer,
         IReadOnlySet<SubCircuit> active,
-        Dictionary<string, (ParsedComponent Statement, string Scope)> parts)
+        Dictionary<string, (ParsedComponent Statement, string Scope)> parts,
+        Dictionary<string, IReadOnlyList<string>> subcircuitPins)
     {
         var local = statements.OfType<SubCircuit>().GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Last(), StringComparer.OrdinalIgnoreCase);
+        // NOTE: The parser keeps the names a .subckt declares on its Pins. The last definition of a name wins, as for parts.
+        foreach (var definition in local.Values)
+        {
+            subcircuitPins[definition.Name] = definition.Pins.OfType<SingleParameter>().Select(p => p.Value).ToList();
+        }
+
         IReadOnlyList<IReadOnlyDictionary<string, SubCircuit>> scopes = [local, .. outer];
         foreach (var component in statements.OfType<ParsedComponent>())
         {
@@ -129,7 +137,7 @@ public static class NetlistLoader
             var definition = scopes.Select(d => d.GetValueOrDefault(name)).FirstOrDefault(d => d is not null);
             if (definition is not null && !active.Contains(definition))
             {
-                Collect(definition.Statements.ToList(), scope + component.Name + ".", scopes, new HashSet<SubCircuit>(active) { definition }, parts);
+                Collect(definition.Statements.ToList(), scope + component.Name + ".", scopes, new HashSet<SubCircuit>(active) { definition }, parts, subcircuitPins);
             }
         }
     }
