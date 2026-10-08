@@ -44,7 +44,8 @@ public static class AutoPlacer
     {
         var all = SchematicRenderer.Elements(circuit, partMap);
         var rails = all.Where(e => e.Kind == "rail").ToList();
-        var railNets = rails.ToDictionary(e => e.Nodes[0], e => !e.Value.StartsWith('-'), Names);
+        // NOTE: An edit can merge the pins of two rails onto one node. The first rail in element order wins the polarity.
+        var railNets = rails.GroupBy(e => e.Nodes[0], Names).ToDictionary(g => g.Key, g => !g.First().Value.StartsWith('-'), Names);
         var parts = Order(all.Where(e => e.Kind != "rail").ToList(), directives, railNets);
         var references = circuit.Circuit.Select(c => c.Name.Split('.')[0]).ToHashSet(Names);
 
