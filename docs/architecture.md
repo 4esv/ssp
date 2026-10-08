@@ -55,7 +55,7 @@ All simulations run in the browser of the user.
 
 ## Deploy
 
-The `web` workflow (`.github/workflows/web.yml`) deploys the web app to https://ssp.aesv.io on each push to `master`.
+The `web` workflow (`.github/workflows/web.yml`) deploys the web app to https://ssp.aesv.io on each push to `main`.
 The workflow publishes `src/Ssp.Web` and copies `publish/wwwroot` to the static host with `rsync --delete` over SSH.
 The workflow pins the host key with `ssh-keyscan` before the copy.
 
