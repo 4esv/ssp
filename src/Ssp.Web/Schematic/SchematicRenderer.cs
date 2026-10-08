@@ -28,7 +28,8 @@ public static class SchematicRenderer
 
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
 
-    // NOTE: The renderer cannot see the .subckt pin names. These models have the pins inp inn out vcc vee, like models/opamp-*.cir.
+    // NOTE: These models have the pins inp inn out vcc vee, like models/opamp-*.cir, so they draw the opamp5 symbol
+    // instead of the box that names the declared pins.
     static readonly HashSet<string> OpampModels = new(Names)
     {
         "OPAMP", "TL071", "TL072", "TL074", "JRC4558", "NJM4558", "RC4558", "LM308", "LM358", "LM741", "UA741", "NE5532", "OPA2134",
@@ -50,6 +51,9 @@ public static class SchematicRenderer
         var body = new StringBuilder();
         var labels = new StringBuilder();
         var elements = Elements(circuit, parts);
+        // NOTE: #316: the X line gives the connected nodes, so the pin names of an instance come from its .subckt
+        // definition. An instance with no symbol draws a box that names them.
+        var declared = circuit.Subcircuits.ToDictionary(x => x.Name, x => circuit.SubcircuitPins.GetValueOrDefault(x.Model) ?? [], Names);
         var levers = circuit.Directives.Switches.DistinctBy(s => s.Part, Names).ToDictionary(s => s.Part, s => s.Position, Names);
         // NOTE: An edit can merge the pins of two rails onto one node. The first rail in element order wins the lookup.
         var rails = elements.Where(e => e.Kind == "rail").GroupBy(e => e.Nodes[0], Names).ToDictionary(g => g.Key, g => g.First().Value, Names);
@@ -64,6 +68,7 @@ public static class SchematicRenderer
             if (p is null) continue;
             var symbol = Fits(Symbols.Find(e.Kind), e.Nodes.Count);
             var (inner, box) = symbol is null ? Fallback(e.Nodes.Count) : Drawing(symbol);
+            if (symbol is null) PinNames(labels, bounds, p, e.Nodes.Count, declared.GetValueOrDefault(e.Reference) ?? []);
 
             body.Append("<g data-ref=\"").Append(Escape(e.Reference)).Append("\" transform=\"").Append(Transform(p)).Append("\">")
                 .Append(inner).Append(symbol is not null && levers.TryGetValue(e.Reference, out var at) ? Lever(symbol.Kind, at) : "").Append("</g>\n");
@@ -433,11 +438,26 @@ public static class SchematicRenderer
         return transform;
     }
 
-    static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text, bool start = false, bool end = false)
+    // The declared names of the pins of a box that has no symbol, in definition order. The name of a pin sits above
+    // its lead, at the edge of the box: a pin on the left is named to the left of the box and a pin on the right to
+    // the right of it. The box is 20 wide, so two names on one row do not fit inside it. A pin the definition does
+    // not name stays blank.
+    static void PinNames(StringBuilder labels, Bounds bounds, PartPlacement placement, int pins, IReadOnlyList<string> names)
+    {
+        var local = LocalPins(null, pins);
+        for (var i = 0; i < local.Count && i < names.Count; i++)
+        {
+            var left = local[i].X == 0;
+            var (x, y) = Place(placement, left ? 20 - LabelGap : 40 + LabelGap, local[i].Y - LabelGap);
+            Label(labels, bounds, x, y, names[i], start: !left, end: left, className: "pin-name");
+        }
+    }
+
+    static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text, bool start = false, bool end = false, string? className = null)
     {
         bounds.Add((x - (end ? text.Length * FontSize * 0.6 : 0), y - FontSize));
         bounds.Add((x + (start ? text.Length * FontSize * 0.6 : 0), y));
-        labels.Append("<text x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"').Append(start ? " text-anchor=\"start\"" : end ? " text-anchor=\"end\"" : "").Append('>').Append(Escape(text)).Append("</text>\n");
+        labels.Append("<text").Append(className is null ? "" : $" class=\"{className}\"").Append(" x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"').Append(start ? " text-anchor=\"start\"" : end ? " text-anchor=\"end\"" : "").Append('>').Append(Escape(text)).Append("</text>\n");
     }
 
     // A ground symbol hangs below a pin. A rail symbol stands above it, or hangs below it when down.

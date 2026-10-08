@@ -151,6 +151,34 @@ public class SchematicRendererTests
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(svg, "data-ref=\"X1"));
     }
 
+    // NOTE: #316: the X line carries the connected nodes (a, b, 0), not the names the .subckt declares. An instance
+    // with no symbol draws a box labelled with the declared names, in definition order.
+    const string FuzzNetlist = """
+        * ssp:title Fuzz box
+        .subckt FUZZ inp outp gnd params: gain=2
+        R1 inp outp 1k
+        R2 outp gnd 1k
+        .ends
+        V1 a 0 1
+        X1 a b 0 FUZZ
+        R3 b 0 1k
+        .END
+        """;
+
+    [Fact]
+    public void SubcircuitWithoutASymbolDrawsItsDeclaredPinNamesInOrder()
+    {
+        var circuit = NetlistLoader.Load(FuzzNetlist);
+        var layout = new LayoutDoc([new PartPlacement("X1", 0, 0, 0, false)], []);
+        var svg = SchematicRenderer.ToSvg(circuit, layout, PartMap.Resolve(circuit, Table));
+
+        var names = System.Text.RegularExpressions.Regex.Matches(svg, """<text class="pin-name"[^>]*>([a-z0-9]+)</text>""")
+            .Select(m => m.Groups[1].Value);
+        Assert.Equal(["inp", "outp", "gnd"], names);
+        Assert.DoesNotContain(">a</text>", svg);
+        Golden.Assert("schematic-subckt-pins.svg", svg);
+    }
+
     [Fact]
     public void PotPairIsOnePot()
     {
