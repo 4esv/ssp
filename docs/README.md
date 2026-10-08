@@ -22,3 +22,4 @@ Run `scripts/playwright.sh`. It publishes `src/Ssp.Web`, serves it, and runs the
 - [0005: Untrimmed web build](decisions/0005-untrimmed-web-build.md)
 - [0006: The working format of a circuit](decisions/0006-working-format.md)
 - [0007: No AOT compilation for the web build](decisions/0007-wasm-aot.md)
+- [0008: Versioning and releases before 1.0](decisions/0008-versioning.md)
