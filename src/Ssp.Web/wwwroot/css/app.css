@@ -1,5 +1,5 @@
-/* NOTE: Bare HTML (#182): layout, sizes and interaction states only, browser default controls, and two colour tokens (system text and background). */
-:root { color-scheme: light dark; --bg: Canvas; --text: CanvasText; }
+/* NOTE: Bare HTML (#182): layout, sizes and interaction states only, browser default controls, and two colour tokens (system text and background). The app is light only (#318): the schematic previews are black strokes on a transparent background, so a dark page hides them. */
+:root { color-scheme: light; --bg: Canvas; --text: CanvasText; }
 body { margin: 1rem; line-height: 1.5; background: var(--bg); color: var(--text); }
 p { max-width: 65ch; }
 :disabled { cursor: not-allowed; }
