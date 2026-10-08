@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed. This record fixes the versioning gap that `CHANGELOG.md:7` names.
+Accepted (2026-10-08). This record fixes the versioning gap that `CHANGELOG.md:7` names.
 
-The owner accepts or rejects this record in a comment on [#307](https://github.com/4esv/ssp/issues/307).
+The owner accepted this record in a comment on [#307](https://github.com/4esv/ssp/issues/307).
 
 ## Context
 
