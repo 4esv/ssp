@@ -40,3 +40,30 @@ The JSON schema for run results will be in `docs/schema/run-result.schema.json`.
 - Do not add a model without a provenance header.
 - Do not write a number in `docs/benchmarks.md` that you did not measure.
 - Do not add a server or a backend to `src/Ssp.Web`.
+
+## Session Config
+
+test-command: dotnet test -c Release
+typecheck-command: dotnet build -c Release
+lint-command: skip
+agents-per-wave: 4 (deep: 6)
+waves: 5
+persistence: true
+enforcement: warn
+
+vcs: github
+mirror: none
+auto-skill-dispatch: false
+resource-awareness: true
+isolation: auto
+max-turns: auto
+discovery-on-close: auto
+
+vault-sync:
+  enabled: false
+  mode: off
+
+vault-integration:
+  enabled: false
+  mode: off
+
