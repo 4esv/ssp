@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+TestResults/
+*.trx
+*.nupkg
+artifacts/
+publish/
+
+# Web
+node_modules/
+wwwroot/_framework/
+dist/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
+# OS
+.DS_Store
+Thumbs.db

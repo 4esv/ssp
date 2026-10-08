@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Ssp.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SpiceSharp" />
+    <PackageReference Include="SpiceSharp-Parser" />
+    <PackageReference Include="SpiceSharpBehavioral" />
+    <PackageReference Include="SpiceSharpParser.CustomComponents" />
+  </ItemGroup>
+</Project>
