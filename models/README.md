@@ -59,6 +59,23 @@ The transformer and the vactrol also take parameters:
 
 The defaults are in the `.subckt` line.
 
+## Get the models
+
+The package has no models. The models and the sample audio are in the repository.
+Download one model into the same folder as your netlist:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/4esv/ssp/main/models/opamp-tl072.cir
+```
+
+Write this line in your netlist:
+
+```spice
+.include opamp-tl072.cir
+```
+
+This line loads the model from the same folder as the netlist.
+
 ## Use a model
 
 Write `.include <path>` in your netlist. A relative path is relative to the directory of the netlist file. It is not relative to the directory where you run `ssp run`. Quotes around the path are optional. An absolute path also works.
