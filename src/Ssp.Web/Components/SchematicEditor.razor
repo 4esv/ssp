@@ -139,6 +139,15 @@
                 <p class="schematic-empty">Tap a part in the palette to start. Then tap a pin to see where to go next.</p>
             </div>
         }
+        @if (errors.Count > 0)
+        {
+            <ul class="netlist-errors" role="alert">
+                @foreach (var d in errors)
+                {
+                    <li>@(d.Line is int line ? $"The netlist has an error on line {line}." : "The netlist has an error.") Fix it in the Netlist panel. @d.Message</li>
+                }
+            </ul>
+        }
         @if (svg is not null)
         {
             @((MarkupString)svg)
@@ -401,6 +410,7 @@
     string? shape;
     PartMap? parts;
     bool hasErrors;
+    IReadOnlyList<Diagnostic> errors = [];
     string? svg;
     string viewBox = "";
     List<PinView> pins = [];
@@ -556,6 +566,7 @@
         switches = [];
         var circuit = Loads?.Load(netlist) ?? NetlistLoader.Load(netlist);
         hasErrors = circuit.Diagnostics.Any(d => d.Severity == Severity.Error);
+        errors = [.. circuit.Diagnostics.Where(d => d.Severity == Severity.Error)];
         problems = hasErrors ? [] : Problems.Find(circuit);
         if (hasErrors) return;
 
