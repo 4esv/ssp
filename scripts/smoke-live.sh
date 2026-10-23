@@ -33,6 +33,10 @@ for path in /editor /gallery; do
   [ "$code" = "200" ] || bad "$base$path" "status $code, expected 200"
 done
 
+# The rendered documents.
+code="$(status "$base/docs/")"
+[ "$code" = "200" ] || bad "$base/docs/" "status $code, expected 200"
+
 # First fingerprinted runtime script named in the page.
 js="$(grep -oE '_framework/dotnet\.[A-Za-z0-9]{10}\.js' "$page" | head -n 1)"
 if [ -z "$js" ]; then

@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ssp.Web\Ssp.Web.csproj" />
+    <ProjectReference Include="..\..\tools\Ssp.DocsGen\Ssp.DocsGen.csproj" />
   </ItemGroup>
 </Project>

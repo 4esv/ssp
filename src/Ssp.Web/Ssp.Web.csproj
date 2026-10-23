@@ -25,4 +25,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Ssp.Core\Ssp.Core.csproj" />
   </ItemGroup>
+  <!-- NOTE: Publish renders the Markdown documents to static HTML in wwwroot/docs. -->
+  <Target Name="RenderDocs" AfterTargets="Publish">
+    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)..\..\tools\Ssp.DocsGen&quot; -c $(Configuration) -- &quot;$(MSBuildThisFileDirectory)..\..&quot; &quot;$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))wwwroot/docs&quot;" />
+  </Target>
 </Project>
