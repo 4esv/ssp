@@ -27,6 +27,11 @@ class H(http.server.SimpleHTTPRequestHandler):
 http.server.ThreadingHTTPServer(("127.0.0.1", 8802), H).serve_forever()
 PY
 python3 /tmp/ssp-spa-server.py "$root" >/dev/null 2>&1 & pids+=($!)
+# Server 3 has the fallback but no docs: /docs/index.html returns the app shell.
+shell="$(mktemp -d)"
+cp "$root/index.html" "$shell/"
+sed 's/8802/8803/' /tmp/ssp-spa-server.py > /tmp/ssp-spa-server3.py
+python3 /tmp/ssp-spa-server3.py "$shell" >/dev/null 2>&1 & pids+=($!)
 sleep 1
 
 echo "== no fallback (expect failure on /editor)"
@@ -34,6 +39,13 @@ out="$("$here/smoke-live.sh" http://127.0.0.1:8801 2>&1)"; rc=$?
 echo "$out"; echo "exit $rc"
 if [ $rc -eq 0 ] || ! echo "$out" | grep -q 'FAIL http://127.0.0.1:8801/editor'; then
   echo "TEST FAILED: no-fallback server was not rejected on /editor"; exit 1
+fi
+
+echo "== app shell for docs (expect failure on /docs/index.html)"
+out="$("$here/smoke-live.sh" http://127.0.0.1:8803 2>&1)"; rc=$?
+echo "$out"; echo "exit $rc"
+if [ $rc -eq 0 ] || ! echo "$out" | grep -q 'FAIL http://127.0.0.1:8803/docs/index.html'; then
+  echo "TEST FAILED: app-shell docs body was not rejected"; exit 1
 fi
 
 echo "== with fallback (expect pass)"

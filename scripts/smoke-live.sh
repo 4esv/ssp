@@ -34,8 +34,15 @@ for path in /editor /gallery; do
 done
 
 # The rendered documents.
-code="$(status "$base/docs/")"
-[ "$code" = "200" ] || bad "$base/docs/" "status $code, expected 200"
+# The static host rewrites paths without a dot to the app, so check the file itself.
+docs="$(mktemp)"
+trap 'rm -f "$page" "$docs"' EXIT
+code="$(curl -s -o "$docs" -w '%{http_code}' --max-time 20 "$base/docs/index.html")"
+if [ "$code" != "200" ]; then
+  bad "$base/docs/index.html" "status $code, expected 200"
+elif ! grep -q 'docs\.css' "$docs"; then
+  bad "$base/docs/index.html" "body does not link docs.css (app shell?)"
+fi
 
 # First fingerprinted runtime script named in the page.
 js="$(grep -oE '_framework/dotnet\.[A-Za-z0-9]{10}\.js' "$page" | head -n 1)"
