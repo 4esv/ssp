@@ -200,7 +200,7 @@
         }
         catch (Exception e)
         {
-            status = cancelled ? "Cancelled." : "Render failed: " + e.Message;
+            status = cancelled ? "Cancelled." : Failure(e);
         }
         finally
         {
@@ -211,6 +211,20 @@
             busy = false;
             StateHasChanged();
         }
+    }
+
+    // NOTE: The worker prefixes a message with "Error: " and may add stack lines. The user sees the first line only.
+    static string Failure(Exception e)
+    {
+        var line = e.Message.Split('\n')[0].Trim();
+        if (line.StartsWith("Error:", StringComparison.Ordinal))
+        {
+            line = line["Error:".Length..].Trim();
+        }
+
+        return line.Contains("ssp:input", StringComparison.Ordinal)
+            ? "Mark an input jack (Jack in) to play a clip."
+            : "Render failed: " + line;
     }
 
     // NOTE: A timestep or convergence failure can pass at a higher oversample. Any other failure is final.

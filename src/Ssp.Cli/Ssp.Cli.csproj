@@ -13,4 +13,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Ssp.Core\Ssp.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- NOTE: `ssp run` checks ssp:part directives against this table. -->
+    <EmbeddedResource Include="..\..\models\parts.toml" LogicalName="parts.toml" />
+  </ItemGroup>
 </Project>

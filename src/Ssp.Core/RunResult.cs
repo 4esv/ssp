@@ -18,6 +18,9 @@ public sealed record RunResult(
     IReadOnlyList<Diagnostic> Diagnostics,
     IReadOnlyDictionary<string, double> TimingsMs)
 {
+    /// <summary>The output node: the <c>ssp:output</c> node, or <c>out</c>. A view shows it first. The JSON does not have it.</summary>
+    public string? OutputNode { get; init; }
+
     /// <summary>The version of docs/schema/run-result.schema.json that <see cref="ToJson"/> writes.</summary>
     public const string SchemaVersion = "1.1.0";
 

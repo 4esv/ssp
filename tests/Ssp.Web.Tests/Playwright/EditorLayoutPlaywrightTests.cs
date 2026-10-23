@@ -16,6 +16,9 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
     public Task FuzzStarterHasRoomAtLaptopSizes() => FuzzStarterHasRoomAtLaptopSizesCore().WaitAsync(Limit);
 
     [PlaywrightFact]
+    public Task BottomDockShowsAWholePlotAndNoTabIsClipped() => DockRoomCore().WaitAsync(Limit);
+
+    [PlaywrightFact]
     public Task SchematicIsTheWholeScreenOnAPhone() => SchematicIsTheWholeScreenOnAPhoneCore().WaitAsync(Limit);
 
     [PlaywrightFact]
@@ -110,6 +113,43 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
         Assert.Empty(failures);
     }
 
+    // NOTE: At 1512x900 the bottom dock holds the first plot whole, and no tab button is cut off by its strip (#343).
+    async Task DockRoomCore()
+    {
+        await using var session = await Session.Open();
+        var page = await session.Editor(1512, 900);
+        await page.Locator("button.run").ClickAsync();
+        await page.Locator(".dock-tab[data-panel=plots]").ClickAsync();
+        var svg = page.Locator(".dock-panel[data-panel=plots] svg.line-chart").First;
+        await svg.WaitForAsync();
+        await page.WaitForTimeoutAsync(300);
+
+        var panel = (await page.Locator(".dock-panel[data-panel=plots]").BoundingBoxAsync())!;
+        var plot = (await svg.BoundingBoxAsync())!;
+        var canvas = (await page.Locator(".schematic-editor .schematic").BoundingBoxAsync())!;
+        var failures = new List<string>();
+        output.WriteLine($"dock panel {panel.Width:0}x{panel.Height:0} at y {panel.Y:0}; first plot {plot.Width:0}x{plot.Height:0} at y {plot.Y:0}; canvas {canvas.Width:0}x{canvas.Height:0}");
+        if (plot.Y + plot.Height > panel.Y + panel.Height + 0.5) failures.Add($"The first plot ends at {plot.Y + plot.Height:0}, below the dock end at {panel.Y + panel.Height:0}.");
+        if (canvas.Width < 600 || canvas.Height < 450) failures.Add($"The canvas is {canvas.Width:0}x{canvas.Height:0}.");
+
+        var strips = await page.Locator(".dock-tabs").AllAsync();
+        foreach (var strip in strips)
+        {
+            var s = (await strip.BoundingBoxAsync())!;
+            foreach (var tab in await strip.Locator(".dock-tab").AllAsync())
+            {
+                var t = (await tab.BoundingBoxAsync())!;
+                var name = await tab.GetAttributeAsync("data-panel");
+                output.WriteLine($"strip {s.X:0},{s.Y:0} {s.Width:0}x{s.Height:0}: tab {name} {t.X:0},{t.Y:0} {t.Width:0}x{t.Height:0}");
+                if (t.X < s.X - 0.5 || t.X + t.Width > s.X + s.Width + 0.5 || t.Y < s.Y - 0.5 || t.Y + t.Height > s.Y + s.Height + 0.5)
+                {
+                    failures.Add($"Tab {name} is outside its strip.");
+                }
+            }
+        }
+        Assert.Empty(failures);
+    }
+
     async Task SchematicIsTheWholeScreenOnAPhoneCore()
     {
         await using var session = await Session.Open();
@@ -187,6 +227,7 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
             // connections when a page fetches all of the app at once.
             context ??= await browser.NewContextAsync();
             var page = await context.NewPageAsync();
+            await page.AddInitScriptAsync(HelpSeen.Script);
             await page.SetViewportSizeAsync(width, height);
             page.SetDefaultTimeout(60_000);
             await page.RouteAsync(baseUrl + "editor", async route =>

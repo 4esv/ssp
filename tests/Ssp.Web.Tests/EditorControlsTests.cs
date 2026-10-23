@@ -68,6 +68,7 @@ public class EditorControlsTests : BunitContext
     [Fact]
     public void ToolbarHasNineButtons()
     {
+        JSInterop.Mark();
         var page = Render<Editor>();
 
         var bar = page.Find(".toolbar");

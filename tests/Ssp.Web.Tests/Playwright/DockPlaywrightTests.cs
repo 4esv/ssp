@@ -22,6 +22,7 @@ public class DockPlaywrightTests
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(30_000);
 
         await ClipPlayerTests.Session.OpenEditor(page);
@@ -60,6 +61,7 @@ public class DockPlaywrightTests
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(30_000);
 
         await ClipPlayerTests.Session.OpenEditor(page);

@@ -20,6 +20,7 @@ public class ProjectReloadPlaywrightTests
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(30_000);
         await page.RouteAsync(baseUrl + "editor", async route =>
             await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));

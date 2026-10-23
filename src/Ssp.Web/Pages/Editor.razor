@@ -32,7 +32,7 @@
     </ul>
 }
 
-<CommandPalette Mode="mode" Chosen="Choose" />
+<CommandPalette Mode="mode" Chosen="Choose" Closed="() => Refocus(CommandPalette.PaletteMode.None)" />
 
 <ProjectBar Store="store" Current="project" State="@saveState" Starter="@Starter()" Open="OpenProject" Rename="Rename" Export="Export" />
 
@@ -65,6 +65,10 @@
                         }
                     </span>
                     <span class="toolbar-status" role="status">@toolbarStatus</span>
+                    @if (showStart)
+                    {
+                        <button type="button" class="start-here-button" @onclick="() => Refocus(CommandPalette.PaletteMode.Sheet)">Start here</button>
+                    }
                     <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
                 </div>
             </Actions>
@@ -117,12 +121,13 @@
 
             @if (result.OperatingPoint is { } op)
             {
+                <label><input type="checkbox" class="show-internal" @bind="showInternal" /> Show internal nodes</label>
                 <table class="voltages">
                     <thead><tr><th>Node</th><th>Voltage</th></tr></thead>
                     <tbody>
-                        @foreach (var (node, volts) in op.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                        @foreach (var node in NodeView.Names(op.NodeVoltages.Keys, result.OutputNode, showInternal))
                         {
-                            <tr data-node="@node" class="@(pointed.Contains(node) ? "pointed" : null)"><td>@node</td><td>@Volts(volts)</td></tr>
+                            <tr data-node="@node" class="@RowClass(node, result.OutputNode)"><td>@node</td><td>@Volts(op.NodeVoltages[node])</td></tr>
                         }
                     </tbody>
                 </table>
@@ -146,8 +151,8 @@
             {
                 <section class="bode">
                     <h2>Frequency response</h2>
-                    <LineChart X="ac.Frequencies" Series="WithoutGround(ac.MagnitudeDb)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
-                    <LineChart X="ac.Frequencies" Series="WithoutGround(ac.PhaseDegrees)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
+                    <LineChart X="ac.Frequencies" Series="Shown(ac.MagnitudeDb)" Highlight="@result.OutputNode" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
+                    <LineChart X="ac.Frequencies" Series="Shown(ac.PhaseDegrees)" Highlight="@result.OutputNode" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
                 </section>
             }
 
@@ -198,9 +203,6 @@
 </div>
 
 @code {
-    // NOTE: Node 0 is the ground reference. It is always 0 V, so the table leaves it out.
-    const string Ground = "0";
-
     string netlist = "";
     LayoutDoc? schematicLayout;
 
@@ -235,11 +237,11 @@
     // NOTE: The host threw. The last good result stays on screen, marked stale.
     string? runFailure;
 
-    // NOTE: The schematic is the largest cell. The other panels are tabs in one strip at the side and one strip under it.
+    // NOTE: The schematic is the largest cell. The other panels are tabs in one strip at the side and one strip under it. At 1512x900 the side strip fits its tabs and the bottom strip holds one whole plot (#343).
     public static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
     [
-        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc", "monitor", "amp"])], [0.8, 0.2]),
-        new DockTabs(["text", "knobs", "calculators", "compare", "clip"]),
+        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc", "compare", "clip", "monitor", "amp"])], [0.75, 0.25]),
+        new DockTabs(["text", "knobs", "calculators"]),
     ], [0.72, 0.28]));
 
     static readonly (string Id, string Title)[] SheetPanels =
@@ -283,6 +285,11 @@
         if (next == CommandPalette.PaletteMode.None)
         {
             await root.FocusAsync();
+        }
+        else if (next == CommandPalette.PaletteMode.Sheet && showStart)
+        {
+            showStart = false;
+            await MarkHelpSeen();
         }
     }
 
@@ -360,6 +367,7 @@
         {
             netlist = drawn = ShareCodec.Decode(hash);
             history.Reset(netlist, null);
+            if (DirectiveParser.Parse(netlist).Directives.Title is { Length: > 0 } title) project = project with { Name = title };
         }
         catch (FormatException e)
         {
@@ -371,16 +379,16 @@
     // project. It is saved at its first edit, so it does not overwrite the open project.
     protected override async Task OnInitializedAsync()
     {
+        await ShowHelpOnce();
         await sample.Restore();
-        if (fromLink)
-        {
-            return;
-        }
         try
         {
             if (await store.OpenId() is { } id && await store.Load(id) is { } saved)
             {
+                // NOTE: Share leaves the link in the address bar. A reload of the same circuit opens the saved project, so its newer title stays.
+                if (fromLink && (shareError is not null || saved.Netlist != netlist)) return;
                 Apply(saved);
+                LeaveLink();
             }
         }
         catch (Exception)
@@ -388,6 +396,35 @@
             // NOTE: Storage can be off or blocked. The starter circuit is then correct, so this is not an error.
         }
     }
+
+    // NOTE: The first visit shows a Start here button, not the panel. Blocked storage cannot say that the panel was seen, so the button stays hidden.
+    async Task ShowHelpOnce()
+    {
+        try
+        {
+            showStart = await new LocalStorage(Js).Get(HelpSeenKey) is null;
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The editor works without the button.
+        }
+    }
+
+    async Task MarkHelpSeen()
+    {
+        try
+        {
+            await new LocalStorage(Js).Set(HelpSeenKey, "1");
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The button then shows again at the next visit.
+        }
+    }
+
+    bool showStart;
+
+    const string HelpSeenKey = "ssp.help.seen";
 
     static string? starter;
 
@@ -750,8 +787,14 @@
 
     static string Volts(double value) => Eng.Format(value, "V");
 
-    static IReadOnlyDictionary<string, IReadOnlyList<double>> WithoutGround(IReadOnlyDictionary<string, IReadOnlyList<double>> series) =>
-        series.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal).ToDictionary(kv => kv.Key, kv => kv.Value);
+    // NOTE: The top-level nodes show, the output node first. The toggle adds the nodes inside subcircuits (#341).
+    bool showInternal;
+
+    IReadOnlyDictionary<string, IReadOnlyList<double>> Shown(IReadOnlyDictionary<string, IReadOnlyList<double>> series) =>
+        NodeView.Names(series.Keys, result?.OutputNode, showInternal).ToDictionary(n => n, n => series[n]);
+
+    string? RowClass(string node, string? output) =>
+        string.Join(' ', new[] { pointed.Contains(node) ? "pointed" : null, node == output ? "output" : null }.OfType<string>()) is { Length: > 0 } c ? c : null;
 
     static IReadOnlyDictionary<string, IReadOnlyList<double>> Magnitudes(ZResult z) => new Dictionary<string, IReadOnlyList<double>>
     {

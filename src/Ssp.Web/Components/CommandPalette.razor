@@ -20,6 +20,19 @@
 else if (Mode == PaletteMode.Sheet)
 {
     <div class="shortcut-sheet" role="dialog" aria-label="Keyboard shortcuts">
+        <button type="button" @onclick="Closed">Close</button>
+        <section class="start-here" aria-label="Start here">
+            <h2>Start here</h2>
+            <ul>
+                <li>Tap a part name in the palette to add that part to the canvas.</li>
+                <li>Tap a pin. A + shows at each free side of the pin. Tap a +, then pick a part. The new part joins the pin with a wire.</li>
+                <li>To join two pins, tap a pin, tap a +, pick Connect to a pin, then tap the other pin.</li>
+                <li>To mark the input and the output, tap a pin, then tap Jack in or Jack out.</li>
+                <li>The results update after each edit. Run solves the circuit again.</li>
+                <li>In the Clip tab, Play clip sends a sample through the circuit and a speaker cabinet.</li>
+            </ul>
+            <p><a href="docs/index.html" target="_top">Read the docs</a></p>
+        </section>
         <table>
             <thead><tr><th>Action</th><th>Keys</th></tr></thead>
             <tbody>
@@ -37,6 +50,7 @@ else if (Mode == PaletteMode.Sheet)
 
     [Parameter] public PaletteMode Mode { get; set; }
     [Parameter] public EventCallback<Shortcut> Chosen { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
 
     ElementReference search;
     string query = "";

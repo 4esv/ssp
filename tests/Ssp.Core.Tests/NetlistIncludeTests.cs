@@ -36,6 +36,45 @@ public class NetlistIncludeTests
         }
     }
 
+    // NOTE: #365: when a relative .include is missing, the message says the path is relative to the netlist file.
+    [Fact]
+    public void MissingRelativeIncludeSaysThePathIsRelativeToTheNetlist()
+    {
+        var dir = Temp();
+        try
+        {
+            var loaded = NetlistLoader.Load("* t\nV1 a 0 1\n.include lib/amp.lib\nR2 b 0 1k\n.END\n", dir);
+
+            var error = Assert.Single(loaded.Diagnostics);
+            Assert.Equal(Severity.Error, error.Severity);
+            Assert.Contains("A relative path is relative to the directory of the netlist file.", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    // NOTE: #365: when an absolute .include is missing, the message does not say the path is relative.
+    [Fact]
+    public void MissingAbsoluteIncludeDoesNotSayThePathIsRelative()
+    {
+        var dir = Temp();
+        try
+        {
+            var missing = Path.Combine(dir, "amp.lib");
+            var loaded = NetlistLoader.Load($"* t\nV1 a 0 1\n.include {missing}\nR2 b 0 1k\n.END\n", dir);
+
+            var error = Assert.Single(loaded.Diagnostics);
+            Assert.Equal(Severity.Error, error.Severity);
+            Assert.DoesNotContain("A relative path is relative to the directory of the netlist file.", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
     // NOTE: #336: an unquoted absolute path is a valid .include token.
     [Fact]
     public void UnquotedAbsoluteIncludeLoads()

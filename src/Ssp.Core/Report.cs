@@ -12,18 +12,19 @@ public static class Report
     const string Indent = "  ";
 
     // NOTE: Node 0 is the ground reference. It is always 0 V and has no signal, so the report leaves it out.
-    const string Ground = "0";
+    // A subcircuit node (X1.lo) and a subcircuit part (X1.Rid) are internal. The report leaves them out unless the caller asks.
+    const string Ground = NodeView.Ground;
 
     /// <summary>
     /// Writes the report. The sections are summary, voltages, response, impedances and diagnostics, in that order.
     /// Each number has a unit. The response and the impedances show each decade frequency of the sweep.
     /// </summary>
-    public static string Render(RunResult result)
+    public static string Render(RunResult result, bool includeInternal = false)
     {
         var sb = new StringBuilder();
-        Section(sb, "Summary", Summary(result));
-        Section(sb, "Voltages", Voltages(result.OperatingPoint));
-        Section(sb, "Response", Response(result.FrequencyResponse));
+        Section(sb, "Summary", Summary(result, includeInternal));
+        Section(sb, "Voltages", Voltages(result.OperatingPoint, includeInternal));
+        Section(sb, "Response", Response(result.FrequencyResponse, includeInternal));
         Section(sb, "Impedances", Impedances(result.Impedance));
         Section(sb, "Diagnostics", Diagnostics(result.Diagnostics));
         return sb.ToString().TrimEnd('\n') + "\n";
@@ -39,7 +40,7 @@ public static class Report
         sb.Append('\n');
     }
 
-    static IEnumerable<string> Summary(RunResult result)
+    static IEnumerable<string> Summary(RunResult result, bool includeInternal)
     {
         yield return result.OperatingPoint is null
             ? "The run stopped before the analyses."
@@ -50,12 +51,27 @@ public static class Report
         yield return (errors, warnings) switch
         {
             (0, 0) => "There are no errors and no warnings.",
-            _ => $"There are {Count(errors, "error")} and {Count(warnings, "warning")}. See the diagnostics.",
+            _ => $"There {(errors == 1 ? "is" : "are")} {Count(errors, "error")} and {Count(warnings, "warning")}. See the diagnostics.",
         };
 
         if (result.FrequencyResponse is { } ac)
         {
-            var points = CornerPoints(ac).ToList();
+            if (result.OutputNode is { } output && ac.MagnitudeDb.TryGetValue(output, out var outputDb) && Peak(outputDb) is { } peak)
+            {
+                yield return $"Node {output} peaks at {Db(outputDb[peak])} at {Si(ac.Frequencies[peak], "Hz")}.";
+                var corners = Crossings(ac.Frequencies, outputDb, outputDb[peak] - 3.0).ToList();
+                if (corners.Count == 0)
+                {
+                    yield return $"Node {output} stays within 3 dB of its peak in the sweep.";
+                }
+                foreach (var hz in corners)
+                {
+                    yield return $"Node {output} is 3 dB below its peak at {Si(hz, "Hz")}.";
+                }
+                yield break;
+            }
+
+            var points = CornerPoints(ac, includeInternal).ToList();
             if (points.Count == 0)
             {
                 yield return "No node falls 3 dB below its level at the start of the sweep.";
@@ -67,7 +83,38 @@ public static class Report
         }
     }
 
-    static IEnumerable<string> Voltages(OpResult? op)
+    /// <summary>The index of the highest finite level, or null if there is none.</summary>
+    static int? Peak(IReadOnlyList<double> db)
+    {
+        int? best = null;
+        for (var i = 0; i < db.Count; i++)
+        {
+            if (double.IsFinite(db[i]) && (best is null || db[i] > db[best.Value]))
+            {
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>Each frequency where the level crosses the target. Log interpolation between points.</summary>
+    static IEnumerable<double> Crossings(IReadOnlyList<double> frequencies, IReadOnlyList<double> db, double target)
+    {
+        for (var i = 1; i < db.Count; i++)
+        {
+            var (a, b) = (db[i - 1], db[i]);
+            if (!double.IsFinite(a) || !double.IsFinite(b) || (a > target) == (b > target))
+            {
+                continue;
+            }
+
+            var t = (a - target) / (a - b);
+            var logHz = Math.Log10(frequencies[i - 1]) + t * (Math.Log10(frequencies[i]) - Math.Log10(frequencies[i - 1]));
+            yield return Math.Pow(10, logHz);
+        }
+    }
+
+    static IEnumerable<string> Voltages(OpResult? op, bool includeInternal)
     {
         if (op is null)
         {
@@ -76,30 +123,30 @@ public static class Report
         }
 
         yield return "Node voltages:";
-        foreach (var line in Table(op.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new[] { kv.Key, Si(kv.Value, "V") })))
+        foreach (var line in Table(op.NodeVoltages.Where(kv => kv.Key != Ground && Shown(kv.Key, includeInternal)).OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new[] { kv.Key, Si(kv.Value, "V") })))
         {
             yield return Indent + line;
         }
         yield return "Source currents:";
-        foreach (var line in Table(op.SourceCurrents.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new[] { kv.Key, Si(kv.Value, "A") })))
+        foreach (var line in Table(op.SourceCurrents.Where(kv => Shown(kv.Key, includeInternal)).OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new[] { kv.Key, Si(kv.Value, "A") })))
         {
             yield return Indent + line;
         }
         yield return "Device powers:";
-        foreach (var line in Table(op.DevicePowers.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new[] { kv.Key, Si(kv.Value, "W") })))
+        foreach (var line in Table(op.DevicePowers.Where(kv => Shown(kv.Key, includeInternal)).OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new[] { kv.Key, Si(kv.Value, "W") })))
         {
             yield return Indent + line;
         }
     }
 
-    static IEnumerable<string> Response(AcResult? ac)
+    static IEnumerable<string> Response(AcResult? ac, bool includeInternal)
     {
         if (ac is null)
         {
             return ["Not computed."];
         }
 
-        var nodes = Nodes(ac).ToList();
+        var nodes = Nodes(ac, includeInternal).ToList();
         var rows = new List<string[]> { (string[])["Frequency", .. nodes] };
         foreach (var i in DecadeIndexes(ac.Frequencies))
         {
@@ -135,9 +182,9 @@ public static class Report
     }
 
     /// <summary>For each node, the frequency where the magnitude first falls 3 dB below the first point. Log interpolation between points.</summary>
-    static IEnumerable<(string Node, double Hz)> CornerPoints(AcResult ac)
+    static IEnumerable<(string Node, double Hz)> CornerPoints(AcResult ac, bool includeInternal)
     {
-        foreach (var node in Nodes(ac))
+        foreach (var node in Nodes(ac, includeInternal))
         {
             var db = ac.MagnitudeDb[node];
             if (db.Count == 0 || !double.IsFinite(db[0]))
@@ -168,7 +215,9 @@ public static class Report
         return decades.Count > 0 || frequencies.Count == 0 ? decades : new[] { 0, frequencies.Count - 1 }.Distinct();
     }
 
-    static IEnumerable<string> Nodes(AcResult ac) => ac.MagnitudeDb.Keys.Where(n => n != Ground).OrderBy(n => n, StringComparer.Ordinal);
+    static bool Shown(string name, bool includeInternal) => includeInternal || !NodeView.IsInternal(name);
+
+    static IEnumerable<string> Nodes(AcResult ac, bool includeInternal) => ac.MagnitudeDb.Keys.Where(n => n != Ground && Shown(n, includeInternal)).OrderBy(n => n, StringComparer.Ordinal);
 
     static IEnumerable<string> Table(IEnumerable<string[]> rows)
     {

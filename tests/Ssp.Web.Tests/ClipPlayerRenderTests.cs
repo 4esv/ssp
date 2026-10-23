@@ -16,6 +16,8 @@ public class ClipPlayerRenderTests : BunitContext
         /// <summary>The first oversample at which a render works. A smaller oversample throws a timestep failure.</summary>
         public int WorksFrom { get; set; } = 1;
 
+        public string? Failure { get; set; }
+
         public Func<double, double> Shape { get; set; } = x => x * 0.5;
 
         public Task<RunResult> Run(string netlist, RunOptions options) => throw new NotSupportedException();
@@ -23,6 +25,11 @@ public class ClipPlayerRenderTests : BunitContext
         public Task<double[]> Render(string netlist, double[] input, int sampleRate, int oversample)
         {
             Oversamples.Add(oversample);
+            if (Failure is not null)
+            {
+                throw new InvalidOperationException(Failure);
+            }
+
             if (oversample < WorksFrom)
             {
                 throw new InvalidOperationException("The timestep 0.00000e+000s is too small at t=1.81020e-001s");
@@ -71,6 +78,28 @@ public class ClipPlayerRenderTests : BunitContext
         Assert.Equal([1, 2, 4, 8], host.Oversamples);
         Assert.Contains("Render failed", status);
         Assert.Contains("timestep", status);
+    }
+
+    [Fact]
+    public void MissingInputNodeAsksForAJack()
+    {
+        host.Failure = "Error: Render needs an ssp:input node.\n   at Ssp.Core.Analyses.Render()\n   at worker.js:1";
+
+        var status = StatusAfterTry();
+
+        Assert.Equal("Mark an input jack (Jack in) to play a clip.", status);
+    }
+
+    [Fact]
+    public void OtherRenderFailureHasNoErrorPrefixOrStack()
+    {
+        host.Failure = "Error: The circuit is not solvable.\n   at Ssp.Core.Analyses.Render()\n   at worker.js:1";
+
+        var status = StatusAfterTry();
+
+        Assert.Equal("Render failed: The circuit is not solvable.", status);
+        Assert.DoesNotContain("Error:", status);
+        Assert.DoesNotContain(" at ", status);
     }
 
     [Fact]

@@ -63,7 +63,7 @@ public class SweepCommandTests
         Assert.Equal(0, exitCode);
         Assert.Contains("R1 = 4k7", output);
         Assert.Contains("R1 = 22k", output);
-        Assert.Contains("Node out falls 3 dB below its 10.0 Hz level at 336 Hz.", output);
+        Assert.Contains("Node out is 3 dB below its peak at 336 Hz.", output);
     }
 
     [Fact]

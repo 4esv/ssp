@@ -63,6 +63,7 @@ public class CommandPaletteTests : BunitContext
     [Fact]
     public void QuestionMarkListsTheKeysOfTheTable()
     {
+        JSInterop.Mark();
         var page = Render<Editor>();
         page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
 
@@ -70,6 +71,93 @@ public class CommandPaletteTests : BunitContext
             .Select(r => r.QuerySelectorAll("td").Select(td => td.TextContent.Trim()).ToArray())
             .ToList();
         Assert.Equal(Shortcuts.All.Select(s => new[] { s.Label, s.Keys }).ToList(), rows);
+    }
+
+    [Fact]
+    public void TheHelpPanelHasAStartHereSectionAndALinkToTheDocs()
+    {
+        JSInterop.Mark();
+        var page = Render<Editor>();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
+
+        var start = page.Find(".shortcut-sheet .start-here");
+        Assert.Contains("Start here", start.TextContent);
+        var link = page.Find(".shortcut-sheet a");
+        Assert.EndsWith("docs/index.html", link.GetAttribute("href"));
+    }
+
+    [Fact]
+    public void TheFirstVisitShowsAStartHereButtonAndNoPanel()
+    {
+        var page = Render<Editor>();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+        Assert.Single(page.FindAll("button.start-here-button"));
+        Assert.DoesNotContain(JSInterop.Invocations, i => i.Identifier == "localStorage.setItem" && Equals(i.Arguments[0], HelpSeen.Key));
+    }
+
+    [Fact]
+    public void TheStartHereButtonOpensThePanelRemembersItAndGoesAway()
+    {
+        var page = Render<Editor>();
+        page.Find("button.start-here-button").Click();
+        Assert.Single(page.FindAll(".shortcut-sheet"));
+        Assert.Empty(page.FindAll("button.start-here-button"));
+        Assert.Contains(JSInterop.Invocations, i => i.Identifier == "localStorage.setItem" && Equals(i.Arguments[0], HelpSeen.Key));
+
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+        Assert.Empty(page.FindAll("button.start-here-button"));
+    }
+
+    [Fact]
+    public void TheQuestionMarkOpensThePanelAndHidesTheButton()
+    {
+        var page = Render<Editor>();
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
+        Assert.Single(page.FindAll(".shortcut-sheet"));
+        Assert.Empty(page.FindAll("button.start-here-button"));
+    }
+
+    [Fact]
+    public void TheCloseButtonRemovesTheHelpPanel()
+    {
+        JSInterop.Mark();
+        var page = Render<Editor>();
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
+        Assert.Single(page.FindAll(".shortcut-sheet"));
+
+        var close = page.Find(".shortcut-sheet button");
+        Assert.Equal("Close", close.TextContent.Trim());
+        Assert.Equal("button", close.GetAttribute("type"));
+        close.Click();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+    }
+
+    [Fact]
+    public void ASeenFlagHidesTheStartHereButton()
+    {
+        JSInterop.Mark();
+        var page = Render<Editor>();
+        Assert.Empty(page.FindAll("button.start-here-button"));
+    }
+
+    [Fact]
+    public void ASeenFlagKeepsThePanelShutAtTheLoad()
+    {
+        JSInterop.Mark();
+        var page = Render<Editor>();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+    }
+
+    [Fact]
+    public void ThrowingStorageDoesNotStopTheEditor()
+    {
+        JSInterop.Setup<string?>("localStorage.getItem", HelpSeen.Key).SetException(new InvalidOperationException("blocked"));
+        JSInterop.SetupVoid("localStorage.setItem", HelpSeen.Key, "1").SetException(new InvalidOperationException("blocked"));
+        var page = Render<Editor>();
+        page.Find(".editor").KeyDown(Mod("Enter"));
+        Assert.NotEmpty(page.FindAll("table.voltages"));
     }
 
     [Fact]

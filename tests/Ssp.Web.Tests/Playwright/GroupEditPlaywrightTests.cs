@@ -160,6 +160,7 @@ public class GroupEditPlaywrightTests(ITestOutputHelper output)
         public async Task<IPage> Editor(int width, int height, bool touch = false, string? netlist = null)
         {
             var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = width, Height = height }, HasTouch = touch, IsMobile = touch });
+            await page.AddInitScriptAsync(HelpSeen.Script);
             page.SetDefaultTimeout(60_000);
             await page.RouteAsync(baseUrl + "editor", async route =>
                 await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));

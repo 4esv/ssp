@@ -23,12 +23,23 @@ public static class Runner
         var diagnostics = new List<Diagnostic>();
         var timings = new Dictionary<string, double>(StringComparer.Ordinal);
 
+        // NOTE: An empty editor canvas loads an empty netlist without an error, so only a run reports it.
+        if (string.IsNullOrWhiteSpace(netlist))
+        {
+            diagnostics.Add(new Diagnostic(Severity.Error, "The netlist is empty. Add a title line and at least one part.", null));
+            return Stop();
+        }
+
         var circuit = Time("load", "Load", timings, diagnostics, () => NetlistLoader.Load(netlist, options.BaseDirectory));
         if (circuit is null)
         {
             return Stop();
         }
         diagnostics.AddRange(circuit.Diagnostics);
+        if (options.Parts is { } parts)
+        {
+            diagnostics.AddRange(PartMap.DirectiveDiagnostics(circuit, parts));
+        }
         if (HasError(diagnostics))
         {
             return Stop();
@@ -56,7 +67,7 @@ public static class Runner
         if (!circuit.NodeNames.Contains(circuit.Directives.Output ?? "out", StringComparer.Ordinal))
         {
             diagnostics.Add(new Diagnostic(Severity.Info, "No output node. Name a node out or add * ssp:output <node> to see output impedance and noise.", null));
-            return new RunResult(op.Value, ac, null, null, diagnostics, timings);
+            return new RunResult(op.Value, ac, null, null, diagnostics, timings) { OutputNode = circuit.Directives.Output ?? "out" };
         }
 
         var impedance = Time("impedance", "Impedance", timings, diagnostics, () => Analyses.Impedance(circuit, options.Sweep));
@@ -70,7 +81,7 @@ public static class Runner
             noise = result?.Density.Count > 0 ? result : null;
         }
 
-        return new RunResult(op.Value, ac, z, noise, diagnostics, timings);
+        return new RunResult(op.Value, ac, z, noise, diagnostics, timings) { OutputNode = circuit.Directives.Output ?? "out" };
 
         RunResult Stop() => new(null, null, null, null, diagnostics, timings);
     }

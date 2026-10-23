@@ -21,6 +21,7 @@ public class ColorSchemePlaywrightTests
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ColorScheme = ColorScheme.Dark });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         await page.GotoAsync(baseUrl);
 
         // NOTE: Blazor WebAssembly boots after the first paint, so wait for a preview before reading styles.

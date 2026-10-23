@@ -98,6 +98,7 @@ public class MonkeyPlaywrightTests(ITestOutputHelper output)
                 {
                     errors.Clear();
                     page = await context.NewPageAsync();
+                    await page.AddInitScriptAsync(HelpSeen.Script);
                     page.SetDefaultTimeout(1_000);
                     page.Console += (_, m) => { if (m.Type == "error") errors.Add("console.error: " + m.Text); };
                     page.PageError += (_, e) => errors.Add("page error: " + e);

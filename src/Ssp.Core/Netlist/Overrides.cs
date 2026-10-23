@@ -42,6 +42,9 @@ public static partial class Overrides
 
             switch (entity)
             {
+                case Resistor when item.Value <= 0:
+                    diagnostics.Add(new Diagnostic(Severity.Error, $"{item.Reference} cannot take the value {item.Value.ToString(CultureInfo.InvariantCulture)}. A resistor needs a value above 0.", null));
+                    break;
                 case Resistor r: r.Parameters.Resistance = item.Value; break;
                 case Capacitor c: c.Parameters.Capacitance = item.Value; break;
                 case Inductor l: l.Parameters.Inductance = item.Value; break;
@@ -67,21 +70,62 @@ public static partial class Overrides
             return number * scale;
         }
 
-        foreach (var (suffix, scale) in Suffixes)
+        var read = Read(value);
+        if (read is { Stray.Length: 0 } ok)
         {
-            if (value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase) &&
-                double.TryParse(value[..^suffix.Length], NumberStyles.Float, CultureInfo.InvariantCulture, out var n))
-            {
-                return n * scale;
-            }
-        }
-
-        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var plain))
-        {
-            return plain;
+            return ok.Value;
         }
 
         throw new FormatException($"Override '{text}' has a value that is not a SPICE number.");
+    }
+
+    private static readonly string[] UnitWords = { "ohm", "f", "h", "v", "a", "s", "hz" };
+
+    [GeneratedRegex(@"^(?<number>[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?)(?<rest>[a-z]*)$", RegexOptions.IgnoreCase)]
+    private static partial Regex NumberWithLetters();
+
+    /// <summary>
+    /// Reads a value the way the netlist reader does: a number, an optional scale suffix, then letters.
+    /// The letters in <c>Stray</c> are not a unit word. SpiceSharp reads <c>x</c> as meg, so <c>x</c> is a scale here and is also stray.
+    /// Returns null when the text does not start with a number.
+    /// </summary>
+    public static (double Value, string Stray)? Read(string value)
+    {
+        var m = NumberWithLetters().Match(value);
+        if (!m.Success)
+        {
+            return null;
+        }
+
+        var number = double.Parse(m.Groups["number"].Value, NumberStyles.Float, CultureInfo.InvariantCulture);
+        var rest = m.Groups["rest"].Value;
+        var scale = 1.0;
+        var stray = string.Empty;
+        if (rest.StartsWith("x", StringComparison.OrdinalIgnoreCase))
+        {
+            scale = 1e6;
+            stray = rest;
+            rest = string.Empty;
+        }
+        else
+        {
+            foreach (var (suffix, factor) in Suffixes)
+            {
+                if (rest.StartsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    scale = factor;
+                    rest = rest[suffix.Length..];
+                    break;
+                }
+            }
+        }
+
+        if (rest.Length > 0 && !UnitWords.Contains(rest, StringComparer.OrdinalIgnoreCase))
+        {
+            stray = rest;
+        }
+
+        return (number * scale, stray);
     }
 
     private static double Scale(string suffix) =>

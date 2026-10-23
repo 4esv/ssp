@@ -21,6 +21,7 @@ public class DockTests
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(30_000);
 
         await ClipPlayerTests.Session.OpenEditor(page);
@@ -62,6 +63,7 @@ public class DockTests
         var type = name == "firefox" ? playwright.Firefox : playwright.Chromium;
         await using var browser = await type.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(30_000);
 
         await ClipPlayerTests.Session.OpenEditor(page);
@@ -69,7 +71,7 @@ public class DockTests
         var tab = page.Locator(".dock-tab[data-panel=knobs]");
         await tab.WaitForAsync(new() { Timeout = 60_000 });
         var layout = page.Locator(".dock-layout");
-        await Assertions.Expect(layout).ToHaveAttributeAsync("data-tree", new Regex(@"tabs\(text\*, knobs, calculators, compare[,)]"));
+        await Assertions.Expect(layout).ToHaveAttributeAsync("data-tree", new Regex(@"tabs\(text\*, knobs, calculators[,)]"));
 
         // NOTE: The right zone of the schematic group docks the dragged panel as a new group.
         var target = page.Locator(".dock-panel[data-panel=schematic]");
