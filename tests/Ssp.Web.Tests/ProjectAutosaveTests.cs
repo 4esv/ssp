@@ -154,6 +154,34 @@ public class ProjectAutosaveTests : BunitContext
     }
 
     [Fact]
+    public async Task ASharedCircuitOpensWithItsOwnTitle()
+    {
+        var shared = Fixture("rc-lowpass.cir");
+        Services.GetRequiredService<NavigationManager>().NavigateTo("editor#" + ShareCodec.Encode(shared));
+
+        var linked = await Reload();
+
+        Assert.Equal("RC low-pass filter", linked.Find(".project-name").GetAttribute("value"));
+    }
+
+    [Fact]
+    public async Task ARenameSurvivesAReloadWhileTheAddressBarHoldsTheShareLink()
+    {
+        var page = Render<Editor>();
+        var text = Fixture("divider-basic.cir");
+        page.Find("textarea").Input(text);
+        time.Advance(Debounce);
+        page.WaitForAssertion(() => Assert.Equal("Saved", page.Find(".project-state").TextContent.Trim()));
+        await page.Find(".project-name").ChangeAsync(new Microsoft.AspNetCore.Components.ChangeEventArgs { Value = "MyWork" });
+        // NOTE: Share puts the link in the address bar. A reload then loads the link again.
+        Services.GetRequiredService<NavigationManager>().NavigateTo("editor#" + ShareCodec.Encode(text));
+
+        var again = await Reload();
+
+        again.WaitForAssertion(() => Assert.Equal("MyWork", again.Find(".project-name").GetAttribute("value")));
+    }
+
+    [Fact]
     public void ACorruptOpenProjectIsNotFatal()
     {
         storage.Items[ProjectStore.OpenKey] = "broken";

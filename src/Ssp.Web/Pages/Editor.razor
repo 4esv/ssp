@@ -358,6 +358,7 @@
         {
             netlist = drawn = ShareCodec.Decode(hash);
             history.Reset(netlist, null);
+            if (DirectiveParser.Parse(netlist).Directives.Title is { Length: > 0 } title) project = project with { Name = title };
         }
         catch (FormatException e)
         {
@@ -370,15 +371,14 @@
     protected override async Task OnInitializedAsync()
     {
         await sample.Restore();
-        if (fromLink)
-        {
-            return;
-        }
         try
         {
             if (await store.OpenId() is { } id && await store.Load(id) is { } saved)
             {
+                // NOTE: Share leaves the link in the address bar. A reload of the same circuit opens the saved project, so its newer title stays.
+                if (fromLink && (shareError is not null || saved.Netlist != netlist)) return;
                 Apply(saved);
+                LeaveLink();
             }
         }
         catch (Exception)
