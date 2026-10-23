@@ -20,12 +20,21 @@ public static partial class NetlistLoader
         var circuit = new Circuit();
         var subcircuits = new List<SubcircuitInstance>();
         var subcircuitPins = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        var relativeIncludeLines = RelativeIncludeLines(netlist);
         try
         {
             var parsed = new SpiceNetlistParser().ParseNetlist(QuoteIncludes(netlist, baseDirectory));
             foreach (var error in parsed.ValidationResult.Errors)
             {
-                diagnostics.Add(new Diagnostic(Severity.Error, error.Message, error.LineInfo?.LineNumber));
+                var message = error.Message;
+                if (error.LineInfo?.LineNumber is { } line
+                    && relativeIncludeLines.Contains(line)
+                    && message.StartsWith("Netlist include at ", StringComparison.Ordinal))
+                {
+                    message += ". A relative path is relative to the directory of the netlist file.";
+                }
+
+                diagnostics.Add(new Diagnostic(Severity.Error, message, error.LineInfo?.LineNumber));
             }
 
             // NOTE: These checks come first, so the message names the line and the part. They replace the engine message for the same mistake.
@@ -64,6 +73,35 @@ public static partial class NetlistLoader
         diagnostics.AddRange(directives.Diagnostics);
 
         return new LoadedCircuit(circuit, nodes, diagnostics, directives.Directives, subcircuits, subcircuitPins);
+    }
+
+    // NOTE: #365: the line numbers of the .include lines whose path is relative, so a not-found message can name the rule.
+    private static HashSet<int> RelativeIncludeLines(string netlist)
+    {
+        var lines = new HashSet<int>();
+        foreach (Match m in IncludeLine().Matches(netlist))
+        {
+            if (!Path.IsPathRooted(m.Groups["path"].Value.Trim().Trim('"', '\'')))
+            {
+                lines.Add(LineNumber(netlist, m.Index));
+            }
+        }
+
+        return lines;
+    }
+
+    private static int LineNumber(string text, int index)
+    {
+        var line = 1;
+        for (var i = 0; i < index; i++)
+        {
+            if (text[i] == '\n')
+            {
+                line++;
+            }
+        }
+
+        return line;
     }
 
     // NOTE: #336: the parser accepts only a quoted include path and resolves it against the working directory. Rewrite each
