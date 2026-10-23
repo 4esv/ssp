@@ -30,6 +30,10 @@ Rules:
 - An unknown directive, or a directive with the wrong arguments, gives a diagnostic with severity warning. The line is ignored.
 - If a directive is given more than once, the last `title`, `input` or `output` is used. Every `knob`, `switch` and `part` is kept.
 
+## Include
+
+A relative `.include` path resolves against the directory of the netlist file, and the path may be quoted or not.
+
 ## Example
 
 ```spice
