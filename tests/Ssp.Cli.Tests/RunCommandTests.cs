@@ -123,7 +123,7 @@ public class RunCommandTests
 
         Assert.Equal(0, exitCode);
         Assert.NotEqual(plain, changed);
-        Assert.Contains("Node out falls 3 dB below its 10.0 Hz level at 336 Hz.", changed);
+        Assert.Contains("Node out is 3 dB below its peak at 336 Hz.", changed);
     }
 
     [Fact]

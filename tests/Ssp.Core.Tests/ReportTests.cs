@@ -37,4 +37,32 @@ public class ReportTests
 
         Assert.Equal(["Summary", "Voltages", "Response", "Impedances", "Diagnostics"], headings);
     }
+
+    [Fact]
+    public void ASummaryDescribesTheOutputNodeOfABandPassCircuit()
+    {
+        var summary = SummaryOf(Report.Render(Runner.Run(Fixtures.Read("ce-boost.cir"), new RunOptions())));
+
+        Assert.Contains("Node out peaks at", summary);
+        Assert.Contains("Node out is 3 dB below its peak at", summary);
+        Assert.DoesNotContain("Node e ", summary);
+    }
+
+    [Fact]
+    public void ALowPassSummaryKeepsTheCornerOfTheOutputNode()
+    {
+        var summary = SummaryOf(RcLowpassReport());
+
+        Assert.Contains("Node out is 3 dB below its peak at 1.59 kHz.", summary);
+    }
+
+    [Fact]
+    public void OneErrorUsesTheSingularVerb()
+    {
+        var summary = SummaryOf(Report.Render(Runner.Run(Fixtures.Read("diag-no-ground.cir"), new RunOptions())));
+
+        Assert.Contains("There is 1 error and no warnings.", summary);
+    }
+
+    static string SummaryOf(string report) => report[..report.IndexOf("\nVoltages", StringComparison.Ordinal)];
 }

@@ -51,11 +51,26 @@ public static class Report
         yield return (errors, warnings) switch
         {
             (0, 0) => "There are no errors and no warnings.",
-            _ => $"There are {Count(errors, "error")} and {Count(warnings, "warning")}. See the diagnostics.",
+            _ => $"There {(errors == 1 ? "is" : "are")} {Count(errors, "error")} and {Count(warnings, "warning")}. See the diagnostics.",
         };
 
         if (result.FrequencyResponse is { } ac)
         {
+            if (result.OutputNode is { } output && ac.MagnitudeDb.TryGetValue(output, out var outputDb) && Peak(outputDb) is { } peak)
+            {
+                yield return $"Node {output} peaks at {Db(outputDb[peak])} at {Si(ac.Frequencies[peak], "Hz")}.";
+                var corners = Crossings(ac.Frequencies, outputDb, outputDb[peak] - 3.0).ToList();
+                if (corners.Count == 0)
+                {
+                    yield return $"Node {output} stays within 3 dB of its peak in the sweep.";
+                }
+                foreach (var hz in corners)
+                {
+                    yield return $"Node {output} is 3 dB below its peak at {Si(hz, "Hz")}.";
+                }
+                yield break;
+            }
+
             var points = CornerPoints(ac, includeInternal).ToList();
             if (points.Count == 0)
             {
@@ -65,6 +80,37 @@ public static class Report
             {
                 yield return $"Node {node} falls 3 dB below its {Si(ac.Frequencies[0], "Hz")} level at {Si(hz, "Hz")}.";
             }
+        }
+    }
+
+    /// <summary>The index of the highest finite level, or null if there is none.</summary>
+    static int? Peak(IReadOnlyList<double> db)
+    {
+        int? best = null;
+        for (var i = 0; i < db.Count; i++)
+        {
+            if (double.IsFinite(db[i]) && (best is null || db[i] > db[best.Value]))
+            {
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>Each frequency where the level crosses the target. Log interpolation between points.</summary>
+    static IEnumerable<double> Crossings(IReadOnlyList<double> frequencies, IReadOnlyList<double> db, double target)
+    {
+        for (var i = 1; i < db.Count; i++)
+        {
+            var (a, b) = (db[i - 1], db[i]);
+            if (!double.IsFinite(a) || !double.IsFinite(b) || (a > target) == (b > target))
+            {
+                continue;
+            }
+
+            var t = (a - target) / (a - b);
+            var logHz = Math.Log10(frequencies[i - 1]) + t * (Math.Log10(frequencies[i]) - Math.Log10(frequencies[i - 1]));
+            yield return Math.Pow(10, logHz);
         }
     }
 
