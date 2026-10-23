@@ -162,4 +162,64 @@ public sealed class RenderCommandTests : IDisposable
         Assert.Contains("48000", error);
         Assert.False(File.Exists(Out));
     }
+
+    private static void AssertNoStackTrace(string error)
+    {
+        Assert.DoesNotContain("Unhandled exception", error);
+        Assert.DoesNotContain("   at ", error);
+    }
+
+    [Fact]
+    public void ANetlistWithAFloatingNodeReportsTheDiagnosticAndExitsWith1()
+    {
+        WriteSine();
+        var netlist = Path.Combine(_dir, "floating.cir");
+        File.WriteAllText(netlist, "* ssp:input in\n* ssp:output out\nV1 in 0 1\nC1 in mid 1u\nC2 mid out 1u\nR1 out 0 1k\n.END\n");
+
+        var (exitCode, _, error) = Run("render", netlist, "--in", In, "--out", Out);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("mid", error);
+        AssertNoStackTrace(error);
+        Assert.False(File.Exists(Out));
+    }
+
+    [Fact]
+    public void AnOutputPathInAMissingDirectoryPrintsOneLine()
+    {
+        WriteSine();
+        var missing = Path.Combine(_dir, "nonexistent", "x.wav");
+
+        var (exitCode, _, error) = Run("render", RepoPaths.Fixture("clipper-bjt-si.cir"), "--in", In, "--out", missing);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains(missing, error);
+        Assert.Single(error.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        AssertNoStackTrace(error);
+    }
+
+    [Theory]
+    [InlineData("netlist")]
+    [InlineData("in")]
+    [InlineData("ir")]
+    [InlineData("out")]
+    public void ADirectoryInPlaceOfAFilePrintsOneLineNamingThePath(string which)
+    {
+        WriteSine();
+        var netlist = which == "netlist" ? _dir : RepoPaths.Fixture("clipper-bjt-si.cir");
+        var input = which == "in" ? _dir : In;
+        var output = which == "out" ? _dir : Out;
+        var args = new List<string> { "render", netlist, "--in", input, "--out", output };
+        if (which == "ir")
+        {
+            args.AddRange(["--ir", _dir]);
+        }
+
+        var (exitCode, _, error) = Run([.. args]);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains(_dir, error);
+        Assert.Single(error.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        AssertNoStackTrace(error);
+    }
 }

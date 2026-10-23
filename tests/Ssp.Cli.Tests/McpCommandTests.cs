@@ -79,4 +79,15 @@ public class McpCommandTests
         Assert.True(result.IsError);
         Assert.Contains("does not exist", Text(result));
     }
+
+    [Fact]
+    public async Task AToolCalledWithoutItsFileNamesTheMissingArgument()
+    {
+        await using var client = await Start();
+
+        var result = await client.CallToolAsync("explain", Args());
+
+        Assert.True(result.IsError);
+        Assert.Contains("Missing argument 'file'", Text(result));
+    }
 }

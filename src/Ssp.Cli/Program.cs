@@ -6,6 +6,7 @@ using Ssp.Core;
 using Ssp.Core.Analysis;
 using Ssp.Core.Audio;
 using Ssp.Core.Netlist;
+using Ssp.Core.Parts;
 
 namespace Ssp.Cli;
 
@@ -52,9 +53,9 @@ public static class Program
         command.SetAction(parseResult =>
         {
             var path = parseResult.GetValue(file)!;
-            if (!path.Exists)
+            if (CheckFile(path) is { } problem)
             {
-                parseResult.InvocationConfiguration.Error.WriteLine($"File {path.FullName} does not exist.");
+                parseResult.InvocationConfiguration.Error.WriteLine(problem);
                 return 1;
             }
 
@@ -101,9 +102,9 @@ public static class Program
         command.SetAction(parseResult =>
         {
             var path = parseResult.GetValue(file)!;
-            if (!path.Exists)
+            if (CheckFile(path) is { } problem)
             {
-                parseResult.InvocationConfiguration.Error.WriteLine($"File {path.FullName} does not exist.");
+                parseResult.InvocationConfiguration.Error.WriteLine(problem);
                 return 1;
             }
 
@@ -168,11 +169,24 @@ public static class Program
             var irPath = parseResult.GetValue(irFile);
             foreach (var f in new[] { path, inPath, irPath }.OfType<FileInfo>())
             {
-                if (!f.Exists)
+                if (CheckFile(f) is { } problem)
                 {
-                    error.WriteLine($"File {f.FullName} does not exist.");
+                    error.WriteLine(problem);
                     return 1;
                 }
+            }
+
+            var outPath = parseResult.GetValue(output)!;
+            if (Directory.Exists(outPath.FullName))
+            {
+                error.WriteLine($"Output {outPath.FullName} is a directory, not a file.");
+                return 1;
+            }
+
+            if (outPath.Directory is { Exists: false })
+            {
+                error.WriteLine($"Cannot write {outPath.FullName}: the directory does not exist.");
+                return 1;
             }
 
             var factor = parseResult.GetValue(oversample);
@@ -183,7 +197,16 @@ public static class Program
             }
 
             var circuit = NetlistLoader.Load(File.ReadAllText(path.FullName));
-            var errors = circuit.Diagnostics.Where(d => d.Severity == Severity.Error).ToList();
+            var diagnostics = circuit.Diagnostics.ToList();
+            if (!diagnostics.Any(d => d.Severity == Severity.Error))
+            {
+                // NOTE: The same checks as `ssp run`, so a bad circuit stops here with a report and not in the solver.
+                diagnostics.AddRange(Pot.Apply(circuit));
+                diagnostics.AddRange(Switch.Apply(circuit));
+                diagnostics.AddRange(Ssp.Core.Diagnostics.Diagnostics.Run(circuit));
+            }
+
+            var errors = diagnostics.Where(d => d.Severity == Severity.Error).ToList();
             if (errors.Count > 0)
             {
                 errors.ForEach(d => error.WriteLine(d.Message));
@@ -229,9 +252,15 @@ public static class Program
                 return 1;
             }
 
-            using (var stream = File.Create(parseResult.GetValue(output)!.FullName))
+            try
             {
+                using var stream = File.Create(outPath.FullName);
                 Wav.Write(stream, rendered, 24);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                error.WriteLine($"Cannot write {outPath.FullName}: {e.Message}");
+                return 1;
             }
 
             return 0;
@@ -249,6 +278,12 @@ public static class Program
         command.SetAction((_, cancellationToken) => McpServerHost.RunAsync(cancellationToken));
         return command;
     }
+
+    /// <summary>Gives one line for a file that is missing or is a directory, or null when the file is usable.</summary>
+    private static string? CheckFile(FileInfo file) =>
+        Directory.Exists(file.FullName) ? $"{file.FullName} is a directory, not a file."
+        : file.Exists ? null
+        : $"File {file.FullName} does not exist.";
 
     /// <summary>Parses <c>R1=4k7,10k,22k</c> into the part and one override for each value.</summary>
     private static (string Part, List<(string Text, Override Override)> Values) ParseSweep(string text)
