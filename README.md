@@ -16,7 +16,30 @@ dotnet tool install --global ssp --add-source artifacts
 ssp --version
 ```
 
-If .NET comes from Homebrew, `ssp` can fail with "You must install or update .NET".
+The package contains the tool only. The models and the sample audio are in the repository.
+They are not in the package.
+Download one model into the same folder as your netlist:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/4esv/ssp/main/models/opamp-tl072.cir
+```
+
+Write this line in your netlist:
+
+```spice
+.include opamp-tl072.cir
+```
+
+A `.include` path is relative to the netlist file. See [models/README.md](models/README.md).
+
+If .NET comes from Homebrew, `ssp` can fail. The error starts with:
+
+```text
+You must install or update .NET to run this application.
+```
+
+It also says `Framework: 'Microsoft.NETCore.App', version '10.0.0'`.
+The system can find an old .NET in another folder first.
 Set `DOTNET_ROOT` and run it again:
 
 ```sh
