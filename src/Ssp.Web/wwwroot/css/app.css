@@ -12,13 +12,13 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .project-import:focus-within, .command-palette li.active button { outline: 2px solid; }
 #blazor-error-ui { display: none; position: fixed; bottom: 0; left: 0; width: 100%; padding: 0.5rem; background: var(--bg); border-top: 1px solid; }
 #blazor-error-ui .dismiss { cursor: pointer; float: right; }
-/* NOTE: The series keep their colours: a colour is how a curve is told from the others. A halo keeps the legend readable over a curve. */
+/* NOTE: The series keep their colours: a colour is how a curve is told from the others. The legend sits under the plot. The output curve is thicker. */
 .line-chart { display: block; max-width: 100%; height: auto; font-size: 10px; }
 .line-chart .plot-area { fill: none; stroke: currentColor; }
 .line-chart .grid { stroke: currentColor; stroke-opacity: 0.15; }
-.line-chart .series { stroke-width: 1.5; }
-.line-chart .series-0 { stroke: #3b82c4; fill: #3b82c4; } .line-chart .series-1 { stroke: #e0642c; fill: #e0642c; }
-.line-chart .series-2 { stroke: #3d9a50; fill: #3d9a50; } .line-chart .series-3 { stroke: #a05cb8; fill: #a05cb8; }
+.line-chart .series { stroke-width: 1.5; } .line-chart .series.output { stroke-width: 3; }
+.line-chart .series-0 { stroke: #3b82c4; fill: #3b82c4; } .line-chart .series-1 { stroke: #e0642c; fill: #e0642c; } .line-chart .series-6 { stroke: #d0467a; fill: #d0467a; } .line-chart .series-7 { stroke: #7a6a4f; fill: #7a6a4f; } .line-chart .series-8 { stroke: #1f4e8c; fill: #1f4e8c; } .line-chart .series-9 { stroke: #8fb339; fill: #8fb339; } .line-chart .series-10 { stroke: #b3341f; fill: #b3341f; } .line-chart .series-11 { stroke: #5c5c8f; fill: #5c5c8f; } .line-chart .series-4 { stroke: #c9a227; fill: #c9a227; } .line-chart .series-5 { stroke: #2aa6a6; fill: #2aa6a6; }
+.line-chart .series-6 { stroke: #d0467a; fill: #d0467a; } .line-chart .series-7 { stroke: #7a6a4f; fill: #7a6a4f; } .line-chart .series-8 { stroke: #1f4e8c; fill: #1f4e8c; } .line-chart .series-9 { stroke: #8fb339; fill: #8fb339; } .line-chart .series-10 { stroke: #b3341f; fill: #b3341f; } .line-chart .series-11 { stroke: #5c5c8f; fill: #5c5c8f; }
 .line-chart path.series { fill: none; }
 .line-chart path.series.frozen { stroke-dasharray: 4 3; opacity: 0.8; }
 .line-chart .legend text { paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
@@ -205,7 +205,7 @@ body:has(.editor) { margin: 0; }
 .editor > .dock-closed { margin-top: 0; font-size: 0.875rem; }
 .editor > .dock-closed button { padding: 0 0.5rem; }
 .editor > .dock-layout { flex: 1; height: auto; min-height: 0; margin-top: 0.25rem; }
-.voltages tr.pointed { outline: 2px solid; outline-offset: -2px; }
+.voltages tr.pointed { outline: 2px solid; outline-offset: -2px; } .voltages tr.output { font-weight: 600; }
 .panel-bar { display: none; }
 /* NOTE: The toolbar scrolls and clips, so the parts list is a sheet fixed to the bottom of the window. */
 .parts-panel { position: fixed; left: 0.5rem; right: 0.5rem; bottom: 0.5rem; z-index: 20; max-height: 50vh; overflow: auto; background: var(--bg); border: 1px solid; }
