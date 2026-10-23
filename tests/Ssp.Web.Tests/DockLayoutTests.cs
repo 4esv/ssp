@@ -12,8 +12,8 @@ public class DockLayoutTests : BunitContext
     const string Key = "ssp.dock.editor.v2";
 
     const string DefaultTree =
-        "row(0.72 column(0.8 tabs(schematic*), 0.2 tabs(results*, plots, dc, monitor, amp)), " +
-        "0.28 tabs(text*, knobs, calculators, compare, clip))";
+        "row(0.72 column(0.75 tabs(schematic*), 0.25 tabs(results*, plots, dc, compare, clip, monitor, amp)), " +
+        "0.28 tabs(text*, knobs, calculators))";
 
     static readonly string[] Panels = ["amp", "calculators", "clip", "compare", "dc", "knobs", "monitor", "plots", "results", "schematic", "text"];
 

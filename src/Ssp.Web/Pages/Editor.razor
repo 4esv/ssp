@@ -233,11 +233,11 @@
     // NOTE: The host threw. The last good result stays on screen, marked stale.
     string? runFailure;
 
-    // NOTE: The schematic is the largest cell. The other panels are tabs in one strip at the side and one strip under it.
+    // NOTE: The schematic is the largest cell. The other panels are tabs in one strip at the side and one strip under it. At 1512x900 the side strip fits its tabs and the bottom strip holds one whole plot (#343).
     public static DockModel DefaultLayout() => new(new DockSplit(SplitDirection.Row,
     [
-        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc", "monitor", "amp"])], [0.8, 0.2]),
-        new DockTabs(["text", "knobs", "calculators", "compare", "clip"]),
+        new DockSplit(SplitDirection.Column, [new DockTabs(["schematic"]), new DockTabs(["results", "plots", "dc", "compare", "clip", "monitor", "amp"])], [0.75, 0.25]),
+        new DockTabs(["text", "knobs", "calculators"]),
     ], [0.72, 0.28]));
 
     static readonly (string Id, string Title)[] SheetPanels =
