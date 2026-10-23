@@ -32,7 +32,7 @@
     </ul>
 }
 
-<CommandPalette Mode="mode" Chosen="Choose" />
+<CommandPalette Mode="mode" Chosen="Choose" Closed="() => Refocus(CommandPalette.PaletteMode.None)" />
 
 <ProjectBar Store="store" Current="project" State="@saveState" Starter="@Starter()" Open="OpenProject" Rename="Rename" Export="Export" />
 

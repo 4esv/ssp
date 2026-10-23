@@ -99,6 +99,19 @@ public class CommandPaletteTests : BunitContext
     }
 
     [Fact]
+    public void TheCloseButtonRemovesTheHelpPanel()
+    {
+        var page = Render<Editor>();
+        Assert.Single(page.FindAll(".shortcut-sheet"));
+
+        var close = page.Find(".shortcut-sheet button");
+        Assert.Equal("Close", close.TextContent.Trim());
+        Assert.Equal("button", close.GetAttribute("type"));
+        close.Click();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+    }
+
+    [Fact]
     public void ASeenFlagKeepsThePanelShutAtTheLoad()
     {
         JSInterop.Mark();
