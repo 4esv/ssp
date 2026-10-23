@@ -88,7 +88,6 @@ public class McpCommandTests
         var result = await client.CallToolAsync("explain", Args());
 
         Assert.True(result.IsError);
-        Assert.Contains("file", Text(result));
-        Assert.DoesNotContain("An error occurred invoking", Text(result));
+        Assert.Contains("Missing argument 'file'", Text(result));
     }
 }
