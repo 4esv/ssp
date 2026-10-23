@@ -43,6 +43,7 @@ public class DragTimingTests(ITestOutputHelper output)
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(60_000);
         await page.AddInitScriptAsync($$"""
             if (!sessionStorage.getItem('seeded')) {

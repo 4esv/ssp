@@ -63,6 +63,7 @@ public class CommandPaletteTests : BunitContext
     [Fact]
     public void QuestionMarkListsTheKeysOfTheTable()
     {
+        JSInterop.Mark();
         var page = Render<Editor>();
         page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
 
@@ -70,6 +71,49 @@ public class CommandPaletteTests : BunitContext
             .Select(r => r.QuerySelectorAll("td").Select(td => td.TextContent.Trim()).ToArray())
             .ToList();
         Assert.Equal(Shortcuts.All.Select(s => new[] { s.Label, s.Keys }).ToList(), rows);
+    }
+
+    [Fact]
+    public void TheHelpPanelHasAStartHereSectionAndALinkToTheDocs()
+    {
+        JSInterop.Mark();
+        var page = Render<Editor>();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
+
+        var start = page.Find(".shortcut-sheet .start-here");
+        Assert.Contains("Start here", start.TextContent);
+        var link = page.Find(".shortcut-sheet a");
+        Assert.EndsWith("docs/index.html", link.GetAttribute("href"));
+    }
+
+    [Fact]
+    public void TheFirstVisitShowsThePanelAndRemembersIt()
+    {
+        var page = Render<Editor>();
+        Assert.Single(page.FindAll(".shortcut-sheet"));
+        Assert.Contains(JSInterop.Invocations, i => i.Identifier == "localStorage.setItem" && Equals(i.Arguments[0], HelpSeen.Key));
+
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+    }
+
+    [Fact]
+    public void ASeenFlagKeepsThePanelShutAtTheLoad()
+    {
+        JSInterop.Mark();
+        var page = Render<Editor>();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+    }
+
+    [Fact]
+    public void ThrowingStorageDoesNotStopTheEditor()
+    {
+        JSInterop.Setup<string?>("localStorage.getItem", HelpSeen.Key).SetException(new InvalidOperationException("blocked"));
+        JSInterop.SetupVoid("localStorage.setItem", HelpSeen.Key, "1").SetException(new InvalidOperationException("blocked"));
+        var page = Render<Editor>();
+        page.Find(".editor").KeyDown(Mod("Enter"));
+        Assert.NotEmpty(page.FindAll("table.voltages"));
     }
 
     [Fact]

@@ -22,6 +22,7 @@ public class LiveRunTimingTests(ITestOutputHelper output)
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(60_000);
 
         // NOTE: The test server has no fallback to index.html, so the test serves it for the editor route.

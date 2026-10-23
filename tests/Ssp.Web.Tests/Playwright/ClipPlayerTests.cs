@@ -194,6 +194,7 @@ public class ClipPlayerTests(ITestOutputHelper output)
             var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
             var browser = await playwright.Chromium.LaunchAsync(new() { Args = browserArgs });
             var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1280, Height = 900 } });
+            await page.AddInitScriptAsync(HelpSeen.Script);
             page.Console += (_, message) => output.WriteLine("console: " + message.Text);
             page.PageError += (_, error) => output.WriteLine("page error: " + error);
             await OpenEditor(page);
