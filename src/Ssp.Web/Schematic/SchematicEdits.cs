@@ -220,20 +220,21 @@ public static partial class SchematicEdits
     {
         var placed = Place(netlist, layout, kind);
         var last = placed.Layout.Parts[^1];
-        var spot = Free(placed, last with { X = Snap(at.X), Y = Snap(at.Y) });
+        // NOTE: #371: a netlist can hold the new line where the loader does not read it, as in a subcircuit with no .ends. Then the edit is a no-op.
+        if (Free(placed, last with { X = Snap(at.X), Y = Snap(at.Y) }) is not { } spot) return new SchematicChange(netlist, layout);
         var parts = placed.Layout.Parts.SkipLast(1).Append(spot).ToList();
         return placed with { Layout = new LayoutDoc(parts, placed.Layout.Wires) };
     }
 
     // NOTE: #338: a palette add asks for the centre of the view each time. Before, parts stacked on that spot, their pins
     // met, and a settle joined their nets with no wire. The search goes out in rings of one grid step from the spot.
-    static PartPlacement Free(SchematicChange change, PartPlacement want)
+    static PartPlacement? Free(SchematicChange change, PartPlacement want)
     {
         var circuit = NetlistLoader.Load(change.Netlist);
         var elements = SchematicRenderer.Elements(circuit, PartMap.Resolve(circuit, Ssp.Web.Components.SchematicView.Table));
         bool Is(SchematicElement e, string reference) => Names.Equals(e.Reference, reference) || Names.Equals(e.Members[0], reference);
         PartPlacement? At(SchematicElement e) => change.Layout.Parts.FirstOrDefault(p => !Names.Equals(p.Reference, want.Reference) && (Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])));
-        var element = elements.Single(e => Is(e, want.Reference));
+        if (elements.FirstOrDefault(e => Is(e, want.Reference)) is not { } element) return null;
         var others = elements.Where(e => e != element).Select(e => (Element: e, Placement: At(e))).Where(x => x.Placement is not null).ToList();
         var boxes = others.Select(x => Outline(x.Element, x.Placement!)).ToList();
         var pins = others.SelectMany(x => SchematicRenderer.Pins(x.Element, x.Placement!)).Select(p => p.At).ToList();
