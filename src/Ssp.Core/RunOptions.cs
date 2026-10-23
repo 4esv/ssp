@@ -1,5 +1,6 @@
 using Ssp.Core.Analysis;
 using Ssp.Core.Netlist;
+using Ssp.Core.Parts;
 
 namespace Ssp.Core;
 
@@ -23,4 +24,7 @@ public sealed record RunOptions
 
     /// <summary>The directory of the netlist file. A relative <c>.include</c> path resolves against it. Null means the working directory.</summary>
     public string? BaseDirectory { get; init; }
+
+    /// <summary>The shipped parts table. When set, the run checks the <c>ssp:part</c> directives.</summary>
+    public PartsTable? Parts { get; init; }
 }

@@ -15,6 +15,8 @@ namespace Ssp.Cli;
 /// </summary>
 public static class Program
 {
+    static readonly PartsTable ShippedParts = LoadParts();
+
     public static int Main(string[] args) => Run(args, Console.Out);
 
     /// <summary>
@@ -70,7 +72,7 @@ public static class Program
                 return 1;
             }
 
-            var result = Runner.Run(File.ReadAllText(path.FullName), new RunOptions(overrides: overrides) { BaseDirectory = path.DirectoryName });
+            var result = Runner.Run(File.ReadAllText(path.FullName), new RunOptions(overrides: overrides) { BaseDirectory = path.DirectoryName, Parts = ShippedParts });
             var text = parseResult.GetValue(json) ? result.ToJson() : Report.Render(result);
             output.Write(text);
             if (!text.EndsWith('\n'))
@@ -122,7 +124,7 @@ public static class Program
 
             var netlist = File.ReadAllText(path.FullName);
             var runs = values
-                .Select(v => (v.Text, v.Override, Result: Runner.Run(netlist, new RunOptions(overrides: [v.Override]) { BaseDirectory = path.DirectoryName })))
+                .Select(v => (v.Text, v.Override, Result: Runner.Run(netlist, new RunOptions(overrides: [v.Override]) { BaseDirectory = path.DirectoryName, Parts = ShippedParts })))
                 .ToList();
 
             var text = parseResult.GetValue(json)
@@ -277,6 +279,14 @@ public static class Program
         var command = new Command("mcp", "Serve the tools to agents over MCP on standard input and output.");
         command.SetAction((_, cancellationToken) => McpServerHost.RunAsync(cancellationToken));
         return command;
+    }
+
+    /// <summary>Loads the shipped parts table from the embedded resource.</summary>
+    private static PartsTable LoadParts()
+    {
+        using var stream = typeof(Program).Assembly.GetManifestResourceStream("parts.toml")!;
+        using var reader = new StreamReader(stream);
+        return Parts.Parse(reader.ReadToEnd(), "parts.toml");
     }
 
     /// <summary>Gives one line for a file that is missing or is a directory, or null when the file is usable.</summary>

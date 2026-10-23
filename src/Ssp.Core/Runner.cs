@@ -29,6 +29,10 @@ public static class Runner
             return Stop();
         }
         diagnostics.AddRange(circuit.Diagnostics);
+        if (options.Parts is { } parts)
+        {
+            diagnostics.AddRange(PartMap.DirectiveDiagnostics(circuit, parts));
+        }
         if (HasError(diagnostics))
         {
             return Stop();
