@@ -117,12 +117,13 @@
 
             @if (result.OperatingPoint is { } op)
             {
+                <label><input type="checkbox" class="show-internal" @bind="showInternal" /> Show internal nodes</label>
                 <table class="voltages">
                     <thead><tr><th>Node</th><th>Voltage</th></tr></thead>
                     <tbody>
-                        @foreach (var (node, volts) in op.NodeVoltages.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                        @foreach (var node in NodeView.Names(op.NodeVoltages.Keys, result.OutputNode, showInternal))
                         {
-                            <tr data-node="@node" class="@(pointed.Contains(node) ? "pointed" : null)"><td>@node</td><td>@Volts(volts)</td></tr>
+                            <tr data-node="@node" class="@RowClass(node, result.OutputNode)"><td>@node</td><td>@Volts(op.NodeVoltages[node])</td></tr>
                         }
                     </tbody>
                 </table>
@@ -146,8 +147,8 @@
             {
                 <section class="bode">
                     <h2>Frequency response</h2>
-                    <LineChart X="ac.Frequencies" Series="WithoutGround(ac.MagnitudeDb)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
-                    <LineChart X="ac.Frequencies" Series="WithoutGround(ac.PhaseDegrees)" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
+                    <LineChart X="ac.Frequencies" Series="Shown(ac.MagnitudeDb)" Highlight="@result.OutputNode" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Magnitude" YUnit="dB" />
+                    <LineChart X="ac.Frequencies" Series="Shown(ac.PhaseDegrees)" Highlight="@result.OutputNode" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Phase" YUnit="°" />
                 </section>
             }
 
@@ -198,9 +199,6 @@
 </div>
 
 @code {
-    // NOTE: Node 0 is the ground reference. It is always 0 V, so the table leaves it out.
-    const string Ground = "0";
-
     string netlist = "";
     LayoutDoc? schematicLayout;
 
@@ -750,8 +748,14 @@
 
     static string Volts(double value) => Eng.Format(value, "V");
 
-    static IReadOnlyDictionary<string, IReadOnlyList<double>> WithoutGround(IReadOnlyDictionary<string, IReadOnlyList<double>> series) =>
-        series.Where(kv => kv.Key != Ground).OrderBy(kv => kv.Key, StringComparer.Ordinal).ToDictionary(kv => kv.Key, kv => kv.Value);
+    // NOTE: The top-level nodes show, the output node first. The toggle adds the nodes inside subcircuits (#341).
+    bool showInternal;
+
+    IReadOnlyDictionary<string, IReadOnlyList<double>> Shown(IReadOnlyDictionary<string, IReadOnlyList<double>> series) =>
+        NodeView.Names(series.Keys, result?.OutputNode, showInternal).ToDictionary(n => n, n => series[n]);
+
+    string? RowClass(string node, string? output) =>
+        string.Join(' ', new[] { pointed.Contains(node) ? "pointed" : null, node == output ? "output" : null }.OfType<string>()) is { Length: > 0 } c ? c : null;
 
     static IReadOnlyDictionary<string, IReadOnlyList<double>> Magnitudes(ZResult z) => new Dictionary<string, IReadOnlyList<double>>
     {

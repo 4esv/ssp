@@ -34,10 +34,44 @@ public class EditorPageTests : BunitContext
         var rows = page.FindAll("table.voltages tbody tr")
             .Select(r => r.QuerySelectorAll("td").Select(td => td.TextContent.Trim()).ToArray())
             .ToList();
-        // NOTE: Vout = 1 V * 2k / (1k + 2k). Node 0 is ground and is not in the table.
+        // NOTE: Vout = 1 V * 2k / (1k + 2k). Node 0 is ground and is not in the table. The output node is first (#341).
         Assert.Equal(
-            [["in", "1 V"], ["out", "667 mV"]],
+            [["out", "667 mV"], ["in", "1 V"]],
             rows);
+    }
+
+    // NOTE: The TL072 model is a subcircuit. Its nodes (X1.lo, X1.o, X1.x) are internal.
+    static string Tl072Buffer() =>
+        File.ReadAllText(Path.Combine(RepoPaths.Root, "models", "opamp-tl072.cir")) + "\n" + Fixture("opamp-buffer.cir").Replace("OPAMP", "TL072");
+
+    [Fact]
+    public void ResultsShowTopLevelNodesWithTheOutputFirstUntilTheToggleIsOn()
+    {
+        var page = Run(Tl072Buffer());
+
+        List<string> Nodes() => page.FindAll("table.voltages tbody tr").Select(r => r.GetAttribute("data-node")!).ToList();
+        Assert.Equal(["out", "in", "vcc", "vee"], Nodes());
+        Assert.Contains("output", page.Find("table.voltages tbody tr").ClassList);
+
+        page.Find("input.show-internal").Change(true);
+
+        Assert.Equal(["out", "X1.lo", "X1.o", "X1.x", "in", "vcc", "vee"], Nodes());
+    }
+
+    [Fact]
+    public void PlotsShowTopLevelNodesUntilTheToggleIsOnAndEachLegendColourIsUnique()
+    {
+        var page = Run(Tl072Buffer());
+
+        List<string> Legend() => page.Find("section.bode svg.line-chart").QuerySelectorAll(".legend text").Select(t => t.TextContent).ToList();
+        Assert.Equal(["out", "in", "vcc", "vee"], Legend());
+
+        page.Find("input.show-internal").Change(true);
+
+        var texts = page.Find("section.bode svg.line-chart").QuerySelectorAll(".legend text").ToList();
+        Assert.Contains("X1.o", texts.Select(t => t.TextContent));
+        var colours = texts.Select(t => t.GetAttribute("class")).ToList();
+        Assert.Equal(colours.Count, colours.Distinct().Count());
     }
 
     [Fact]
