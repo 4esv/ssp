@@ -77,7 +77,7 @@ public class LiveRunTests : BunitContext
 
         host.Gate.SetResult();
         page.WaitForAssertion(() => Assert.Empty(page.FindAll(".live-state.stale")));
-        Assert.NotEmpty(page.FindAll(".voltages tbody tr"));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voltages tbody tr")));
     }
 
     [Fact]
@@ -91,8 +91,10 @@ public class LiveRunTests : BunitContext
         page.Find("textarea").Input("R1 in\n");
         time.Advance(Debounce);
 
+        // The page is stale from the edit, so only the failed-solve marker shows that the solve finished.
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".live-failed")));
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".live-state.stale")));
+        // This compares with a snapshot taken before the edit, so one read is enough.
         Assert.Equal(good, page.Find(".voltages").TextContent);
-        Assert.Single(page.FindAll(".live-failed"));
     }
 }
