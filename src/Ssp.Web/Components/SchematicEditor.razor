@@ -393,6 +393,9 @@
     /// <summary>The saved view of the project, as <see cref="ViewTransform.Format"/>. A circuit from outside the editor opens with it, or with a fit if it is null.</summary>
     [Parameter] public string? View { get; set; }
 
+    /// <summary>Whether a bottom panel is open. The editor fits the circuit again when this changes, because the canvas is a different size.</summary>
+    [Parameter] public bool Covered { get; set; }
+
     /// <summary>Gets the view after the user zooms or pans.</summary>
     [Parameter] public EventCallback<string> ViewChanged { get; set; }
 
@@ -530,8 +533,15 @@
         await LoadHints();
     }
 
+    bool seenCovered, refit;
+
     protected override void OnParametersSet()
     {
+        if (Covered != seenCovered)
+        {
+            seenCovered = Covered;
+            refit = true;
+        }
         if (Netlist == seenNetlist && ReferenceEquals(Layout, seenLayout)) return;
         seenNetlist = Netlist;
         seenLayout = Layout;
@@ -684,6 +694,17 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         still = false;
+        // NOTE: A panel opens or closes, so the canvas has a new size. The fit measures the pane again, which is the part of the canvas that the user sees (#382).
+        if (refit && svg is not null && view is not null)
+        {
+            refit = false;
+            view = null;
+            savedView = null;
+            try { await Current(); }
+            catch (Exception) { return; }
+            StateHasChanged();
+            return;
+        }
         if (revealActive)
         {
             revealActive = false;

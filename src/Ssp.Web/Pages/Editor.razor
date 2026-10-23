@@ -42,7 +42,7 @@
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">
-        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" View="@project?.View" ViewChanged="ViewChanged" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point">
+        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" View="@project?.View" ViewChanged="ViewChanged" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point" Covered="@(sheet is not null)">
             <Actions>
                 <div class="toolbar" role="toolbar" aria-label="Editor actions">
                     <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
