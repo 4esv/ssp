@@ -170,6 +170,8 @@ public class ProjectAutosaveTests : BunitContext
         var page = Render<Editor>();
         page.Find("textarea").Input(Fixture("divider-basic.cir"));
         time.Advance(Debounce);
+        // The timer starts the save on another thread. The list reads the store once, when it opens, so wait for the save to end first.
+        page.WaitForAssertion(() => Assert.Equal("Saved", page.Find(".project-state").TextContent.Trim()));
         page.Find(".project-name").Change("Divider");
         page.Find("button.projects-toggle").Click();
         page.WaitForAssertion(() => Assert.Equal(["Divider"], page.FindAll(".project-list li .project-open").Select(b => b.TextContent.Trim())));
