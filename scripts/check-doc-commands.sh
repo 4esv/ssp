@@ -31,10 +31,10 @@ for f in "${files[@]}"; do
     continue
   fi
   cmds="$(awk '
-    /^```sh[[:space:]]*$/ { inblock = 1; next }
-    /^```/ { inblock = 0; pending = ""; next }
+    /^[[:space:]]*```sh[[:space:]]*$/ { inblock = 1; next }
+    /^[[:space:]]*```/ { inblock = 0; pending = ""; next }
     inblock {
-      line = $0
+      line = $0; sub(/^[[:space:]]+/, "", line)
       if (pending != "") { line = pending " " line; pending = "" }
       if (line ~ /\\$/) { sub(/\\$/, "", line); pending = line; next }
       if (line ~ /^ssp /) print line

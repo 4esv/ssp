@@ -103,7 +103,7 @@ The UI calls `ISimulationHost` in `Ssp.Web.Hosting`. The UI does not call `Ssp.C
 The interface has `Run`, `Render`, `Sweep` and `Versions`. Each method returns a `Task`.
 `Program.cs` registers the host for dependency injection. Components get the host with `@inject`.
 `InProcessSimulationHost` calls `Ssp.Core` on the calling thread. In the browser, a long run blocks the page.
-`InProcessSimulationHost.Render` throws `NotSupportedException` until `Ssp.Core` has a transient render (#7).
+`InProcessSimulationHost.Render` throws `NotSupportedException`. `Ssp.Core` has a transient render (`Analyses.Render`, #7), but this host does not call it. The worker host renders (see below).
 No `.razor` file names `Ssp.Core`.
 
 ## Worker boundary (done)

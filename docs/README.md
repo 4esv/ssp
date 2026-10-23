@@ -2,9 +2,12 @@
 
 | Document | Contents |
 |---|---|
+| [cli.md](cli.md) | Every command and option of `ssp`, number syntax, JSON output and MCP. |
+| [web.md](web.md) | The web app: the editor, clips, the amp, share links and exports. |
 | [architecture.md](architecture.md) | Projects, data flow, and boundaries. |
 | [file-format.md](file-format.md) | The circuit file and the layout file. |
 | [features.md](features.md) | Features and their status. |
+| [symbols.md](symbols.md) | One row for each schematic symbol, with a check against the usual drawing convention. |
 | [benchmarks.md](benchmarks.md) | Measured simulation speed. |
 | [schema/run-result.schema.json](schema/run-result.schema.json) | The JSON schema for a run result. |
 | [decisions/](decisions/) | Decision records. |
