@@ -1,7 +1,8 @@
 Summary
   The run completed all analyses.
   There are no errors and no warnings.
-  Node out falls 3 dB below its 10.0 Hz level at 1.59 kHz.
+  Node out peaks at 0.00 dB at 10.0 Hz.
+  Node out is 3 dB below its peak at 1.59 kHz.
 
 Voltages
   Node voltages:

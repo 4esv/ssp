@@ -1,0 +1,16 @@
+* ssp:title CE boost
+* ssp:input in
+* ssp:output out
+VCC vcc 0 DC 9
+Vin in 0 DC 0 AC 1
+Cin in b 100n
+R1 vcc b 470k
+R2 b 0 100k
+RC vcc c 4.7k
+RE e 0 1k
+CE e 0 100u
+Q1 c b e Q3904
+Cout c out 1u
+RL out 0 100k
+.MODEL Q3904 NPN (IS=6.7f BF=416 VAF=74 NE=1.26 ISE=6.7f IKF=66m RB=10 RC=1 CJE=4.5p CJC=3.5p TF=0.3n TR=240n)
+.end

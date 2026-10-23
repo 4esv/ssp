@@ -87,13 +87,14 @@ ssp run circuits/fixtures/rc-lowpass.cir --set R1=4k7 --set C1=47n
 ```
 
 The first command prints a report with the sections Summary, Voltages, Response, Impedances and Diagnostics.
-The Summary says where the output node falls 3 dB:
+The Summary gives the peak of the output node and each frequency where it is 3 dB below the peak:
 
 ```
 Summary
   The run completed all analyses.
   There are no errors and no warnings.
-  Node out falls 3 dB below its 10.0 Hz level at 1.59 kHz.
+  Node out peaks at 0.00 dB at 10.0 Hz.
+  Node out is 3 dB below its peak at 1.59 kHz.
 ```
 
 A circuit with an error stops before the analyses. The report says "Not computed." and the command exits with 1:
