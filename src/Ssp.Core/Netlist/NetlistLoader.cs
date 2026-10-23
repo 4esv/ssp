@@ -50,6 +50,7 @@ public static class NetlistLoader
         }
 
         var directives = DirectiveParser.Parse(netlist);
+        diagnostics.AddRange(directives.Diagnostics);
 
         return new LoadedCircuit(circuit, nodes, diagnostics, directives.Directives, subcircuits, subcircuitPins);
     }
