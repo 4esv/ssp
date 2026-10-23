@@ -17,7 +17,7 @@ public partial class TouchPlaywrightTests
 
         foreach (var sheet in new[] { "results", "plots", "text" })
         {
-            await page.Locator($"button[data-panel={sheet}]").TapAsync();
+            await page.Locator($".panel-bar button[data-panel={sheet}]").TapAsync();
             var panel = (await page.Locator($".dock-panel[data-panel={sheet}]").BoundingBoxAsync())!;
             // NOTE: The view fits after the panel opens, so the test polls until one part lies above the panel.
             var seen = false;
@@ -30,7 +30,7 @@ public partial class TouchPlaywrightTests
             }
             output.WriteLine($"{sheet}: panel top {panel.Y:0}, a part is above it: {seen}");
             Assert.True(seen, $"With {sheet} open, no part of the schematic lies above the panel (top {panel.Y:0} px).");
-            await page.Locator($"button[data-panel={sheet}]").TapAsync();
+            await page.Locator($".panel-bar button[data-panel={sheet}]").TapAsync();
         }
     }
 }
