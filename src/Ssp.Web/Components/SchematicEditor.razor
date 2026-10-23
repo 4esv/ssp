@@ -533,8 +533,15 @@
         await LoadHints();
     }
 
+    bool seenCovered, refit;
+
     protected override void OnParametersSet()
     {
+        if (Covered != seenCovered)
+        {
+            seenCovered = Covered;
+            refit = true;
+        }
         if (Netlist == seenNetlist && ReferenceEquals(Layout, seenLayout)) return;
         seenNetlist = Netlist;
         seenLayout = Layout;
@@ -687,6 +694,17 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         still = false;
+        // NOTE: A panel opens or closes, so the canvas has a new size. The fit measures the pane again, which is the part of the canvas that the user sees (#382).
+        if (refit && svg is not null && view is not null)
+        {
+            refit = false;
+            view = null;
+            savedView = null;
+            try { await Current(); }
+            catch (Exception) { return; }
+            StateHasChanged();
+            return;
+        }
         if (revealActive)
         {
             revealActive = false;
