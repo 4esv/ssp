@@ -4,6 +4,9 @@ ssp designs and simulates guitar pedal circuits.
 It has two interfaces: a command line tool and a static web app.
 Both interfaces use the [SpiceSharp](https://github.com/SpiceSharp/SpiceSharp) engine.
 
+The command line tool and its file formats are stable from version 1.0.0. The web app is not released. It deploys from `main` and can change at any time.
+See [CHANGELOG.md](CHANGELOG.md) and decision record [0008](docs/decisions/0008-versioning.md).
+
 ## Install
 
 You need the .NET 10 SDK.

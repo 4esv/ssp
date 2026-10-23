@@ -10,8 +10,6 @@ This file records the notable changes to this project.
 - Follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), version 2.0.0.
 - Decision record [0008](docs/decisions/0008-versioning.md) fixes this rule.
 
-Before the first release, the commit log and the merged pull requests record the changes.
-
 ## Release checklist
 
 The owner does these five steps for each release.
@@ -24,4 +22,21 @@ The owner does these five steps for each release.
 
 ## [Unreleased]
 
-No release yet.
+No changes yet.
+
+## [1.0.0] - 2026-10-23
+
+The first release. The 1.0 surface is the `ssp` command and the engine: the netlist format, the layout file, the `ssp` directives, the result JSON schema 1.1.0 and the four commands. Decision record [0008](docs/decisions/0008-versioning.md) gives this rule. The web app is not part of the release. It deploys from `main` and can change at any time.
+
+### Added
+
+- `ssp run` gives the operating point, the frequency response and the input and output impedance of a SPICE netlist. It writes a plain-English report, or JSON with `--json`.
+- `ssp sweep` runs a netlist once for each value of a part.
+- `ssp render` sends a WAV file through the circuit. `--ir` convolves the output with an impulse response, for example a cabinet.
+- `ssp mcp` gives the run, render, sweep and explain tools to an MCP client.
+- `--set` changes a part value without an edit to the netlist.
+- Diagnostics find structural, bias and signal faults. Each diagnostic gives the netlist line.
+- Models with provenance headers in `models/`: the TL072, JRC4558 and LM308 op-amps, diodes, JFETs, an LED, a vactrol, a transformer and a cabinet impulse response.
+- The public circuit library in `circuits/`.
+- The web app at https://ssp.aesv.io: a schematic editor, live results, plots, knobs, compare, clip playback, a virtual amp and share by URL.
+- The documents at https://ssp.aesv.io/docs/index.html.
