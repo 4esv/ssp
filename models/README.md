@@ -61,7 +61,7 @@ The defaults are in the `.subckt` line.
 
 ## Use a model
 
-Write `.include <path>` in your netlist. The path is relative to the directory where you run `ssp run`. It is not relative to the netlist file. Run `ssp run` from the repository root.
+Write `.include <path>` in your netlist. A relative path is relative to the directory of the netlist file. It is not relative to the directory where you run `ssp run`. Quotes around the path are optional. An absolute path also works.
 
 This netlist uses the `TL072` subcircuit:
 
@@ -78,15 +78,13 @@ Rl out 0 10k
 .END
 ```
 
-Save the netlist and run it from the repository root:
+Save the netlist as `buffer.cir` in the repository root, then run it from any directory:
 
 ```sh
-ssp run <path>/buffer.cir
+ssp run <repository>/buffer.cir
 ```
 
 The `.include` line loads `models/opamp-tl072.cir`. The `X1` line calls the `TL072` subcircuit with the pins `inp inn out vcc vee`. The output follows the input (unity gain).
-
-After issue #336, the `.include` path will be relative to the netlist file.
 
 ## Parts table
 
