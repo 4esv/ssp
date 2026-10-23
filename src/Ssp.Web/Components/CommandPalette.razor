@@ -20,6 +20,7 @@
 else if (Mode == PaletteMode.Sheet)
 {
     <div class="shortcut-sheet" role="dialog" aria-label="Keyboard shortcuts">
+        <button type="button" @onclick="Closed">Close</button>
         <section class="start-here" aria-label="Start here">
             <h2>Start here</h2>
             <ul>
@@ -49,6 +50,7 @@ else if (Mode == PaletteMode.Sheet)
 
     [Parameter] public PaletteMode Mode { get; set; }
     [Parameter] public EventCallback<Shortcut> Chosen { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
 
     ElementReference search;
     string query = "";
