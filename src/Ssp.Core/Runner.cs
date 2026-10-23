@@ -23,7 +23,7 @@ public static class Runner
         var diagnostics = new List<Diagnostic>();
         var timings = new Dictionary<string, double>(StringComparer.Ordinal);
 
-        var circuit = Time("load", "Load", timings, diagnostics, () => NetlistLoader.Load(netlist));
+        var circuit = Time("load", "Load", timings, diagnostics, () => NetlistLoader.Load(netlist, options.BaseDirectory));
         if (circuit is null)
         {
             return Stop();

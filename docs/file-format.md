@@ -1,7 +1,5 @@
 # File format
 
-Status: draft.
-
 A circuit has two files:
 
 | File | Contents | Required |
@@ -29,6 +27,22 @@ Rules:
 - `<taper>` of a `knob` is `linear`, `log` or `revlog`. At the half-way position, the share below the wiper is 50% for `linear`, 10% for `log` and 90% for `revlog`.
 - An unknown directive, or a directive with the wrong arguments, gives a diagnostic with severity warning. The line is ignored.
 - If a directive is given more than once, the last `title`, `input` or `output` is used. Every `knob`, `switch` and `part` is kept.
+
+## Compatibility
+
+The file format follows Semantic Versioning ([0008](decisions/0008-versioning.md)). The rules apply from the freeze.
+
+| File | A breaking change | An additive change |
+|---|---|---|
+| Netlist (`.cir`) | A valid netlist now gives an error. ssp drops an element or reads a value differently. | A new directive, a new part or a new model. |
+| Layout (`.layout.toml`) | A valid layout now gives an error. A position moves without a reason. | A new key with a default. |
+
+- A breaking change raises the major version of the tool.
+- A corrected simulation value is a fix, not a break. The release notes name it.
+
+## Include
+
+A relative `.include` path resolves against the directory of the netlist file, and the path may be quoted or not.
 
 ## Example
 

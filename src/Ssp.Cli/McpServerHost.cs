@@ -31,36 +31,45 @@ internal static class McpServerHost
         return 0;
     }
 
+    // NOTE: The arguments are nullable so that a missing one reaches Require and gives a message that names it.
+    // The SDK would give only "An error occurred invoking" for a missing required argument.
     [Description("Run a netlist and return the result as JSON, the same as `ssp run --json`.")]
     private static string RunTool(
-        [Description("Path to the netlist.")] string file,
+        [Description("Path to the netlist. Required.")] string? file = null,
         [Description("Part values to set before the run, for example R1=4k7.")] string[]? set = null) =>
-        Invoke(["run", file, "--json", .. SetArgs(set)]);
+        Invoke(["run", Require(file, "file"), "--json", .. SetArgs(set)]);
 
     [Description("Explain a netlist in plain English, the same as `ssp run`.")]
     private static string ExplainTool(
-        [Description("Path to the netlist.")] string file,
+        [Description("Path to the netlist. Required.")] string? file = null,
         [Description("Part values to set before the run, for example R1=4k7.")] string[]? set = null) =>
-        Invoke(["run", file, .. SetArgs(set)]);
+        Invoke(["run", Require(file, "file"), .. SetArgs(set)]);
 
     [Description("Run a netlist once for each value of a part and return the series as JSON, the same as `ssp sweep --json`.")]
     private static string SweepTool(
-        [Description("Path to the netlist.")] string file,
-        [Description("The part and its values, for example R1=4k7,10k,22k.")] string set) =>
-        Invoke(["sweep", file, "--json", "--set", set]);
+        [Description("Path to the netlist. Required.")] string? file = null,
+        [Description("The part and its values, for example R1=4k7,10k,22k. Required.")] string? set = null) =>
+        Invoke(["sweep", Require(file, "file"), "--json", "--set", Require(set, "set")]);
 
     [Description("Render a WAV file through a netlist and write the result to a WAV file, the same as `ssp render`.")]
     private static string RenderTool(
-        [Description("Path to the netlist.")] string file,
-        [Description("Path to the input WAV file.")] string input,
-        [Description("Path to the output WAV file.")] string output,
+        [Description("Path to the netlist. Required.")] string? file = null,
+        [Description("Path to the input WAV file. Required.")] string? input = null,
+        [Description("Path to the output WAV file. Required.")] string? output = null,
         [Description("The number of solver steps for each sample.")] int oversample = 1,
         [Description("Path to an impulse response WAV file, for example a cabinet.")] string? ir = null)
     {
-        string[] args = ["render", file, "--in", input, "--out", output, "--oversample", oversample.ToString()];
+        string[] args =
+        [
+            "render", Require(file, "file"), "--in", Require(input, "input"), "--out", Require(output, "output"),
+            "--oversample", oversample.ToString(),
+        ];
         Invoke(ir is null ? args : [.. args, "--ir", ir]);
         return $"Wrote {output}.";
     }
+
+    private static string Require(string? value, string name) =>
+        string.IsNullOrWhiteSpace(value) ? throw new McpException($"Missing argument '{name}'.") : value;
 
     private static IEnumerable<string> SetArgs(string[]? set) => (set ?? []).SelectMany(s => new[] { "--set", s });
 

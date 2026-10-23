@@ -213,17 +213,76 @@ public static partial class SchematicEdits
     public static double Snap(double value) => Math.Round(value / Symbols.Grid, MidpointRounding.AwayFromZero) * Symbols.Grid + 0.0;
 
     /// <summary>
-    /// <see cref="Place"/> with the part at a point, snapped to the grid. A pin that lands on another pin or on a wire
-    /// joins that net.
+    /// <see cref="Place"/> with the part near a point, snapped to the grid. The part keeps its new nodes: it goes to the
+    /// nearest free spot, where its body and pins touch no part, no pin and no wire. Only a wire joins nets (#338).
     /// </summary>
     public static SchematicChange PlaceAt(string netlist, LayoutDoc layout, string kind, Point at)
     {
         var placed = Place(netlist, layout, kind);
         var last = placed.Layout.Parts[^1];
-        var parts = placed.Layout.Parts.SkipLast(1).Append(last with { X = Snap(at.X), Y = Snap(at.Y) }).ToList();
-        var change = placed with { Layout = new LayoutDoc(parts, placed.Layout.Wires) };
-        return Settle(change, last.Reference);
+        var spot = Free(placed, last with { X = Snap(at.X), Y = Snap(at.Y) });
+        var parts = placed.Layout.Parts.SkipLast(1).Append(spot).ToList();
+        return placed with { Layout = new LayoutDoc(parts, placed.Layout.Wires) };
     }
+
+    // NOTE: #338: a palette add asks for the centre of the view each time. Before, parts stacked on that spot, their pins
+    // met, and a settle joined their nets with no wire. The search goes out in rings of one grid step from the spot.
+    static PartPlacement Free(SchematicChange change, PartPlacement want)
+    {
+        var circuit = NetlistLoader.Load(change.Netlist);
+        var elements = SchematicRenderer.Elements(circuit, PartMap.Resolve(circuit, Ssp.Web.Components.SchematicView.Table));
+        bool Is(SchematicElement e, string reference) => Names.Equals(e.Reference, reference) || Names.Equals(e.Members[0], reference);
+        PartPlacement? At(SchematicElement e) => change.Layout.Parts.FirstOrDefault(p => !Names.Equals(p.Reference, want.Reference) && (Names.Equals(p.Reference, e.Reference) || Names.Equals(p.Reference, e.Members[0])));
+        var element = elements.Single(e => Is(e, want.Reference));
+        var others = elements.Where(e => e != element).Select(e => (Element: e, Placement: At(e))).Where(x => x.Placement is not null).ToList();
+        var boxes = others.Select(x => Outline(x.Element, x.Placement!)).ToList();
+        var pins = others.SelectMany(x => SchematicRenderer.Pins(x.Element, x.Placement!)).Select(p => p.At).ToList();
+        var wires = change.Layout.Wires;
+
+        var (min, max) = Outline(element, want);
+        var own = SchematicRenderer.Pins(element, want).Select(p => p.At).ToList();
+        // NOTE: One grid step of space around the body, so that two parts never touch.
+        const double gap = Symbols.Grid;
+        bool Clear(double dx, double dy)
+        {
+            var (x0, y0, x1, y1) = (min.X + dx - gap, min.Y + dy - gap, max.X + dx + gap, max.Y + dy + gap);
+            bool Inside(Point p) => p.X >= x0 && p.X <= x1 && p.Y >= y0 && p.Y <= y1;
+            if (boxes.Any(b => b.Min.X <= x1 && b.Max.X >= x0 && b.Min.Y <= y1 && b.Max.Y >= y0)) return false;
+            if (pins.Any(Inside)) return false;
+            // NOTE: A wire must not touch the body or a pin. A wire is a list of segments, each tested by its bounds.
+            foreach (var w in wires)
+            {
+                for (var i = 1; i < w.Points.Count; i++)
+                {
+                    var (a, b) = (w.Points[i - 1], w.Points[i]);
+                    if (Math.Min(a.X, b.X) <= x1 && Math.Max(a.X, b.X) >= x0 && Math.Min(a.Y, b.Y) <= y1 && Math.Max(a.Y, b.Y) >= y0) return false;
+                }
+                if (own.Any(p => OnWire(w, new Point(p.X + dx, p.Y + dy)))) return false;
+            }
+            return true;
+        }
+
+        for (var ring = 0; ring <= 200; ring++)
+        {
+            var spots = new List<(int X, int Y)>();
+            for (var i = -ring; i <= ring; i++)
+            {
+                spots.Add((i, -ring));
+                spots.Add((i, ring));
+                spots.Add((-ring, i));
+                spots.Add((ring, i));
+            }
+            // NOTE: The nearest spot first, then right before left and down before up, so the result does not depend on the list order.
+            foreach (var (x, y) in spots.Distinct().OrderBy(s => s.X * s.X + s.Y * s.Y).ThenByDescending(s => s.X).ThenByDescending(s => s.Y))
+            {
+                if (Clear(x * Symbols.Grid, y * Symbols.Grid)) return want with { X = want.X + x * Symbols.Grid, Y = want.Y + y * Symbols.Grid };
+            }
+        }
+        return want;
+    }
+
+    static (Point Min, Point Max) Outline(SchematicElement element, PartPlacement placement) =>
+        element.Kind == "pot" ? SchematicRenderer.PotOutline(placement) : SchematicRenderer.Outline(element, placement);
 
     /// <summary>The distance from a pin to the part or wire that one move adds, in schematic units.</summary>
     public const double Step = 40;

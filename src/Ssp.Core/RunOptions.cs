@@ -20,4 +20,7 @@ public sealed record RunOptions
 
     /// <summary>Part values to set before the analyses run.</summary>
     public IReadOnlyList<Override> Overrides { get; init; }
+
+    /// <summary>The directory of the netlist file. A relative <c>.include</c> path resolves against it. Null means the working directory.</summary>
+    public string? BaseDirectory { get; init; }
 }

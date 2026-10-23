@@ -95,4 +95,20 @@ public class RunCommandTests
         Assert.NotEqual(plain, changed);
         Assert.Contains("Node out falls 3 dB below its 10.0 Hz level at 336 Hz.", changed);
     }
+
+    [Fact]
+    public void ADirectoryInPlaceOfTheNetlistPrintsOneLineNamingThePath()
+    {
+        var dir = Path.GetTempPath();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = Program.Run(["run", dir], output, error);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains(Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar), error.ToString());
+        Assert.Single(error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.DoesNotContain("Unhandled exception", error.ToString());
+        Assert.DoesNotContain("   at ", error.ToString());
+    }
 }
