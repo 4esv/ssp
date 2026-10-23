@@ -8,7 +8,15 @@ The examples on this page run from the root of the repository. [scripts/check-do
 ## Install
 
 See the Install section in the [README](../README.md).
-On a Homebrew .NET, set `DOTNET_ROOT` first:
+On a Homebrew .NET, `ssp` can fail. The error starts with:
+
+```text
+You must install or update .NET to run this application.
+```
+
+It also says `Framework: 'Microsoft.NETCore.App', version '10.0.0'`.
+The system can find an old .NET in another folder first.
+Set `DOTNET_ROOT` and run it again:
 
 ```sh
 export DOTNET_ROOT="$(brew --prefix dotnet)/libexec"
@@ -140,7 +148,14 @@ ssp render circuits/library/fuzz-transistor-diode.cir --in src/Ssp.Web/Audio/rif
 ssp render circuits/library/fuzz-transistor-diode.cir --in src/Ssp.Web/Audio/riff.wav --out fuzz-cab.wav --ir models/ir/cab-1x12.wav
 ```
 
-The folder `src/Ssp.Web/Audio` has sample clips. The file `models/ir/cab-1x12.wav` is a cabinet impulse response.
+Use a sample WAV from the repository, or use your own 16-bit or 24-bit WAV file.
+This command downloads a sample clip into the current folder:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/4esv/ssp/main/src/Ssp.Web/Audio/riff.wav
+```
+
+The folder `src/Ssp.Web/Audio` has the sample clips. The file `models/ir/cab-1x12.wav` is a cabinet impulse response.
 
 ## ssp mcp
 
@@ -200,7 +215,7 @@ ssp sweep circuits/fixtures/rc-lowpass.cir --set R1=1k,4k7 --json
 
 | Message | Cause and fix |
 |---|---|
-| You must install or update .NET | .NET is from Homebrew. Set `DOTNET_ROOT` as shown at the top of this page. |
+| You must install or update .NET to run this application. | .NET is from Homebrew, and the system found an old .NET in another folder first. Set `DOTNET_ROOT` as shown at the top of this page. |
 | File X does not exist. | The path is wrong. |
 | Override 'X' must have the form REF=VALUE. | Write `--set R1=4k7`. |
 | Override 'X' has a value that is not a SPICE number. | See [Number syntax](#number-syntax). |
