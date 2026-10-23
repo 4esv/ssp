@@ -25,13 +25,45 @@ public sealed class PartMap
     public static PartMap Resolve(LoadedCircuit circuit, PartsTable parts)
     {
         var diagnostics = new List<Diagnostic>();
-        var directed = new Dictionary<string, PartRow>(StringComparer.OrdinalIgnoreCase);
+        var references = References(circuit);
+        var directed = DirectedParts(circuit, parts, references, diagnostics);
+
+        var map = new Dictionary<string, PartRow?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (reference, entity) in references)
+        {
+            var row = directed.GetValueOrDefault(reference) ?? Default(entity, parts);
+            map[reference] = row;
+            if (row is null)
+            {
+                diagnostics.Add(new Diagnostic(Severity.Warning, $"Reference '{reference}' has no part.", null));
+            }
+        }
+        return new PartMap(map, diagnostics);
+    }
+
+    /// <summary>
+    /// The diagnostics for the <c>* ssp:part</c> directives: a reference that is not in the netlist, or a part id that is not in the table.
+    /// </summary>
+    public static IReadOnlyList<Diagnostic> DirectiveDiagnostics(LoadedCircuit circuit, PartsTable parts)
+    {
+        var diagnostics = new List<Diagnostic>();
+        DirectedParts(circuit, parts, References(circuit), diagnostics);
+        return diagnostics;
+    }
+
+    static Dictionary<string, IEntity> References(LoadedCircuit circuit)
+    {
         var references = new Dictionary<string, IEntity>(StringComparer.OrdinalIgnoreCase);
         foreach (var entity in circuit.Circuit)
         {
             if (entity is IComponent) references[entity.Name] = entity;
         }
+        return references;
+    }
 
+    static Dictionary<string, PartRow> DirectedParts(LoadedCircuit circuit, PartsTable parts, Dictionary<string, IEntity> references, List<Diagnostic> diagnostics)
+    {
+        var directed = new Dictionary<string, PartRow>(StringComparer.OrdinalIgnoreCase);
         foreach (var d in circuit.Directives.Parts)
         {
             if (!references.ContainsKey(d.Reference))
@@ -47,18 +79,7 @@ public sealed class PartMap
                 directed[d.Reference] = row;
             }
         }
-
-        var map = new Dictionary<string, PartRow?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (reference, entity) in references)
-        {
-            var row = directed.GetValueOrDefault(reference) ?? Default(entity, parts);
-            map[reference] = row;
-            if (row is null)
-            {
-                diagnostics.Add(new Diagnostic(Severity.Warning, $"Reference '{reference}' has no part.", null));
-            }
-        }
-        return new PartMap(map, diagnostics);
+        return directed;
     }
 
     static PartRow? Default(IEntity entity, PartsTable parts)

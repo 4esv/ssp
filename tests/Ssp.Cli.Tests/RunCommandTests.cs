@@ -77,6 +77,36 @@ public class RunCommandTests
     }
 
     [Fact]
+    public void SspPartDirectivesReachTheReport()
+    {
+        const string netlist = """
+            * ssp:part D9 1N4148
+            * ssp:part D1 NOPE
+            V1 a 0 5
+            D1 a b DGEN
+            R1 b 0 1k
+            .MODEL DGEN D
+            .END
+            """;
+        var path = Path.Combine(Path.GetTempPath(), $"ssp-part-{Guid.NewGuid():N}.cir");
+        File.WriteAllText(path, netlist);
+        try
+        {
+            var (exitCode, output) = Run("run", path);
+
+            Assert.Equal(1, exitCode);
+            Assert.Contains("NOPE", output);
+            Assert.Contains("D9", output);
+            Assert.Contains("error", output, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("warning", output, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void RunWithJsonExitsOneWhenADiagnosticIsAnError()
     {
         var (exitCode, output) = Run("run", RepoPaths.Fixture("diag-no-ground.cir"), "--json");
