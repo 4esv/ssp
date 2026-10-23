@@ -34,7 +34,7 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .dock-tab { padding: 0 0.4rem; font-size: 0.875rem; }
 .dock-close { padding: 0 0.5rem; min-width: 1.5rem; }
 .dock-help { flex-basis: 100%; font-size: 0.875rem; }
-.dock-panel { position: absolute; box-sizing: border-box; overflow: auto; padding: 0.5rem; border: 1px solid; background: var(--bg); }
+.dock-panel { position: absolute; box-sizing: border-box; overflow: auto; padding: 0.5rem; border: 1px solid; background: var(--bg); } /* NOTE: A plot in the dock scales to fit its panel, so the bottom dock shows the first plot whole (#343). */ .dock-panel[data-panel="plots"] { container-type: size; } .dock-panel[data-panel="plots"] h2 { margin: 0 0 0.25rem; font-size: 1rem; } .dock-panel[data-panel="plots"] .line-chart { width: auto; max-width: 100%; max-height: calc(100cqh - 2.75rem); }
 .dock-panel > textarea { box-sizing: border-box; width: 100%; height: 100%; resize: none; } .dock-panel-title { display: none; margin: 0 0 0.5rem; font-size: 1rem; }
 .dock-splitter { position: absolute; z-index: 2; }
 .dock-splitter.row { width: 6px; transform: translateX(-3px); cursor: col-resize; } .dock-splitter.column { height: 6px; transform: translateY(-3px); cursor: row-resize; }
