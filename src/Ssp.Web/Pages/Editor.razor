@@ -370,6 +370,7 @@
     // project. It is saved at its first edit, so it does not overwrite the open project.
     protected override async Task OnInitializedAsync()
     {
+        await ShowHelpOnce();
         await sample.Restore();
         try
         {
@@ -386,6 +387,24 @@
             // NOTE: Storage can be off or blocked. The starter circuit is then correct, so this is not an error.
         }
     }
+
+    // NOTE: The help panel opens at the first visit only. Blocked storage cannot say that it was seen, so the panel stays shut.
+    async Task ShowHelpOnce()
+    {
+        try
+        {
+            var storage = new LocalStorage(Js);
+            if (await storage.Get(HelpSeenKey) is not null) return;
+            await storage.Set(HelpSeenKey, "1");
+            mode = CommandPalette.PaletteMode.Sheet;
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The editor works without the panel.
+        }
+    }
+
+    const string HelpSeenKey = "ssp.help.seen";
 
     static string? starter;
 

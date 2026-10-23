@@ -48,6 +48,7 @@ public class WorkerHostTests(ITestOutputHelper output)
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync();
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.Console += (_, message) => output.WriteLine("console: " + message.Text);
         page.PageError += (_, error) => output.WriteLine("page error: " + error);
         page.Worker += (_, worker) => worker.Console += (_, message) => output.WriteLine("worker console: " + message.Text);

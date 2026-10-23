@@ -39,6 +39,7 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
         await using var browser = await playwright.Chromium.LaunchAsync();
         var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 1456, Height = 797 } });
         var page = await context.NewPageAsync();
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(60_000);
         await page.RouteAsync(baseUrl + "editor", async route => await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));
         await page.GotoAsync(baseUrl + "editor#" + hash);
@@ -124,6 +125,7 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
         await using var browser = await playwright.Chromium.LaunchAsync();
         var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 1456, Height = 797 } });
         var page = await context.NewPageAsync();
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(60_000);
         await page.RouteAsync(baseUrl + "editor", async route => await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));
         await page.GotoAsync(baseUrl + "editor#" + hash);

@@ -280,6 +280,7 @@ public partial class TouchPlaywrightTests(ITestOutputHelper output)
                 ViewportSize = new() { Width = 390, Height = 844 },
             });
             phone.Page = await context.NewPageAsync();
+            await phone.Page.AddInitScriptAsync(HelpSeen.Script);
             phone.Page.SetDefaultTimeout(60_000);
             await phone.Page.RouteAsync(baseUrl + "editor", async route =>
                 await route.FulfillAsync(new() { Response = await route.FetchAsync(new() { Url = baseUrl }) }));

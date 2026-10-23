@@ -29,6 +29,7 @@ public class DrawAFuzzAndPlayItTests(ITestOutputHelper output)
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1456, Height = 797 } });
+        await page.AddInitScriptAsync(HelpSeen.Script);
         page.SetDefaultTimeout(30_000);
         page.PageError += (_, error) => output.WriteLine("page error: " + error);
         await ClipPlayerTests.Session.OpenEditor(page);

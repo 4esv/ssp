@@ -187,6 +187,7 @@ public class EditorLayoutPlaywrightTests(ITestOutputHelper output)
             // connections when a page fetches all of the app at once.
             context ??= await browser.NewContextAsync();
             var page = await context.NewPageAsync();
+            await page.AddInitScriptAsync(HelpSeen.Script);
             await page.SetViewportSizeAsync(width, height);
             page.SetDefaultTimeout(60_000);
             await page.RouteAsync(baseUrl + "editor", async route =>

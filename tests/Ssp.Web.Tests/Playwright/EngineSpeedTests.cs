@@ -96,6 +96,7 @@ public class EngineSpeedTests(ITestOutputHelper output)
         using var playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync();
         var page = await browser.NewPageAsync();
+        await page.AddInitScriptAsync(HelpSeen.Script);
         await page.RouteAsync(Origin + "/**", route => Serve(route, site));
         await page.GotoAsync(Origin + "/");
         await page.WaitForFunctionAsync("() => globalThis.sspReady === true", null, new() { Timeout = 120_000 });
