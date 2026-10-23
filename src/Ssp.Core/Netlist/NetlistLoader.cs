@@ -34,7 +34,7 @@ public static partial class NetlistLoader
                 diagnostics.AddRange(NetlistChecks.Run(parsed.FinalModel.Statements));
             }
 
-            if (diagnostics.Count == 0)
+            if (!diagnostics.Any(d => d.Severity == Severity.Error))
             {
                 var model = new SpiceSharpReader().Read(parsed.FinalModel);
                 circuit = model.Circuit;

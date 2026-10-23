@@ -85,7 +85,7 @@ public class NetlistMistakeTests
         var w = Assert.Single(Warnings("10x"));
 
         Assert.Equal(4, w.Line);
-        Assert.Equal("Warning, line 4: C1 has the value 10x. ssp reads it as 10000000. The letters 'x' are not a unit.", w.Message);
+        Assert.Equal("C1 has the value 10x. ssp reads it as 10000000. The letters 'x' are not a unit.", w.Message);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class NetlistMistakeTests
     {
         var w = Assert.Single(Warnings("10kxyz", "L1 out 0"));
 
-        Assert.Equal("Warning, line 4: L1 has the value 10kxyz. ssp reads it as 10000. The letters 'xyz' are not a unit.", w.Message);
+        Assert.Equal("L1 has the value 10kxyz. ssp reads it as 10000. The letters 'xyz' are not a unit.", w.Message);
     }
 
     [Theory]

@@ -1,3 +1,4 @@
+using System.Globalization;
 using SpiceSharpParser.Models.Netlist.Spice.Objects;
 using SpiceSharpParser.Models.Netlist.Spice.Objects.Parameters;
 using ParsedComponent = SpiceSharpParser.Models.Netlist.Spice.Objects.Component;
@@ -27,6 +28,13 @@ public static class NetlistChecks
                     {
                         diagnostics.Add(new Diagnostic(Severity.Error, $"{part.Name} on line {line} has a value of {words[2]}. A resistor needs a value above 0.", line));
                     }
+                    else
+                    {
+                        CheckUnit(part, words[2], diagnostics);
+                    }
+                    break;
+                case 'C' or 'L' when words.Count >= 3:
+                    CheckUnit(part, words[2], diagnostics);
                     break;
                 case 'D' when words.Count >= 3:
                     CheckModel(part, words[^1], models, diagnostics);
@@ -41,6 +49,19 @@ public static class NetlistChecks
         }
 
         return diagnostics;
+    }
+
+    // NOTE: #364: the reader ignores letters after the number. A letter that is not a unit is a likely typo.
+    static void CheckUnit(ParsedComponent part, string word, List<Diagnostic> diagnostics)
+    {
+        if (part.PinsAndParameters[2] is not SingleParameter || Overrides.Read(word) is not { Stray.Length: > 0 } read)
+        {
+            return;
+        }
+
+        var line = part.LineInfo?.LineNumber;
+        var used = read.Value.ToString("R", CultureInfo.InvariantCulture);
+        diagnostics.Add(new Diagnostic(Severity.Warning, $"{part.Name} has the value {word}. ssp reads it as {used}. The letters '{read.Stray}' are not a unit.", line));
     }
 
     static void CheckModel(ParsedComponent part, string model, HashSet<string> models, List<Diagnostic> diagnostics)

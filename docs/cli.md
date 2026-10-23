@@ -46,7 +46,9 @@ An error prints one line on standard error. The only exception is a circuit with
 | `f` | 1e-15 |
 | `mil` | 25.4e-6 |
 
-A unit word after the number, such as `10kohm`, is not valid.
+A unit word after the number and the suffix is valid. The unit words are `ohm`, `f`, `h`, `v`, `a`, `s`, and `hz`. The netlist reader accepts the same words. Example: `10kohm` is 10000, and `47nF` is 47e-9.
+
+Other letters after the number are not valid. `--set R1=10x` and `--set R1=abc` give an error. In a netlist, letters that are not a unit give a warning, and the run goes on. The warning names the line, the part, and the number that ssp used. Example: `C1 out 0 10x` gives the warning `C1 has the value 10x. ssp reads it as 10000000. The letters 'x' are not a unit.` (The netlist reader reads `x` as meg.)
 
 A `--set` changes the value of a resistor, a capacitor, an inductor, or the DC value of a voltage or current source.
 Any other part gives the error "Part X does not support a value override."
