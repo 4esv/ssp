@@ -59,7 +59,7 @@ public class SchematicEditsStaleLayoutTests : BunitContext
         var parts = PartMap.Resolve(circuit, Table);
         var clip = SchematicEdits.Copy(netlist, layout, parts, ["R1"]);
         var args = method.GetParameters().Select(p =>
-            p.Name == "kind" && method.Name == "PlaceJack" ? "jack-in"
+            p.Name == "kind" && method.Name is "PlaceJack" or "PlaceJackPart" ?"jack-in"
             : p.Name == "value" && p.HasDefaultValue ? null
             : Argument(p, netlist, layout, parts, clip)).ToArray();
         try { method.Invoke(null, args); }
