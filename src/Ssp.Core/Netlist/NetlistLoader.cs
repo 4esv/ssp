@@ -28,6 +28,12 @@ public static partial class NetlistLoader
                 diagnostics.Add(new Diagnostic(Severity.Error, error.Message, error.LineInfo?.LineNumber));
             }
 
+            // NOTE: These checks come first, so the message names the line and the part. They replace the engine message for the same mistake.
+            if (diagnostics.Count == 0)
+            {
+                diagnostics.AddRange(NetlistChecks.Run(parsed.FinalModel.Statements));
+            }
+
             if (diagnostics.Count == 0)
             {
                 var model = new SpiceSharpReader().Read(parsed.FinalModel);
