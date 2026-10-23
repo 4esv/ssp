@@ -65,6 +65,10 @@
                         }
                     </span>
                     <span class="toolbar-status" role="status">@toolbarStatus</span>
+                    @if (showStart)
+                    {
+                        <button type="button" class="start-here-button" @onclick="() => Refocus(CommandPalette.PaletteMode.Sheet)">Start here</button>
+                    }
                     <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
                 </div>
             </Actions>
@@ -282,6 +286,11 @@
         {
             await root.FocusAsync();
         }
+        else if (next == CommandPalette.PaletteMode.Sheet && showStart)
+        {
+            showStart = false;
+            await MarkHelpSeen();
+        }
     }
 
     async Task Choose(Shortcut shortcut)
@@ -388,21 +397,32 @@
         }
     }
 
-    // NOTE: The help panel opens at the first visit only. Blocked storage cannot say that it was seen, so the panel stays shut.
+    // NOTE: The first visit shows a Start here button, not the panel. Blocked storage cannot say that the panel was seen, so the button stays hidden.
     async Task ShowHelpOnce()
     {
         try
         {
-            var storage = new LocalStorage(Js);
-            if (await storage.Get(HelpSeenKey) is not null) return;
-            await storage.Set(HelpSeenKey, "1");
-            mode = CommandPalette.PaletteMode.Sheet;
+            showStart = await new LocalStorage(Js).Get(HelpSeenKey) is null;
         }
         catch (Exception)
         {
-            // NOTE: Storage can be off or blocked. The editor works without the panel.
+            // NOTE: Storage can be off or blocked. The editor works without the button.
         }
     }
+
+    async Task MarkHelpSeen()
+    {
+        try
+        {
+            await new LocalStorage(Js).Set(HelpSeenKey, "1");
+        }
+        catch (Exception)
+        {
+            // NOTE: Storage can be off or blocked. The button then shows again at the next visit.
+        }
+    }
+
+    bool showStart;
 
     const string HelpSeenKey = "ssp.help.seen";
 
