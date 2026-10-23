@@ -125,7 +125,7 @@ Here `D1` uses the `1N4148` part row and the `DGEN` model. The part row gives th
 
 The schematic uses the symbol of the part id. The parts list shows the footprint and the buy link.
 
-In the editor, a `<ref>` that is not in the netlist gives a warning, and an `<id>` that is not in `models/parts.toml` gives an error. `ssp run` does not report these problems yet (issue #353).
+A `<ref>` that is not in the netlist gives a warning. An `<id>` that is not in `models/parts.toml` gives an error. The editor and `ssp run` both report these problems.
 
 Without the directive, the loader matches the part by kind and model name.
 
