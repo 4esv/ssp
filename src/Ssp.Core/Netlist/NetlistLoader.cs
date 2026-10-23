@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using SpiceSharp;
 using SpiceSharp.Components;
 using SpiceSharpParser;
@@ -7,9 +8,13 @@ using ParsedComponent = SpiceSharpParser.Models.Netlist.Spice.Objects.Component;
 
 namespace Ssp.Core.Netlist;
 
-public static class NetlistLoader
+public static partial class NetlistLoader
 {
-    public static LoadedCircuit Load(string netlist)
+    /// <summary>
+    /// Loads a netlist. A relative <c>.include</c> path resolves against <paramref name="baseDirectory"/>, the directory of the netlist file.
+    /// Without a base directory it resolves against the working directory. An include path may be quoted or not.
+    /// </summary>
+    public static LoadedCircuit Load(string netlist, string? baseDirectory = null)
     {
         var diagnostics = new List<Diagnostic>();
         var circuit = new Circuit();
@@ -17,7 +22,7 @@ public static class NetlistLoader
         var subcircuitPins = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            var parsed = new SpiceNetlistParser().ParseNetlist(netlist);
+            var parsed = new SpiceNetlistParser().ParseNetlist(QuoteIncludes(netlist, baseDirectory));
             foreach (var error in parsed.ValidationResult.Errors)
             {
                 diagnostics.Add(new Diagnostic(Severity.Error, error.Message, error.LineInfo?.LineNumber));
@@ -54,6 +59,23 @@ public static class NetlistLoader
 
         return new LoadedCircuit(circuit, nodes, diagnostics, directives.Directives, subcircuits, subcircuitPins);
     }
+
+    // NOTE: #336: the parser accepts only a quoted include path and resolves it against the working directory. Rewrite each
+    // .include line to a quoted path, made absolute against the netlist directory. The line count does not change.
+    private static string QuoteIncludes(string netlist, string? baseDirectory) =>
+        IncludeLine().Replace(netlist, m =>
+        {
+            var path = m.Groups["path"].Value.Trim().Trim('"', '\'');
+            if (baseDirectory is not null && !Path.IsPathRooted(path))
+            {
+                path = Path.GetFullPath(Path.Combine(baseDirectory, path));
+            }
+
+            return $"{m.Groups["lead"].Value}\"{path}\"";
+        });
+
+    [GeneratedRegex("^(?<lead>[ \\t]*\\.inc(?:lude)?[ \\t]+)(?<path>[^\\r\\n]+?)[ \\t]*$", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
+    private static partial Regex IncludeLine();
 
     // NOTE: the reader flattens each X line into the parts of its subcircuit. Keep the X line, so a rule can find the pins of the instance.
     private static IEnumerable<SubcircuitInstance> Subcircuits(IEnumerable<ParsedComponent> components)
