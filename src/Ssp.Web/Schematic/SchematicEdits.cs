@@ -200,13 +200,32 @@ public static partial class SchematicEdits
     {
         var directive = kind switch { "jack-in" => "input", "jack-out" => "output", _ => throw new ArgumentException("Not a jack.", nameof(kind)) };
         if (!TryNodeOf(NetlistLoader.Load(netlist), layout, parts, spot, out var node)) return new SchematicChange(netlist, layout);
+        return new SchematicChange(Mark(netlist, directive, node), layout);
+    }
+
+    /// <summary>
+    /// Places a jack where no pin is chosen. The jack in gets a source part and the jack out a resistor, as a part
+    /// like any other kind. The directive marks the first node of that part.
+    /// </summary>
+    public static SchematicChange PlaceJackPart(string netlist, LayoutDoc layout, string kind)
+    {
+        var (directive, part) = kind switch { "jack-in" => ("input", "source"), "jack-out" => ("output", "resistor"), _ => throw new ArgumentException("Not a jack.", nameof(kind)) };
+        var placed = Place(netlist, layout, part);
+        var reference = placed.Layout.Parts[^1].Reference;
+        var line = Lines(placed.Netlist).First(l => l.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var name, ..] && Names.Equals(name, reference));
+        var node = line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1];
+        return placed with { Netlist = Mark(placed.Netlist, directive, node) };
+    }
+
+    static string Mark(string netlist, string directive, string node)
+    {
         var lines = Lines(netlist);
         var line = $"* ssp:{directive} {node}";
         var at = lines.FindIndex(l => Regex.IsMatch(l, $@"^\s*\*\s*ssp:{directive}\b", RegexOptions.IgnoreCase));
         if (at >= 0) lines[at] = line;
         // NOTE: The first line of a netlist is its title.
         else lines.Insert(Math.Min(1, lines.Count), line);
-        return new SchematicChange(Join(lines), layout);
+        return Join(lines);
     }
 
     /// <summary>Rounds a coordinate to the nearest <see cref="Symbols.Grid"/> step.</summary>

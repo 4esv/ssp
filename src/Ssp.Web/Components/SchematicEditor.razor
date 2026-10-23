@@ -932,7 +932,7 @@
                 await Apply(SchematicEdits.PlaceJack(netlist, layout, parts, kind, pin));
                 Activate(pin);
             }
-            else status = $"Tap a pin first, then {Label(kind)}.";
+            else await Apply(SchematicEdits.PlaceJackPart(netlist, layout, kind));
             return;
         }
         double[]? b = null;
