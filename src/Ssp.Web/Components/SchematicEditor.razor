@@ -617,6 +617,11 @@
             var total = circuit.Circuit.OfType<SpiceSharp.Components.Resistor>().Where(r => pot.Members.Contains(r.Name, StringComparer.OrdinalIgnoreCase)).Sum(r => r.Parameters.Resistance.Value);
             knobs.Add(new KnobView(pot.Reference, new Point(kx, ky), knob.Position, knob.Taper, total));
         }
+        // NOTE: #338: where two outlines overlap, the last rect gets the pointer. The rects go in the order that the
+        // schematic draws the parts, so a drag picks the part on top.
+        var drawn = elements.Select((e, i) => (e, i)).SelectMany(x => x.e.Members.Prepend(x.e.Reference).Select(r => (r, x.i)))
+            .DistinctBy(x => x.r, StringComparer.OrdinalIgnoreCase).ToDictionary(x => x.r, x => x.i, StringComparer.OrdinalIgnoreCase);
+        outlines = outlines.OrderBy(o => drawn.GetValueOrDefault(o.Reference, int.MaxValue)).ToList();
         // NOTE: A jack is a marker on a node. The symbol sits at the first pin on that node.
         foreach (var (node, label) in new[] { (circuit.Directives.Input, "IN"), (circuit.Directives.Output, "OUT") })
         {
