@@ -70,7 +70,7 @@ public static class Program
                 return 1;
             }
 
-            var result = Runner.Run(File.ReadAllText(path.FullName), new RunOptions(overrides: overrides));
+            var result = Runner.Run(File.ReadAllText(path.FullName), new RunOptions(overrides: overrides) { BaseDirectory = path.DirectoryName });
             var text = parseResult.GetValue(json) ? result.ToJson() : Report.Render(result);
             output.Write(text);
             if (!text.EndsWith('\n'))
@@ -122,7 +122,7 @@ public static class Program
 
             var netlist = File.ReadAllText(path.FullName);
             var runs = values
-                .Select(v => (v.Text, v.Override, Result: Runner.Run(netlist, new RunOptions(overrides: [v.Override]))))
+                .Select(v => (v.Text, v.Override, Result: Runner.Run(netlist, new RunOptions(overrides: [v.Override]) { BaseDirectory = path.DirectoryName })))
                 .ToList();
 
             var text = parseResult.GetValue(json)
@@ -196,7 +196,7 @@ public static class Program
                 return 1;
             }
 
-            var circuit = NetlistLoader.Load(File.ReadAllText(path.FullName));
+            var circuit = NetlistLoader.Load(File.ReadAllText(path.FullName), path.DirectoryName);
             var diagnostics = circuit.Diagnostics.ToList();
             if (!diagnostics.Any(d => d.Severity == Severity.Error))
             {

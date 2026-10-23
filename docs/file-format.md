@@ -40,6 +40,10 @@ The file format follows Semantic Versioning ([0008](decisions/0008-versioning.md
 - A breaking change raises the major version of the tool.
 - A corrected simulation value is a fix, not a break. The release notes name it.
 
+## Include
+
+A relative `.include` path resolves against the directory of the netlist file, and the path may be quoted or not.
+
 ## Example
 
 ```spice
