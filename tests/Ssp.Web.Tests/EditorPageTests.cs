@@ -34,9 +34,9 @@ public class EditorPageTests : BunitContext
         var rows = page.FindAll("table.voltages tbody tr")
             .Select(r => r.QuerySelectorAll("td").Select(td => td.TextContent.Trim()).ToArray())
             .ToList();
-        // NOTE: Vout = 1 V * 2k / (1k + 2k). Node 0 is ground and is not in the table.
+        // NOTE: Vout = 1 V * 2k / (1k + 2k). Node 0 is ground and is not in the table. The output node is first (#341).
         Assert.Equal(
-            [["in", "1 V"], ["out", "667 mV"]],
+            [["out", "667 mV"], ["in", "1 V"]],
             rows);
     }
 

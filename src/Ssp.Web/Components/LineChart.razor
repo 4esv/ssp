@@ -1,6 +1,6 @@
 @using System.Globalization
 
-<svg class="line-chart" viewBox="0 0 @Width @Height" width="@Width" height="@Height" role="img" aria-label="@($"{YLabel} against {XLabel}")">
+<svg class="line-chart" viewBox="0 0 @Width @TotalHeight" width="@Width" height="@TotalHeight" role="img" aria-label="@($"{YLabel} against {XLabel}")">
     <rect class="plot-area" x="@Left" y="@Top" width="@Num(PlotWidth)" height="@Num(PlotHeight)" />
 
     @foreach (var (value, text) in xTicks)
@@ -30,7 +30,7 @@
         @foreach (var (name, _, index) in paths)
         {
             <g class="legend">
-                <text class="series-@ColorOf(name, index)" x="@Num(Right - 4)" y="@(Top + 12 + index * 12)" text-anchor="end">@name</text>
+                <text class="series-@ColorOf(name, index)" x="@(Left + index % LegendColumns * LegendColumnWidth)" y="@(Height + 12 + index / LegendColumns * 12)">@name</text>
             </g>
         }
     }
@@ -65,11 +65,19 @@
     /// <summary>The names of the series that show as a dashed line, for example a frozen result.</summary>
     [Parameter] public IEnumerable<string> Dashed { get; set; } = [];
 
-    // NOTE: The style sheet has four series colors. A fifth series takes the first color again. The solid series and
-    // the dashed series count their colors apart, so the nth dashed series has the color of the nth solid series.
-    const int Colors = 4;
+    // NOTE: The legend sits under the axis label, so it never covers the plot area. It has three columns.
+    const int LegendColumns = 3;
+    const int LegendColumnWidth = (int)((Right - Left) / LegendColumns);
+    int TotalHeight => Height + (paths.Count > 1 ? (paths.Count + LegendColumns - 1) / LegendColumns * 12 + 4 : 0);
 
-    string PathClass(string name, int index) => $"series series-{ColorOf(name, index)}" + (Dashed.Contains(name) ? " frozen" : "");
+    /// <summary>The name of the series that shows as a thicker line, for example the output node.</summary>
+    [Parameter] public string? Highlight { get; set; }
+
+    // NOTE: The style sheet has twelve series colors. A thirteenth series takes the first color again. The solid series and
+    // the dashed series count their colors apart, so the nth dashed series has the color of the nth solid series.
+    const int Colors = 12;
+
+    string PathClass(string name, int index) => $"series series-{ColorOf(name, index)}" + (Dashed.Contains(name) ? " frozen" : "") + (name == Highlight ? " output" : "");
 
     int ColorOf(string name, int index)
     {
