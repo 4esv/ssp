@@ -111,4 +111,28 @@ public class RunCommandTests
         Assert.DoesNotContain("Unhandled exception", error.ToString());
         Assert.DoesNotContain("   at ", error.ToString());
     }
+
+    // NOTE: The TL072 model is a subcircuit. Its nodes (X1.lo, X1.o, X1.x) and parts (X1.Rid, ...) are internal.
+    [Fact]
+    public void RunTextReportLeavesOutSubcircuitInternals()
+    {
+        var netlist = File.ReadAllText(Path.Combine(RepoPaths.Root, "models", "opamp-tl072.cir")) + "\n"
+            + File.ReadAllText(RepoPaths.Fixture("opamp-buffer.cir")).Replace("OPAMP", "TL072");
+        var path = Path.Combine(Path.GetTempPath(), $"ssp-subckt-{Guid.NewGuid():N}.cir");
+        File.WriteAllText(path, netlist);
+        try
+        {
+            var (exitCode, text) = Run("run", path);
+            var (_, json) = Run("run", path, "--json");
+
+            Assert.Equal(0, exitCode);
+            Assert.DoesNotContain("X1.", text);
+            Assert.Contains("out ", text);
+            Assert.Contains("\"X1.lo\"", json);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

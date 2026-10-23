@@ -34,6 +34,41 @@ public class LineChartTests : BunitContext
             chart.FindAll("path.series").Select(p => p.GetAttribute("class")));
     }
 
+    IRenderedComponent<LineChart> Many(int count)
+    {
+        var line = new List<double> { 1, 2 };
+        return Render<LineChart>(p => p
+            .Add(c => c.X, new List<double> { 10, 20 })
+            .Add(c => c.Series, Enumerable.Range(0, count).ToDictionary(i => $"n{i}", _ => (IReadOnlyList<double>)line))
+            .Add(c => c.XLabel, "Frequency")
+            .Add(c => c.XUnit, "Hz")
+            .Add(c => c.YLabel, "Magnitude")
+            .Add(c => c.YUnit, "dB"));
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(9)]
+    [InlineData(12)]
+    public void EachLegendEntryHasItsOwnColour(int count)
+    {
+        var classes = Many(count).FindAll(".legend text").Select(t => t.GetAttribute("class")).ToList();
+
+        Assert.Equal(count, classes.Distinct().Count());
+    }
+
+    [Fact]
+    public void LegendIsBelowThePlotArea()
+    {
+        var chart = Many(9);
+
+        var plotBottom = double.Parse(chart.Find("rect.plot-area").GetAttribute("y")!) + double.Parse(chart.Find("rect.plot-area").GetAttribute("height")!);
+        var legendTops = chart.FindAll(".legend text").Select(t => double.Parse(t.GetAttribute("y")!));
+        Assert.All(legendTops, y => Assert.True(y > plotBottom, $"Legend text at y={y} is not below the plot area ({plotBottom})."));
+        var svg = chart.Find("svg.line-chart");
+        Assert.All(legendTops, y => Assert.True(y < double.Parse(svg.GetAttribute("height")!)));
+    }
+
     [Theory]
     [InlineData(2)]
     [InlineData(7)]
