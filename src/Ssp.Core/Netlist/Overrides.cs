@@ -42,6 +42,9 @@ public static partial class Overrides
 
             switch (entity)
             {
+                case Resistor when item.Value <= 0:
+                    diagnostics.Add(new Diagnostic(Severity.Error, $"{item.Reference} cannot take the value {item.Value.ToString(CultureInfo.InvariantCulture)}. A resistor needs a value above 0.", null));
+                    break;
                 case Resistor r: r.Parameters.Resistance = item.Value; break;
                 case Capacitor c: c.Parameters.Capacitance = item.Value; break;
                 case Inductor l: l.Parameters.Inductance = item.Value; break;

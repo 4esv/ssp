@@ -23,6 +23,13 @@ public static class Runner
         var diagnostics = new List<Diagnostic>();
         var timings = new Dictionary<string, double>(StringComparer.Ordinal);
 
+        // NOTE: An empty editor canvas loads an empty netlist without an error, so only a run reports it.
+        if (string.IsNullOrWhiteSpace(netlist))
+        {
+            diagnostics.Add(new Diagnostic(Severity.Error, "The netlist is empty. Add a title line and at least one part.", null));
+            return Stop();
+        }
+
         var circuit = Time("load", "Load", timings, diagnostics, () => NetlistLoader.Load(netlist, options.BaseDirectory));
         if (circuit is null)
         {
