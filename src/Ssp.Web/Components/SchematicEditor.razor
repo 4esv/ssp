@@ -393,6 +393,9 @@
     /// <summary>The saved view of the project, as <see cref="ViewTransform.Format"/>. A circuit from outside the editor opens with it, or with a fit if it is null.</summary>
     [Parameter] public string? View { get; set; }
 
+    /// <summary>Whether a bottom panel is open. The editor fits the circuit again when this changes, because the canvas is a different size.</summary>
+    [Parameter] public bool Covered { get; set; }
+
     /// <summary>Gets the view after the user zooms or pans.</summary>
     [Parameter] public EventCallback<string> ViewChanged { get; set; }
 
