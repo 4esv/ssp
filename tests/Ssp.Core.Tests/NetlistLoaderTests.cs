@@ -48,4 +48,30 @@ public class NetlistLoaderTests
         Assert.Equal(Severity.Error, diagnostic.Severity);
         Assert.Equal(4, diagnostic.Line);
     }
+
+    [Fact]
+    public void UnknownDirectiveGivesOneWarningNamingTheDirectiveAndLine()
+    {
+        const string netlist = "* ssp:frobnicate 3\nV1 in 0 1\nR1 in out 1k\n.END\n";
+
+        var loaded = NetlistLoader.Load(netlist);
+
+        var diagnostic = Assert.Single(loaded.Diagnostics);
+        Assert.Equal(Severity.Warning, diagnostic.Severity);
+        Assert.Contains("frobnicate", diagnostic.Message);
+        Assert.Equal(1, diagnostic.Line);
+    }
+
+    [Fact]
+    public void KnobWithNoArgumentsGivesOneWarning()
+    {
+        const string netlist = "* ssp:knob\nV1 in 0 1\nR1 in out 1k\n.END\n";
+
+        var loaded = NetlistLoader.Load(netlist);
+
+        var diagnostic = Assert.Single(loaded.Diagnostics);
+        Assert.Equal(Severity.Warning, diagnostic.Severity);
+        Assert.Contains("ssp:knob", diagnostic.Message);
+        Assert.Equal(1, diagnostic.Line);
+    }
 }
