@@ -70,4 +70,46 @@ public class NetlistMistakeTests
 
         Assert.Equal("The netlist is empty. Add a title line and at least one part.", d.Message);
     }
+
+    // NOTE: #364: SpiceSharp reads the number, an optional scale suffix, and ignores the letters after. 10x is 10 meg (1e7).
+    static List<Diagnostic> Warnings(string value, string part = "C1 out 0")
+    {
+        var loaded = NetlistLoader.Load($"* t\nV1 in 0 DC 1\nR1 in out 1k\n{part} {value}\n.END\n");
+        Assert.DoesNotContain(loaded.Diagnostics, d => d.Severity == Severity.Error);
+        return loaded.Diagnostics.Where(d => d.Severity == Severity.Warning).ToList();
+    }
+
+    [Fact]
+    public void LettersThatAreNotAUnitGiveAWarningWithTheNumberUsed()
+    {
+        var w = Assert.Single(Warnings("10x"));
+
+        Assert.Equal(4, w.Line);
+        Assert.Equal("Warning, line 4: C1 has the value 10x. ssp reads it as 10000000. The letters 'x' are not a unit.", w.Message);
+    }
+
+    [Fact]
+    public void LettersAfterTheScaleSuffixGiveAWarning()
+    {
+        var w = Assert.Single(Warnings("10kxyz", "L1 out 0"));
+
+        Assert.Equal("Warning, line 4: L1 has the value 10kxyz. ssp reads it as 10000. The letters 'xyz' are not a unit.", w.Message);
+    }
+
+    [Theory]
+    [InlineData("10")]
+    [InlineData("10meg")]
+    [InlineData("10m")]
+    [InlineData("10u")]
+    [InlineData("10uF")]
+    [InlineData("10kohm")]
+    [InlineData("10KOHM")]
+    [InlineData("10megohm")]
+    [InlineData("10mF")]
+    [InlineData("1e3")]
+    [InlineData("10f")]
+    public void ValidValuesGiveNoWarning(string value)
+    {
+        Assert.Empty(Warnings(value));
+    }
 }

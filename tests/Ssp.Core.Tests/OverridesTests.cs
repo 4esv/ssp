@@ -41,6 +41,32 @@ public class OverridesTests
         Assert.Throws<FormatException>(() => Overrides.Parse(text));
     }
 
+    // NOTE: #364: --set reads a value like the netlist. A unit word after the number and the scale suffix is allowed.
+    [Theory]
+    [InlineData("R1=10kohm", 10e3)]
+    [InlineData("R1=10KOhm", 10e3)]
+    [InlineData("R1=10ohm", 10)]
+    [InlineData("R1=10megohm", 10e6)]
+    [InlineData("R1=47nF", 47e-9)]
+    [InlineData("R1=1mH", 1e-3)]
+    [InlineData("R1=5V", 5)]
+    [InlineData("R1=2mA", 2e-3)]
+    [InlineData("R1=1kHz", 1e3)]
+    [InlineData("R1=3s", 3)]
+    public void ParsesValueWithUnitWord(string text, double expected)
+    {
+        Assert.Equal(expected, Overrides.Parse(text).Value, expected * 1e-12);
+    }
+
+    [Theory]
+    [InlineData("R1=10x")]
+    [InlineData("R1=10kxyz")]
+    [InlineData("R1=abc")]
+    public void LettersThatAreNotAUnitAreAnError(string text)
+    {
+        Assert.Throws<FormatException>(() => Overrides.Parse(text));
+    }
+
     [Fact]
     public void AppliesResistorValue()
     {

@@ -22,6 +22,18 @@ public class CircuitFilesTests
         Assert.Empty(errors);
     }
 
+    // NOTE: #364: a value with letters that are not a unit gives a warning. No shipped circuit has one.
+    [Fact]
+    public void NoNetlistGivesAValueWarning()
+    {
+        var files = Directory.GetFiles(Circuits, "*.cir", SearchOption.AllDirectories)
+            .Where(f => !NeedsModel.Contains(Path.GetFileName(f))).ToArray();
+        var warnings = files.SelectMany(f => NetlistLoader.Load(File.ReadAllText(f)).Diagnostics
+            .Where(d => d.Severity == Severity.Warning && d.Message.Contains("is not a unit", StringComparison.Ordinal))
+            .Select(d => $"{Path.GetRelativePath(Circuits, f)}: {d.Message}"));
+        Assert.Empty(warnings);
+    }
+
     [Fact]
     public void EveryLayoutReadsAndValidatesWithoutAnError()
     {
