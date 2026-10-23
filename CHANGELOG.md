@@ -1,9 +1,27 @@
 # Changelog
 
-This changelog is not maintained yet, and it lists no history.
+This file records the notable changes to this project.
 
-The project has no release. Every project carries the version `0.1.0` (`Directory.Build.props`), and there are no `ssp` release tags.
+## Rule
 
-The changelog starts at the first release. From then it will follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). No decision record fixes the versioning scheme yet.
+- Write one section for each release.
+- Write the section in the release pull request.
+- Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version 1.1.0.
+- Follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html), version 2.0.0.
+- Decision record [0008](docs/decisions/0008-versioning.md) fixes this rule.
 
-Until the first release, the commit log and the merged pull requests are the record of the changes.
+Before the first release, the commit log and the merged pull requests record the changes.
+
+## Release checklist
+
+The owner does these five steps for each release.
+
+1. Merge the release pull request. It bumps `Version` in `Directory.Build.props` and adds the section for this release.
+2. Run `dotnet pack src/Ssp.Cli -c Release -o artifacts`.
+3. Tag the merge commit `v<version>`. Create a GitHub release, and attach the tool package to it.
+4. Run `scripts/check-release.sh <tag>`. The script proves that the tag, the package version and `ssp --version` agree. Run `dotnet test -c Release`. It must pass, including the schema lock.
+5. Open the live site. The footer must show `ssp <version>`.
+
+## [Unreleased]
+
+No release yet.
