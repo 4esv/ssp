@@ -88,20 +88,43 @@ public class CommandPaletteTests : BunitContext
     }
 
     [Fact]
-    public void TheFirstVisitShowsThePanelAndRemembersIt()
+    public void TheFirstVisitShowsAStartHereButtonAndNoPanel()
     {
         var page = Render<Editor>();
+        Assert.Empty(page.FindAll(".shortcut-sheet"));
+        Assert.Single(page.FindAll("button.start-here-button"));
+        Assert.DoesNotContain(JSInterop.Invocations, i => i.Identifier == "localStorage.setItem" && Equals(i.Arguments[0], HelpSeen.Key));
+    }
+
+    [Fact]
+    public void TheStartHereButtonOpensThePanelRemembersItAndGoesAway()
+    {
+        var page = Render<Editor>();
+        page.Find("button.start-here-button").Click();
         Assert.Single(page.FindAll(".shortcut-sheet"));
+        Assert.Empty(page.FindAll("button.start-here-button"));
         Assert.Contains(JSInterop.Invocations, i => i.Identifier == "localStorage.setItem" && Equals(i.Arguments[0], HelpSeen.Key));
 
         page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "Escape" });
         Assert.Empty(page.FindAll(".shortcut-sheet"));
+        Assert.Empty(page.FindAll("button.start-here-button"));
+    }
+
+    [Fact]
+    public void TheQuestionMarkOpensThePanelAndHidesTheButton()
+    {
+        var page = Render<Editor>();
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
+        Assert.Single(page.FindAll(".shortcut-sheet"));
+        Assert.Empty(page.FindAll("button.start-here-button"));
     }
 
     [Fact]
     public void TheCloseButtonRemovesTheHelpPanel()
     {
+        JSInterop.Mark();
         var page = Render<Editor>();
+        page.Find(".editor").KeyDown(new KeyboardEventArgs { Key = "?", ShiftKey = true });
         Assert.Single(page.FindAll(".shortcut-sheet"));
 
         var close = page.Find(".shortcut-sheet button");
@@ -109,6 +132,14 @@ public class CommandPaletteTests : BunitContext
         Assert.Equal("button", close.GetAttribute("type"));
         close.Click();
         Assert.Empty(page.FindAll(".shortcut-sheet"));
+    }
+
+    [Fact]
+    public void ASeenFlagHidesTheStartHereButton()
+    {
+        JSInterop.Mark();
+        var page = Render<Editor>();
+        Assert.Empty(page.FindAll("button.start-here-button"));
     }
 
     [Fact]

@@ -162,7 +162,7 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .part-action[data-action="flip"] { left: calc(50% + 1.5rem); top: 12%; }
 .part-action[data-action="duplicate"] { left: calc(50% + 4.5rem); top: 12%; }
 .delete-status { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
-.delete-status button { min-height: 44px; min-width: 44px; }
+.delete-status button, .shortcut-sheet > button, .start-here-button { min-height: 44px; min-width: 44px; }
 /* NOTE: The value, error and name boxes float at the bottom of the canvas area, so a selection never moves the palette or the circuit. */
 .value-edit-box { position: absolute; left: 8rem; bottom: 0.5rem; z-index: 3; margin: 0; }
 .value-edit { width: 7rem; min-height: 44px; box-sizing: border-box; padding: 0 0.5rem; text-align: center; }
@@ -181,7 +181,7 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .live-state.stale, .stale-mark { font-style: italic; }
 .live-line { display: flex; gap: 0.5rem; flex: none; height: 1.5rem; min-height: 1.5rem; overflow: hidden; white-space: nowrap; }
 .live-failed { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.command-palette, .shortcut-sheet { position: fixed; top: 4rem; left: 50%; transform: translateX(-50%); width: min(32rem, calc(100vw - 2rem)); max-height: calc(100vh - 6rem); overflow: auto; z-index: 20; padding: 0.25rem; background: var(--bg); border: 1px solid; }
+.command-palette, .shortcut-sheet { position: fixed; top: 4rem; left: 50%; transform: translateX(-50%); width: min(32rem, calc(100vw - 2rem)); max-height: calc(100vh - 6rem); max-height: calc(100dvh - 5rem); overflow: auto; z-index: 20; padding: 0.25rem; background: var(--bg); border: 1px solid; }
 .command-palette input { width: 100%; box-sizing: border-box; }
 .command-palette ul { list-style: none; margin: 0.25rem 0 0; padding: 0; }
 .command-palette li button { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem; width: 100%; text-align: left; }
