@@ -24,7 +24,12 @@ public static partial class NetlistLoader
         try
         {
             var parsed = new SpiceNetlistParser().ParseNetlist(QuoteIncludes(netlist, baseDirectory));
-            foreach (var error in parsed.ValidationResult.Errors)
+            // NOTE: #408: a .subckt with no .ends makes the parser report a syntax error at .END. Name the .subckt instead.
+            if (OpenSubcircuit(netlist) is { } open)
+            {
+                diagnostics.Add(new Diagnostic(Severity.Error, $".subckt {open.Name} has no .ends. Add .ends after its last line.", open.Line));
+            }
+            else foreach (var error in parsed.ValidationResult.Errors)
             {
                 var message = ParseError(netlist, error.Message, error.LineInfo?.LineNumber);
                 if (error.LineInfo?.LineNumber is { } line
@@ -134,6 +139,21 @@ public static partial class NetlistLoader
         return null;
     }
 
+    // NOTE: #408: the first .subckt that no .ends closes. The parser reports its end as a syntax error at .END.
+    private static (int Line, string Name)? OpenSubcircuit(string netlist)
+    {
+        var lines = netlist.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (SubcircuitLine().Match(lines[i]) is not { Success: true } m) continue;
+            var end = Array.FindIndex(lines, i + 1, l => l.TrimStart().StartsWith(".ends", StringComparison.OrdinalIgnoreCase));
+            if (end < 0) return (i + 1, m.Groups[1].Value);
+            i = end;
+        }
+
+        return null;
+    }
+
     [GeneratedRegex(@"\s*\(at line \d+, start column = \d+, end column = \d+\)$")]
     private static partial Regex LocationSuffix();
 
@@ -153,6 +173,9 @@ public static partial class NetlistLoader
 
     [GeneratedRegex("^(?<lead>[ \\t]*\\.inc(?:lude)?[ \\t]+)(?<path>[^\\r\\n]+?)[ \\t]*$", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
     private static partial Regex IncludeLine();
+
+    [GeneratedRegex(@"^\s*\.subckt\s+(\S+)", RegexOptions.IgnoreCase)]
+    private static partial Regex SubcircuitLine();
 
     // NOTE: the reader flattens each X line into the parts of its subcircuit. Keep the X line, so a rule can find the pins of the instance.
     private static IEnumerable<SubcircuitInstance> Subcircuits(IEnumerable<ParsedComponent> components)
