@@ -109,12 +109,12 @@ public static partial class NetlistLoader
     {
         if (line is { } n && EndLine(netlist) is { } endLine && n > endLine)
         {
-            return $"Line {n} is after .END. Remove it.";
+            return "The text after .END is not read. Remove it.";
         }
 
         if (LocationSuffix().IsMatch(message))
         {
-            return line is { } l ? $"Line {l} has a syntax error." : "The netlist has a syntax error.";
+            return "The netlist has a syntax error.";
         }
 
         return message;
