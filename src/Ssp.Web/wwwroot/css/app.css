@@ -229,9 +229,9 @@ body:has(.editor) { margin: 0; }
     .dock-panel-title { display: block; }
     .dock-panel > textarea { height: 16rem; }
     .schematic-tools .export-menu.open .export-items { position: fixed; top: auto; left: 0.5rem; right: 0.5rem; bottom: 0.5rem; }
-    .schematic-tools .tool-group[aria-label="Circuit"] { order: -1; padding-right: 0; }
+    .schematic-tools .tool-group[aria-label="Circuit"] { order: -1; padding-right: 0; } .schematic-tools { flex-wrap: wrap; overflow-x: visible; } .schematic-tools .toolbar { flex: 1 1 100%; flex-wrap: wrap; }
     .schematic-body { flex-direction: column; }
-    .palette { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 3.5rem; overflow-x: auto; overflow-y: hidden; }
+    .palette { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 3.75rem; overflow-x: auto; overflow-y: hidden; }
     .block-list { width: auto; max-height: 11.5rem; }
     .block-save { left: 0.5rem; right: 0.5rem; }
     .block-save input { flex: 1; min-width: 0; }
