@@ -24,7 +24,7 @@ The owner does these five steps for each release.
 
 No changes yet.
 
-## [1.0.0] - 2026-10-23
+## [1.0.0] - 2026-10-24
 
 The first release. The 1.0 surface is the `ssp` command and the engine: the netlist format, the layout file, the `ssp` directives, the result JSON schema 1.1.0 and the four commands. Decision record [0008](docs/decisions/0008-versioning.md) gives this rule. The web app is not part of the release. It deploys from `main` and can change at any time.
 
@@ -40,3 +40,8 @@ The first release. The 1.0 surface is the `ssp` command and the engine: the netl
 - The public circuit library in `circuits/`.
 - The web app at https://ssp.aesv.io: a schematic editor, live results, plots, knobs, compare, clip playback, a virtual amp and share by URL.
 - The documents at https://ssp.aesv.io/docs/index.html.
+
+### Fixed
+
+- A netlist parse error gives plain words: text after `.END`, a `.subckt` with no `.ends`, and other syntax errors. The diagnostic gives the line once.
+- The web app works on a phone, in portrait and in landscape: the help sheet does not cover the editor, every toolbar control is on the screen, tap targets are 44 px or more, an open panel leaves the circuit in view, and a netlist error has a button that opens the Netlist panel.
