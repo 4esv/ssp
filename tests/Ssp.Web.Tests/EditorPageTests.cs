@@ -250,7 +250,10 @@ public class EditorPageTests : BunitContext
         page.Find("button.open-netlist").Click();
 
         Assert.Equal("true", page.Find(".dock-tab[data-panel=text]").GetAttribute("aria-selected"));
+        // NOTE: On a phone the bottom sheet shows the panel, so the button opens that sheet too.
+        Assert.Equal("text", page.Find(".editor").GetAttribute("data-sheet"));
     }
+
     IRenderedComponent<Editor> Typed(string netlist)
     {
         Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
