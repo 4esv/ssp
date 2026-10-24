@@ -26,7 +26,7 @@ public static partial class NetlistLoader
             var parsed = new SpiceNetlistParser().ParseNetlist(QuoteIncludes(netlist, baseDirectory));
             foreach (var error in parsed.ValidationResult.Errors)
             {
-                var message = error.Message;
+                var message = ParseError(netlist, error.Message, error.LineInfo?.LineNumber);
                 if (error.LineInfo?.LineNumber is { } line
                     && relativeIncludeLines.Contains(line)
                     && message.StartsWith("Netlist include at ", StringComparison.Ordinal))
@@ -103,6 +103,39 @@ public static partial class NetlistLoader
 
         return line;
     }
+
+    // NOTE: #384: the parser gives token words and a column suffix. Give plain words that name the line instead.
+    private static string ParseError(string netlist, string message, int? line)
+    {
+        if (line is { } n && EndLine(netlist) is { } endLine && n > endLine)
+        {
+            return $"Line {n} is after .END. Remove it.";
+        }
+
+        if (LocationSuffix().IsMatch(message))
+        {
+            return line is { } l ? $"Line {l} has a syntax error." : "The netlist has a syntax error.";
+        }
+
+        return message;
+    }
+
+    private static int? EndLine(string netlist)
+    {
+        var lines = netlist.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].Trim().Equals(".END", StringComparison.OrdinalIgnoreCase))
+            {
+                return i + 1;
+            }
+        }
+
+        return null;
+    }
+
+    [GeneratedRegex(@"\s*\(at line \d+, start column = \d+, end column = \d+\)$")]
+    private static partial Regex LocationSuffix();
 
     // NOTE: #336: the parser accepts only a quoted include path and resolves it against the working directory. Rewrite each
     // .include line to a quoted path, made absolute against the netlist directory. The line count does not change.
