@@ -8,6 +8,9 @@ namespace Ssp.Web.Tests;
 
 public class LiveRunTests : BunitContext
 {
+    // NOTE: #399: the host runs a real solve, which can take more than the 1 s bUnit default on a slow runner.
+    static readonly TimeSpan Wait = TimeSpan.FromSeconds(30);
+
     readonly ManualTimeProvider time = new();
     readonly GatedHost host = new();
 
@@ -59,8 +62,8 @@ public class LiveRunTests : BunitContext
 
         time.Advance(Debounce);
 
-        page.WaitForAssertion(() => Assert.Equal(1, host.Runs));
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voltages tbody tr")));
+        page.WaitForAssertion(() => Assert.Equal(1, host.Runs), Wait);
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voltages tbody tr")), Wait);
         Assert.Equal(["1 V", "667 mV"], page.FindAll(".schematic-pins .net-voltage").Select(l => l.TextContent));
     }
 
@@ -72,12 +75,12 @@ public class LiveRunTests : BunitContext
         host.Gate = new TaskCompletionSource();
 
         time.Advance(Debounce);
-        page.WaitForAssertion(() => Assert.Equal(1, host.Runs));
+        page.WaitForAssertion(() => Assert.Equal(1, host.Runs), Wait);
         Assert.Single(page.FindAll(".live-state.stale"));
 
         host.Gate.SetResult();
-        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".live-state.stale")));
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voltages tbody tr")));
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".live-state.stale")), Wait);
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voltages tbody tr")), Wait);
     }
 
     [Fact]
@@ -85,15 +88,15 @@ public class LiveRunTests : BunitContext
     {
         var page = Page(Fixture("divider-basic.cir"));
         time.Advance(Debounce);
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voltages tbody tr")));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voltages tbody tr")), Wait);
         var good = page.Find(".voltages").TextContent;
 
         page.Find("textarea").Input("R1 in\n");
         time.Advance(Debounce);
 
         // The page is stale from the edit, so only the failed-solve marker shows that the solve finished.
-        page.WaitForAssertion(() => Assert.Single(page.FindAll(".live-failed")));
-        page.WaitForAssertion(() => Assert.Single(page.FindAll(".live-state.stale")));
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".live-failed")), Wait);
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".live-state.stale")), Wait);
         // This compares with a snapshot taken before the edit, so one read is enough.
         Assert.Equal(good, page.Find(".voltages").TextContent);
     }
