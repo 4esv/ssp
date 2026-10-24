@@ -257,8 +257,10 @@
     void Sheet(string id) => sheet = sheet == id ? null : id;
 
     // NOTE: The error message on the canvas has a button that opens the Netlist panel. This reuses the dock's tab opener.
+    // On a phone the bottom sheet shows the panel, so the button opens that sheet too.
     async Task OpenNetlist()
     {
+        sheet = "text";
         if (dock is not null)
         {
             await dock.Show("text");
