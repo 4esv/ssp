@@ -55,6 +55,23 @@ public class TouchTargetsPlaywrightTests
         await page.Locator("button.open-netlist").First.WaitForAsync();
         await Measure("Open the Netlist panel", page.Locator("button.open-netlist"));
 
+        // NOTE: #396: Calculators and Results.
+        await page.Locator(".panel-bar button[data-panel=calculators]").TapAsync();
+        await page.Locator(".calculator-panel").WaitForAsync();
+        await Measure("Calculator select", page.Locator("select.calculator"));
+        await Measure("INPUT select", page.Locator(".calculator-panel .input select, .calculator-panel .input input"));
+        await Measure("Write to select", page.Locator("select.target"));
+        await Measure("Write to schematic", page.Locator("button.write"));
+        await page.Locator(".panel-bar button[data-panel=calculators]").TapAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).TapAsync();
+        await page.Locator(".panel-bar button[data-panel=results]").TapAsync();
+        await Measure("Show internal nodes", page.Locator("label:has(.show-internal)"));
+
+        // NOTE: #396: the landing page.
+        await page.GotoAsync(baseUrl);
+        await page.Locator("nav.home-links a").First.WaitForAsync(new() { Timeout = 60_000 });
+        foreach (var link in await page.Locator("nav.home-links a, ul.gallery a").AllAsync()) await Measure("Link " + await link.InnerTextAsync(), link);
+
         Assert.True(failures.Count == 0, string.Join("; ", failures));
     }
 }
