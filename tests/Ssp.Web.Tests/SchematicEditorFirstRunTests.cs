@@ -26,9 +26,17 @@ public class SchematicEditorFirstRunTests : BunitContext
     void Save() => stored = (string?)JSInterop.Invocations
         .Where(i => i.Identifier == "localStorage.setItem").Last().Arguments[1];
 
+    // #391: the Wire hint says the text of the "pin" step, so that step does not show with the Wire tool.
     [Fact]
-    public void FirstVisitShowsThreeHints() =>
-        Assert.Equal(["place", "pin", "select"], Shown(Open()));
+    public void FirstVisitShowsTheStepsThatTheToolHintDoesNotSay()
+    {
+        var editor = Open();
+        Assert.Equal(["place", "select"], Shown(editor));
+
+        // With no tool the hint asks for a tool, so all three steps show.
+        editor.Find("button.tool[data-tool=wire]").Click();
+        Assert.Equal(["place", "pin", "select"], Shown(editor));
+    }
 
     [Fact]
     public void ADoneHintIsDismissedAndStaysDismissedAfterReload()
@@ -52,7 +60,25 @@ public class SchematicEditorFirstRunTests : BunitContext
         Save();
 
         var again = Open();
+        // The Wire hint says the "pin" step, so pick no tool to see that step.
+        again.Find("button.tool[data-tool=wire]").Click();
         Assert.Equal(["pin"], Shown(again));
+    }
+
+    // #391: the Wire hint and the "pin" first step have the same text. The page must show the sentence once.
+    [Fact]
+    public void TheHintLineAndTheFirstStepsShowEachSentenceOnce()
+    {
+        var editor = Open();
+        Assert.Equal("Tap a pin to see where to go.", editor.Find("p.schematic-hint").TextContent.Trim());
+
+        foreach (var sentence in editor.FindAll("p.schematic-hint, ul.first-run-hints li")
+                     .Select(e => e.TextContent)
+                     .SelectMany(text => text.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                     .GroupBy(sentence => sentence))
+        {
+            Assert.Single(sentence);
+        }
     }
 
     [Fact]
