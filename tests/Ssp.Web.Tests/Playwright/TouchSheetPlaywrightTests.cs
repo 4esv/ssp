@@ -92,6 +92,8 @@ public partial class TouchPlaywrightTests
         {
             await page.Locator($".panel-bar button[data-panel={sheet}]").TapAsync();
             var zoom = 0;
+            // NOTE: The view refits after the panel opens, so the first read waits for that.
+            await Task.Delay(2000);
             for (var i = 0; i < 40 && zoom < 60; i++)
             {
                 await Task.Delay(250);
