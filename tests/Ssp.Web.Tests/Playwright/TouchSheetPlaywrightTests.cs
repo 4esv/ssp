@@ -76,4 +76,48 @@ public partial class TouchPlaywrightTests
             await palette.WaitForAsync();
         }
     }
+
+    // NOTE: #412: on a 667 px tall phone a panel leaves a circuit that a user reads.
+    [PlaywrightFact]
+    public Task A_short_phone_with_a_panel_open_fits_the_circuit_at_60_percent() => ShortCore().WaitAsync(Limit);
+
+    async Task ShortCore()
+    {
+        await using var phone = await Phone.Open();
+        var page = phone.Page;
+        await page.SetViewportSizeAsync(375, 667);
+        await page.Locator("rect.part").First.WaitForAsync();
+        await page.Locator("button.run").TapAsync();
+        foreach (var sheet in new[] { "plots", "results" })
+        {
+            await page.Locator($".panel-bar button[data-panel={sheet}]").TapAsync();
+            var zoom = 0;
+            for (var i = 0; i < 40 && zoom < 60; i++)
+            {
+                await Task.Delay(250);
+                zoom = int.Parse((await page.Locator(".zoom-level").InputValueAsync()).TrimEnd('%'));
+            }
+            output.WriteLine($"{sheet} at 375x667: zoom {zoom}%");
+            Assert.True(zoom >= 60, $"With {sheet} open at 375x667 the zoom is {zoom}%, not 60% or more.");
+            await page.Locator($".panel-bar button[data-panel={sheet}]").TapAsync();
+        }
+    }
+
+    // NOTE: #412: on a phone the toolbar row keeps "Stale" and hides the cut failure text. The canvas error list holds the full message.
+    [PlaywrightFact]
+    public Task A_failed_edit_shows_no_cut_text_in_the_phone_toolbar() => FailTextCore().WaitAsync(Limit);
+
+    async Task FailTextCore()
+    {
+        await using var phone = await Phone.Open();
+        var page = phone.Page;
+        await page.SetViewportSizeAsync(375, 812);
+        await page.Locator("rect.part").First.WaitForAsync();
+        await page.Locator(".panel-bar button[data-panel=text]").TapAsync();
+        await page.Locator("textarea[aria-label=Netlist]").FillAsync("* t\n.subckt X a b\nRin a b 1k\nV1 in 0 1\nR1 in out 1k\nC1 out 0 100n\n.END\n");
+        await page.Locator(".panel-bar button[data-panel=text]").TapAsync();
+        await page.Locator(".live-failed").First.WaitForAsync(new() { State = WaitForSelectorState.Attached });
+        Assert.False(await page.Locator(".live-failed").First.IsVisibleAsync(), "The cut failure text shows in the phone toolbar.");
+        Assert.True(await page.Locator(".live-state").First.IsVisibleAsync(), "The Stale marker is hidden.");
+    }
 }
