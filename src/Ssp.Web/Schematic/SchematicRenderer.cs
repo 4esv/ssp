@@ -60,6 +60,7 @@ public static class SchematicRenderer
         var named = new List<(string Net, Point At)>();
         var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
             .Select(p => (p.X, p.Y)).ToHashSet();
+        var placed = new List<(double X0, double Y0, double X1, double Y1)>();
 
         foreach (var e in elements)
         {
@@ -97,7 +98,7 @@ public static class SchematicRenderer
             }
 
             bounds.Add(part);
-            foreach (var label in Labels(e, p)) Label(labels, bounds, label.X, label.Y, label.Text, label.Start, label.End);
+            foreach (var label in Labels(e, p)) PlaceLabel(labels, bounds, placed, label, part);
         }
 
         foreach (var w in layout.Wires)
@@ -452,6 +453,33 @@ public static class SchematicRenderer
             Label(labels, bounds, x, y, names[i], start: !left, end: left, className: "pin-name");
         }
     }
+
+    // Places one part label. A label above its part shifts up and a label below it shifts down, one text height at a
+    // time, until the text clears every label already placed. A label beside its part shifts right. The same input gives
+    // the same output.
+    static void PlaceLabel(StringBuilder labels, Bounds bounds, List<(double X0, double Y0, double X1, double Y1)> placed, ElementLabel label, Bounds part)
+    {
+        var above = label.Y <= part.MinY;
+        var below = label.Y >= part.MaxY;
+        var (dx, dy) = above ? (0.0, -FontSize) : below ? (0.0, FontSize) : (FontSize, 0.0);
+        var at = label;
+        for (var i = 0; i < 12; i++)
+        {
+            var extent = at.Extent;
+            if (placed.All(b => !Overlaps(b, extent)))
+            {
+                placed.Add(extent);
+                Label(labels, bounds, at.X, at.Y, at.Text, at.Start, at.End);
+                return;
+            }
+            at = at with { X = at.X + dx, Y = at.Y + dy };
+        }
+        placed.Add(at.Extent);
+        Label(labels, bounds, at.X, at.Y, at.Text, at.Start, at.End);
+    }
+
+    static bool Overlaps((double X0, double Y0, double X1, double Y1) a, (double X0, double Y0, double X1, double Y1) b) =>
+        a.X0 < b.X1 && b.X0 < a.X1 && a.Y0 < b.Y1 && b.Y0 < a.Y1;
 
     static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text, bool start = false, bool end = false, string? className = null)
     {
