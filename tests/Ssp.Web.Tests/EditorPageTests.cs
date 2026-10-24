@@ -232,6 +232,25 @@ public class EditorPageTests : BunitContext
 
         Assert.Empty(page.FindAll(".schematic svg"));
     }
+
+    [Fact]
+    public void ErrorAfterEndGivesAButtonThatOpensTheNetlistPanel()
+    {
+        var page = Typed("* t\nV1 in 0 1\nR1 in out 1k\n.END\nstray text\n");
+
+        var item = Assert.Single(page.FindAll("ul.netlist-errors li"));
+        Assert.Contains("is after .END", item.TextContent);
+        Assert.DoesNotContain("token", item.TextContent);
+        Assert.DoesNotContain("error on line", item.TextContent);
+
+        // NOTE: Move to another tab first, so the button has a visible effect.
+        page.Find(".dock-tab[data-panel=knobs]").Click();
+        Assert.Equal("false", page.Find(".dock-tab[data-panel=text]").GetAttribute("aria-selected"));
+
+        page.Find("button.open-netlist").Click();
+
+        Assert.Equal("true", page.Find(".dock-tab[data-panel=text]").GetAttribute("aria-selected"));
+    }
     IRenderedComponent<Editor> Typed(string netlist)
     {
         Services.AddSingleton<ISimulationHost, InProcessSimulationHost>();
