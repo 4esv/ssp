@@ -239,9 +239,8 @@ public class EditorPageTests : BunitContext
         var page = Typed("* t\nV1 in 0 1\nR1 in out 1k\n.END\nstray text\n");
 
         var item = Assert.Single(page.FindAll("ul.netlist-errors li"));
-        Assert.Contains("is after .END", item.TextContent);
+        Assert.Contains("The netlist has an error on line 5. Fix it in the Netlist panel. The text after .END is not read. Remove it.", item.TextContent);
         Assert.DoesNotContain("token", item.TextContent);
-        Assert.DoesNotContain("error on line", item.TextContent);
 
         // NOTE: Move to another tab first, so the button has a visible effect.
         page.Find(".dock-tab[data-panel=knobs]").Click();

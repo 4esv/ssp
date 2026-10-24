@@ -60,7 +60,7 @@ public class NetlistLoaderTests
         var diagnostic = Assert.Single(loaded.Diagnostics);
         Assert.Equal(Severity.Error, diagnostic.Severity);
         Assert.Equal(5, diagnostic.Line);
-        Assert.Equal("Line 5 is after .END. Remove it.", diagnostic.Message);
+        Assert.Equal("The text after .END is not read. Remove it.", diagnostic.Message);
         Assert.Contains(".END", diagnostic.Message);
         Assert.DoesNotContain("token", diagnostic.Message);
         Assert.DoesNotContain("expected", diagnostic.Message);

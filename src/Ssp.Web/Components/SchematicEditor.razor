@@ -402,10 +402,8 @@
     /// <summary>Called when the user asks to open the Netlist panel.</summary>
     [Parameter] public EventCallback OpenNetlist { get; set; }
 
-    // NOTE: #384: a plain message that starts with "Line " names the line itself, so the prefix would repeat it.
-    static string ErrorText(Diagnostic d) => d.Message.StartsWith("Line ")
-        ? d.Message
-        : (d.Line is int line ? $"The netlist has an error on line {line}." : "The netlist has an error.") + " Fix it in the Netlist panel. " + d.Message;
+    static string ErrorText(Diagnostic d) =>
+        (d.Line is int line ? $"The netlist has an error on line {line}." : "The netlist has an error.") + " Fix it in the Netlist panel. " + d.Message;
 
     /// <summary>The loads of the editor page. With none the editor loads the netlist itself.</summary>
     [CascadingParameter] public NetlistCache? Loads { get; set; }

@@ -49,6 +49,26 @@ public class RunCommandTests
         }
     }
 
+    // NOTE: #409: the diagnostic carries the line, so the message does not say it again.
+    [Fact]
+    public void AParseErrorNamesItsLineOnce()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"ssp-409-{Guid.NewGuid():N}.cir");
+        File.WriteAllText(path, "* t\nV1 in 0 1\nR1 in out 1k\n.END\nstray text\n");
+        try
+        {
+            var (exitCode, output) = Run("run", path);
+
+            Assert.Equal(1, exitCode);
+            var line = Assert.Single(output.Split('\n'), l => l.Contains(".END", StringComparison.Ordinal));
+            Assert.Single(System.Text.RegularExpressions.Regex.Matches(line, "line 5", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public void RunPrintsTheReportAndExitsZero()
     {
