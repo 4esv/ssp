@@ -77,6 +77,14 @@ public class PhoneLandscapePlaywrightTests
 
         await page.Locator("rect.part").First.WaitForAsync();
         Assert.True(await PartSeen(), "With no sheet open, no part lies inside the canvas.");
+        // NOTE: With no sheet the circuit is big enough to read, not a speck.
+        var zoom = 0;
+        for (var i = 0; i < 20 && zoom < 30; i++)
+        {
+            zoom = int.Parse((await page.Locator(".zoom-level").InputValueAsync()).TrimEnd('%'));
+            if (zoom < 30) await Task.Delay(250);
+        }
+        Assert.True(zoom >= 30, $"With no sheet open the zoom is {zoom}%, not 30% or more.");
         await page.Locator(".panel-bar button[data-panel=results]").TapAsync();
         Assert.True(await PartSeen(), "With Results open, no part lies inside the visible canvas.");
     }

@@ -694,7 +694,7 @@
             return view = kept;
         }
         return view = b is { Length: >= 4 } && b[2] > 0
-            ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], Math.Max(b[3] - ZoomBand, b[3] / 2), FitMargin)
+            ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], Math.Max(b[3] - ZoomBand, b[3] / 2), Math.Min(FitMargin, b[3] / 8))
             : ViewTransform.Identity;
     }
 
@@ -791,7 +791,7 @@
         var b = await PaneBox();
         if (b[2] <= 0) return;
         var (min, max) = (new Point(chosen.Min(o => o.Min.X), chosen.Min(o => o.Min.Y)), new Point(chosen.Max(o => o.Max.X), chosen.Max(o => o.Max.Y)));
-        SetView(ViewTransform.Fit(min.X, min.Y, max.X - min.X, max.Y - min.Y, b[2], Math.Max(b[3] - ZoomBand, b[3] / 2), FitMargin, maxZoom: 4));
+        SetView(ViewTransform.Fit(min.X, min.Y, max.X - min.X, max.Y - min.Y, b[2], Math.Max(b[3] - ZoomBand, b[3] / 2), Math.Min(FitMargin, b[3] / 8), maxZoom: 4));
     }
 
     async Task ZoomStep(double factor)
