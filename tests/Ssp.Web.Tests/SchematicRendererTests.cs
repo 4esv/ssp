@@ -245,10 +245,16 @@ public class SchematicRendererTests
         Assert.Contains("<g transform=\"translate(60 0)\">", resistor);
     }
 
-    [Fact]
-    public void StarterSchematicLabelsDoNotOverlap()
+    public static TheoryData<string> Circuits() => new(Directory.GetFiles(Path.Combine(RepoPaths.Root, "circuits", "library"), "*.cir")
+        .Concat(Directory.GetFiles(Path.Combine(RepoPaths.Root, "circuits", "blocks"), "*.cir"))
+        .Select(path => Path.GetRelativePath(RepoPaths.Root, path)).Order(StringComparer.Ordinal));
+
+    // NOTE: #403: in each starter and block schematic, no part label is drawn on another.
+    [Theory]
+    [MemberData(nameof(Circuits))]
+    public void SchematicLabelsDoNotOverlap(string file)
     {
-        var netlist = File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "library", "clip-feedback-led-tl072.cir"));
+        var netlist = File.ReadAllText(Path.Combine(RepoPaths.Root, file));
         var circuit = NetlistLoader.Load(netlist);
         var svg = SchematicRenderer.ToSvg(circuit, AutoPlacer.Place(circuit, circuit.Directives), PartMap.Resolve(circuit, Table));
 
