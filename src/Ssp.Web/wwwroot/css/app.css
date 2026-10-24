@@ -222,7 +222,7 @@ body:has(.editor) { margin: 0; }
     .dock-close, .dock-tab, .dock-float-btn, .dock-float-dock, .dock-bar button { min-width: 2.75rem; min-height: 2.75rem; }
 }
 /* NOTE: On a narrow screen the schematic is the whole screen, the palette is one row, and the bottom bar opens one other panel over it. */
-@media (max-width: 48rem) {
+@media (max-width: 48rem), (max-height: 30rem) {
     .dock-layout { height: auto; min-height: 0; }
     .dock-tabs, .dock-splitter, .dock-drop, .dock-float-bar, .dock-float-grip, .dock-float-btn { display: none !important; }
     .dock-panel, .dock-panel[hidden] { position: static; display: block; width: auto !important; height: auto !important; margin-bottom: 0.5rem; }
@@ -245,5 +245,5 @@ body:has(.editor) { margin: 0; }
     .editor[data-sheet="compare"] .dock-panel[data-panel="compare"], .editor[data-sheet="clip"] .dock-panel[data-panel="clip"], .editor[data-sheet="monitor"] .dock-panel[data-panel="monitor"],
     .editor[data-sheet="amp"] .dock-panel[data-panel="amp"] { position: absolute; z-index: 5; inset: auto 0 0 0 !important; display: block; width: auto !important; height: 50% !important; margin: 0; overflow: auto; border-top: 2px solid; }
     .panel-bar { display: flex; flex: none; gap: 0.25rem; overflow-x: auto; padding-top: 0.25rem; }
-    .panel-bar button { flex: none; min-height: 2.75rem; }
+    .panel-bar button { flex: none; min-height: 2.75rem; } /* NOTE: A phone in landscape has no height to spare, so the sheet takes the right half and the schematic the left half (#395). */ @media (min-aspect-ratio: 1/1) { .editor[data-sheet] .dock-panel[data-panel="schematic"] { right: 50% !important; bottom: 0 !important; } .editor[data-sheet] .dock-panel:not([data-panel="schematic"]) { inset: 0 0 0 auto !important; width: 50% !important; height: auto !important; } }
 }
