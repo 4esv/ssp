@@ -47,14 +47,6 @@ public class TouchTargetsPlaywrightTests
         await Measure("Read the docs", page.Locator(".shortcut-sheet a", new() { HasTextString = "Read the docs" }));
         await page.Locator(".shortcut-sheet button", new() { HasTextString = "Close" }).TapAsync();
 
-        var text = page.Locator(".panel-bar button[data-panel=text]");
-        await text.TapAsync();
-        var netlist = page.Locator("textarea[aria-label=Netlist]");
-        await netlist.FillAsync((await netlist.InputValueAsync()).TrimEnd() + "\nstray text\n");
-        await text.TapAsync();
-        await page.Locator("button.open-netlist").First.WaitForAsync();
-        await Measure("Open the Netlist panel", page.Locator("button.open-netlist"));
-
         // NOTE: #396: Calculators and Results.
         await page.Locator(".panel-bar button[data-panel=calculators]").TapAsync();
         await page.Locator(".calculator-panel").WaitForAsync();
@@ -66,6 +58,14 @@ public class TouchTargetsPlaywrightTests
         await page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).TapAsync();
         await page.Locator(".panel-bar button[data-panel=results]").TapAsync();
         await Measure("Show internal nodes", page.Locator("label:has(.show-internal)"));
+
+        var text = page.Locator(".panel-bar button[data-panel=text]");
+        await text.TapAsync();
+        var netlist = page.Locator("textarea[aria-label=Netlist]");
+        await netlist.FillAsync((await netlist.InputValueAsync()).TrimEnd() + "\nstray text\n");
+        await text.TapAsync();
+        await page.Locator("button.open-netlist").First.WaitForAsync();
+        await Measure("Open the Netlist panel", page.Locator("button.open-netlist"));
 
         // NOTE: #396: the landing page.
         await page.GotoAsync(baseUrl);
