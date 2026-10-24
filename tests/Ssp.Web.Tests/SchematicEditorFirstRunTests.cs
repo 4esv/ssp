@@ -55,6 +55,22 @@ public class SchematicEditorFirstRunTests : BunitContext
         Assert.Equal(["pin"], Shown(again));
     }
 
+    // #391: the Wire hint and the "pin" first step have the same text. The page must show the sentence once.
+    [Fact]
+    public void TheHintLineAndTheFirstStepsShowEachSentenceOnce()
+    {
+        var editor = Open();
+        Assert.Equal("Tap a pin to see where to go.", editor.Find("p.schematic-hint").TextContent.Trim());
+
+        foreach (var sentence in editor.FindAll("p.schematic-hint, ul.first-run-hints li")
+                     .Select(e => e.TextContent)
+                     .SelectMany(text => text.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                     .GroupBy(sentence => sentence))
+        {
+            Assert.Single(sentence);
+        }
+    }
+
     [Fact]
     public void AllDismissedShowsNoList()
     {
