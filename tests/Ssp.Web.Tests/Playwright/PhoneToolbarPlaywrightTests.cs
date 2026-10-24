@@ -3,6 +3,7 @@ using Microsoft.Playwright;
 namespace Ssp.Web.Tests.Playwright;
 
 // NOTE: #381: at 375x812 every toolbar control, the Start here button and the Saved label are inside the viewport. The page has no sideways scroll.
+// #391: the toolbar has no empty row.
 [Collection(PlaywrightCollection.Name)]
 public class PhoneToolbarPlaywrightTests
 {
@@ -61,6 +62,9 @@ public class PhoneToolbarPlaywrightTests
         Assert.True(outside.Count == 0, "Outside 0..375: " + string.Join("; ", outside));
         Assert.False(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > 375"), "The page scrolls sideways");
         Assert.False(await page.EvaluateAsync<bool>("(() => { const t = document.querySelector('.schematic-tools'); return t.scrollWidth > t.clientWidth; })()"), "The toolbar scrolls sideways");
+        // NOTE: #391: on a first visit the toolbar has no empty row below its last button.
+        var gap = await page.EvaluateAsync<double>("(() => { const t = document.querySelector('.schematic-tools'); const b = [...t.querySelectorAll('button')].filter(e => e.offsetParent).map(e => e.getBoundingClientRect().bottom); return t.getBoundingClientRect().bottom - Math.max(...b); })()");
+        Assert.True(gap <= 8, $"The toolbar has an empty strip {gap:F0} px tall below its last button");
         // NOTE: The palette shows that it scrolls: one item is cut by its right edge.
         Assert.True(await page.EvaluateAsync<bool>("(() => { const p = document.querySelector('.palette'); const r = p.getBoundingClientRect(); return p.scrollWidth > p.clientWidth && [...p.querySelectorAll('.palette-item')].some(e => { const b = e.getBoundingClientRect(); return b.left < r.right - 1 && b.right > r.right + 1; }); })()"), "The palette shows no cut item");
     }
