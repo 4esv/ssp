@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Ssp.Core.Layout;
 using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
@@ -242,4 +244,55 @@ public class SchematicRendererTests
         Assert.DoesNotContain("<g transform=\"translate(", bjt);
         Assert.Contains("<g transform=\"translate(60 0)\">", resistor);
     }
+
+    public static TheoryData<string> Circuits() => new(Directory.GetFiles(Path.Combine(RepoPaths.Root, "circuits", "library"), "*.cir")
+        .Concat(Directory.GetFiles(Path.Combine(RepoPaths.Root, "circuits", "blocks"), "*.cir"))
+        .Select(path => Path.GetRelativePath(RepoPaths.Root, path)).Order(StringComparer.Ordinal));
+
+    // NOTE: #403: in each starter and block schematic, no part label is drawn on another.
+    [Theory]
+    [MemberData(nameof(Circuits))]
+    public void SchematicLabelsDoNotOverlap(string file)
+    {
+        var netlist = File.ReadAllText(Path.Combine(RepoPaths.Root, file));
+        var circuit = NetlistLoader.Load(netlist);
+        var svg = SchematicRenderer.ToSvg(circuit, AutoPlacer.Place(circuit, circuit.Directives), PartMap.Resolve(circuit, Table));
+
+        var labels = PartLabelBoxes(svg);
+        for (var i = 0; i < labels.Count; i++)
+        {
+            for (var j = i + 1; j < labels.Count; j++)
+            {
+                Assert.False(Overlaps(labels[i].Box, labels[j].Box), $"Label '{labels[i].Text}' overlaps '{labels[j].Text}'.");
+            }
+        }
+    }
+
+    // The boxes of the part labels of a schematic SVG: each <text> element that is not a net name or a pin name.
+    static List<(string Text, (double X0, double Y0, double X1, double Y1) Box)> PartLabelBoxes(string svg)
+    {
+        var boxes = new List<(string, (double, double, double, double))>();
+        foreach (Match m in Regex.Matches(svg, """<text\s(?<attrs>[^>]*)>(?<text>[^<]*)</text>"""))
+        {
+            var attrs = m.Groups["attrs"].Value;
+            if (attrs.Contains("class=", StringComparison.Ordinal)) continue;
+            var text = m.Groups["text"].Value;
+            var x = Num(attrs, "x");
+            var y = Num(attrs, "y");
+            var start = attrs.Contains("text-anchor=\"start\"", StringComparison.Ordinal);
+            var end = attrs.Contains("text-anchor=\"end\"", StringComparison.Ordinal);
+            var label = new SchematicRenderer.ElementLabel(text, x, y, start, end);
+            boxes.Add((text, label.Extent));
+        }
+        return boxes;
+    }
+
+    static double Num(string attrs, string key)
+    {
+        var at = attrs.IndexOf(key + "=\"", StringComparison.Ordinal) + key.Length + 2;
+        return double.Parse(attrs[at..attrs.IndexOf('"', at)], CultureInfo.InvariantCulture);
+    }
+
+    static bool Overlaps((double X0, double Y0, double X1, double Y1) a, (double X0, double Y0, double X1, double Y1) b) =>
+        a.X0 < b.X1 && b.X0 < a.X1 && a.Y0 < b.Y1 && b.Y0 < a.Y1;
 }
