@@ -217,8 +217,8 @@ body:has(.editor) { margin: 0; }
 @media (min-width: 48.01rem) { .schematic-tools { overflow-x: visible; } }
 /* NOTE: A finger needs 44 px. */
 @media (pointer: coarse) {
-    .schematic-zoom button, .schematic-tools button { min-width: 2.75rem; min-height: 2.75rem; }
-    .palette-item, .schematic-editor .problem-item { min-height: 2.75rem; }
+    .schematic-zoom button, .schematic-tools button, .projects-toggle, .project-name, .zoom-level, .open-netlist { min-width: 2.75rem; min-height: 2.75rem; }
+    .palette-item, .schematic-editor .problem-item { min-height: 2.75rem; } .shortcut-sheet a { display: inline-flex; align-items: center; min-height: 2.75rem; }
     .dock-close, .dock-tab, .dock-float-btn, .dock-float-dock, .dock-bar button { min-width: 2.75rem; min-height: 2.75rem; }
 }
 /* NOTE: On a narrow screen the schematic is the whole screen, the palette is one row, and the bottom bar opens one other panel over it. */
