@@ -36,13 +36,13 @@
 
 <ProjectBar Store="store" Current="project" State="@saveState" Starter="@Starter()" Open="OpenProject" Rename="Rename" Export="Export" />
 
-<DockLayout Default="DefaultLayout" StorageKey="ssp.dock.editor.v2">
+<DockLayout @ref="dock" Default="DefaultLayout" StorageKey="ssp.dock.editor.v2">
     <DockPanel Id="text" Title="Netlist">
         <textarea @bind="netlist" @bind:event="oninput" @bind:after="Typed" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">
-        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" View="@project?.View" ViewChanged="ViewChanged" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point" Covered="@(sheet is not null)">
+        <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" View="@project?.View" ViewChanged="ViewChanged" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point" Covered="@(sheet is not null)" OpenNetlist="@OpenNetlist">
             <Actions>
                 <div class="toolbar" role="toolbar" aria-label="Editor actions">
                     <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
@@ -221,6 +221,7 @@
     // NOTE: The renders of the Clip tab and the Virtual amp live here, so a tab switch or a hidden panel keeps them.
     readonly RenderCache renders = new();
     SchematicExport? export;
+    DockLayout? dock;
     ElementReference root;
     IJSObjectReference? keys;
     CommandPalette.PaletteMode mode;
@@ -254,6 +255,15 @@
     string? sheet;
 
     void Sheet(string id) => sheet = sheet == id ? null : id;
+
+    // NOTE: The error message on the canvas has a button that opens the Netlist panel. This reuses the dock's tab opener.
+    async Task OpenNetlist()
+    {
+        if (dock is not null)
+        {
+            await dock.Show("text");
+        }
+    }
 
     // The nodes under the pointer on the schematic. Their rows in Results are marked.
     IReadOnlyCollection<string> pointed = [];
