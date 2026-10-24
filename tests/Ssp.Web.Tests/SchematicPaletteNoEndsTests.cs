@@ -23,6 +23,6 @@ public class SchematicPaletteNoEndsTests : BunitContext
 
         Assert.Empty(seen);
         var item = Assert.Single(editor.FindAll("ul.netlist-errors li"));
-        Assert.Contains("Line 3: .subckt X has no .ends. Add .ends, then add the part.", item.TextContent);
+        Assert.Contains("The netlist has an error on line 3. Fix it in the Netlist panel. .subckt X has no .ends. Add .ends after its last line.", item.TextContent);
     }
 }

@@ -27,7 +27,7 @@ public static partial class NetlistLoader
             // NOTE: #408: a .subckt with no .ends makes the parser report a syntax error at .END. Name the .subckt instead.
             if (OpenSubcircuit(netlist) is { } open)
             {
-                diagnostics.Add(new Diagnostic(Severity.Error, $"Line {open.Line}: .subckt {open.Name} has no .ends. Add .ends, then add the part.", open.Line));
+                diagnostics.Add(new Diagnostic(Severity.Error, $".subckt {open.Name} has no .ends. Add .ends after its last line.", open.Line));
             }
             else foreach (var error in parsed.ValidationResult.Errors)
             {
