@@ -26,9 +26,17 @@ public class SchematicEditorFirstRunTests : BunitContext
     void Save() => stored = (string?)JSInterop.Invocations
         .Where(i => i.Identifier == "localStorage.setItem").Last().Arguments[1];
 
+    // #391: the Wire hint says the text of the "pin" step, so that step does not show with the Wire tool.
     [Fact]
-    public void FirstVisitShowsThreeHints() =>
-        Assert.Equal(["place", "pin", "select"], Shown(Open()));
+    public void FirstVisitShowsTheStepsThatTheToolHintDoesNotSay()
+    {
+        var editor = Open();
+        Assert.Equal(["place", "select"], Shown(editor));
+
+        // With no tool the hint asks for a tool, so all three steps show.
+        editor.Find("button.tool[data-tool=wire]").Click();
+        Assert.Equal(["place", "pin", "select"], Shown(editor));
+    }
 
     [Fact]
     public void ADoneHintIsDismissedAndStaysDismissedAfterReload()
@@ -52,6 +60,8 @@ public class SchematicEditorFirstRunTests : BunitContext
         Save();
 
         var again = Open();
+        // The Wire hint says the "pin" step, so pick no tool to see that step.
+        again.Find("button.tool[data-tool=wire]").Click();
         Assert.Equal(["pin"], Shown(again));
     }
 

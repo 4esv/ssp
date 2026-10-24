@@ -44,10 +44,10 @@
     @* NOTE: The hint and the first steps share one line, so they take no height from the canvas. *@
     <div class="schematic-status">
         <p class="schematic-hint" role="status">@Hint()</p>
-        @if (HintsLeft().Any())
+        @if (HintsShown().Any())
         {
             <ul class="first-run-hints" aria-label="First steps">
-                @foreach (var (id, text) in HintsLeft())
+                @foreach (var (id, text) in HintsShown())
                 {
                     <li data-hint="@id">@text</li>
                 }
@@ -1836,6 +1836,9 @@
     }
 
     IEnumerable<(string Id, string Text)> HintsLeft() => FirstRun.Where(h => !dismissed.Contains(h.Id));
+
+    // NOTE: A first step with the same text as the tool hint is not shown, so the line shows each sentence once (#391).
+    IEnumerable<(string Id, string Text)> HintsShown() => HintsLeft().Where(h => h.Text != Hint());
 
     async Task LoadHints()
     {
