@@ -49,6 +49,24 @@ public class NetlistLoaderTests
         Assert.Equal(4, diagnostic.Line);
     }
 
+    // NOTE: #384: text after .END gives a plain message, not the parser's token words.
+    [Fact]
+    public void TextAfterEndGivesAPlainMessage()
+    {
+        const string netlist = "* t\nV1 in 0 DC 1\nR1 in out 1k\n.END\nstray text\n";
+
+        var loaded = NetlistLoader.Load(netlist);
+
+        var diagnostic = Assert.Single(loaded.Diagnostics);
+        Assert.Equal(Severity.Error, diagnostic.Severity);
+        Assert.Equal(5, diagnostic.Line);
+        Assert.Equal("Line 5 is after .END. Remove it.", diagnostic.Message);
+        Assert.Contains(".END", diagnostic.Message);
+        Assert.DoesNotContain("token", diagnostic.Message);
+        Assert.DoesNotContain("expected", diagnostic.Message);
+        Assert.DoesNotContain("column", diagnostic.Message);
+    }
+
     [Fact]
     public void UnknownDirectiveGivesOneWarningNamingTheDirectiveAndLine()
     {

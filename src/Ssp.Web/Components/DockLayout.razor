@@ -199,7 +199,7 @@
 
     string Title(string id) => titles.GetValueOrDefault(id, id);
 
-    async Task Show(string panel)
+    public async Task Show(string panel)
     {
         model.Activate(panel);
         await Save();
