@@ -14,13 +14,15 @@ public static class DocsGenerator
     const string BlobBase = "https://github.com/4esv/ssp/blob/main/";
     const string TreeBase = "https://github.com/4esv/ssp/tree/main/";
 
-    // Repo path of the Markdown source, and the page it becomes.
+    // Repo path of the Markdown source, and the page it becomes. Only user pages: decision records,
+    // internal notes and contributor files stay in the repository.
     static readonly (string Source, string Output)[] Fixed =
     [
-        ("README.md", "index.html"),
-        ("docs/README.md", "contents.html"),
+        ("docs/index.md", "index.html"),
+        ("docs/web.md", "web.html"),
+        ("docs/cli.md", "cli.html"),
+        ("docs/file-format.md", "file-format.html"),
         ("models/README.md", "models.html"),
-        ("CHANGELOG.md", "CHANGELOG.html"),
     ];
 
     const string Css = """
@@ -38,13 +40,6 @@ public static class DocsGenerator
     {
         repoRoot = Path.GetFullPath(repoRoot);
         var sources = new List<(string Source, string Output)>(Fixed);
-        sources.AddRange(Directory.GetFiles(Path.Combine(repoRoot, "docs"), "*.md")
-            .Select(f => Path.GetFileName(f)).Where(n => n != "README.md").Order(StringComparer.Ordinal)
-            .Select(n => ($"docs/{n}", Path.ChangeExtension(n, ".html"))));
-        sources.AddRange(Directory.GetFiles(Path.Combine(repoRoot, "docs", "decisions"), "*.md")
-            .Select(f => Path.GetFileName(f)).Order(StringComparer.Ordinal)
-            .Select(n => ($"docs/decisions/{n}", "decisions/" + Path.ChangeExtension(n, ".html"))));
-
         var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
         var outputs = sources.ToDictionary(s => s.Source, s => s.Output, StringComparer.Ordinal);
         var parsed = sources.Select(s =>

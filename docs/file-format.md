@@ -30,7 +30,7 @@ Rules:
 
 ## Compatibility
 
-The file format follows Semantic Versioning ([0008](decisions/0008-versioning.md)). The rules apply from the freeze.
+The file format follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from version 1.0.0.
 
 | File | A breaking change | An additive change |
 |---|---|---|

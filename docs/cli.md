@@ -3,11 +3,11 @@
 The `ssp` command has four commands: `run`, `sweep`, `render` and `mcp`.
 `ssp --help` lists them. `ssp --version` prints the version of ssp and of each library that it uses.
 
-The examples on this page run from the root of the repository. [scripts/check-doc-commands.sh](../scripts/check-doc-commands.sh) runs each of them.
+The examples on this page run from the root of the repository.
 
 ## Install
 
-See the Install section in the [README](../README.md).
+See [Install](index.md#install).
 On a Homebrew .NET, `ssp` can fail. The error starts with:
 
 ```text
