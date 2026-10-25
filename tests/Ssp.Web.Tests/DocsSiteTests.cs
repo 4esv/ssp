@@ -23,17 +23,37 @@ public sealed partial class DocsSiteTests : IDisposable
     [GeneratedRegex("href=\"([^\"]*)\"")]
     private static partial Regex Href();
 
+    // The site is for users. Decision records, internal notes and contributor files stay in the repository.
+    static readonly string[] PublicSources =
+        ["docs/index.md", "docs/web.md", "docs/cli.md", "docs/file-format.md", "models/README.md"];
+
     [Fact]
-    public void Generates_an_index_and_a_page_for_each_listed_document()
+    public void Publishes_only_the_user_pages()
     {
         var pages = DocsGenerator.Generate(RepoRoot(), _out);
 
+        Assert.Equal(PublicSources.Order(), pages.Select(p => p.Source).Order());
         Assert.True(File.Exists(Path.Combine(_out, "index.html")));
-        Assert.Contains("CHANGELOG.md", pages.Select(p => p.Source));
-        Assert.Contains("models/README.md", pages.Select(p => p.Source));
-        Assert.Contains(pages, p => p.Source.StartsWith("docs/decisions/", StringComparison.Ordinal));
+        Assert.False(Directory.Exists(Path.Combine(_out, "decisions")));
         foreach (var page in pages)
             Assert.True(File.Exists(Path.Combine(_out, page.Output)), page.Output);
+    }
+
+    [Theory]
+    [InlineData("decisions/")]
+    [InlineData("Decision record")]
+    [InlineData("AGENTS")]
+    [InlineData("CONTRIBUTING")]
+    [InlineData("architecture")]
+    [InlineData("benchmarks")]
+    [InlineData("spikes")]
+    [InlineData("Axel")]
+    [InlineData("check-doc-commands")]
+    public void No_page_names_an_internal_document(string text)
+    {
+        var pages = DocsGenerator.Generate(RepoRoot(), _out);
+        foreach (var page in pages)
+            Assert.DoesNotContain(text, File.ReadAllText(Path.Combine(_out, page.Output)), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
