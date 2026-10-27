@@ -1,7 +1,9 @@
 namespace Ssp.Web.Tests;
 
 /// <summary>
-/// The page is bare HTML. app.css keeps layout and interaction states, and no decoration (#182).
+/// The page is bare HTML. app.css keeps layout and interaction states, and no decoration (#182). The look comes from
+/// wwwroot/substrate, which is vendored: it is the substrate export unchanged, so these rules do not read it, and
+/// VendoredSubstrateTests checks it against the export's manifest instead.
 /// </summary>
 public class CssBareTests
 {
