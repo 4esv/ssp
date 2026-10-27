@@ -5,7 +5,7 @@
     <div class="command-palette" role="dialog" aria-label="Command palette">
         <input @ref="search" type="text" autocomplete="off" spellcheck="false" aria-label="Search actions" placeholder="Type an action"
                value="@query" @oninput="e => Search(e.Value?.ToString() ?? string.Empty)" @onkeydown="Key" />
-        <ul>
+        <ul class="roster">
             @foreach (var (shortcut, index) in Matches().Select((s, i) => (s, i)))
             {
                 <li class="@(index == active ? "active" : null)">
@@ -20,7 +20,7 @@
 else if (Mode == PaletteMode.Sheet)
 {
     <div class="shortcut-sheet" role="dialog" aria-label="Keyboard shortcuts">
-        <button type="button" @onclick="Closed">Close</button>
+        <button class="ctl btn" type="button" @onclick="Closed"><span class="lbl">Close</span><i class="caret"></i></button>
         <section class="start-here" aria-label="Start here">
             <h2>Start here</h2>
             <ul>
@@ -31,7 +31,7 @@ else if (Mode == PaletteMode.Sheet)
                 <li>The results update after each edit. Run solves the circuit again.</li>
                 <li>In the Clip tab, Play clip sends a sample through the circuit and a speaker cabinet.</li>
             </ul>
-            <p><a href="docs/index.html" target="_top">Read the docs</a></p>
+            <p><a class="ctl lnk" href="docs/index.html" target="_top">Read the docs</a></p>
         </section>
         <table>
             <thead><tr><th>Action</th><th>Keys</th></tr></thead>

@@ -20,17 +20,17 @@ else
             @foreach (var (node, volts) in Nodes())
             {
                 <li>
-                    <button type="button" class="dc-node" data-node="@node" @onclick="() => probe = node">@node</button>
+                    <button type="button" class="ctl btn dc-node" data-node="@node" @onclick="() => probe = node"><span class="lbl">@node</span><i class="caret"></i></button>
                     @if (show)
                     {
-                        <span class="dc-label" data-node="@node">@Volts(volts)</span>
+                        <span class="dc-label mono" data-node="@node">@Volts(volts)</span>
                     }
                 </li>
             }
         </ul>
         @if (probe is not null && OperatingPoint.NodeVoltages.TryGetValue(probe, out var value))
         {
-            <output class="probe">@probe: @Volts(value)</output>
+            <output class="probe mono">@probe: @Volts(value)</output>
         }
     </section>
 }

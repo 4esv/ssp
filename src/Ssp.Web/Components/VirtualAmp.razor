@@ -34,10 +34,10 @@
 
     <Knobs Netlist="@netlist" NetlistChanged="Tune" />
 
-    <button type="button" class="amp-try" disabled="@(error is not null)" @onclick="Try">Try</button>
+    <button type="button" class="ctl btn amp-try" disabled="@(error is not null)" @onclick="Try"><span class="lbl">Try</span><i class="caret"></i></button>
     <span class="amp-sample">Sample: @Choice.Name</span>
     <p class="amp-error" role="alert">@(error is null ? null : "The chain cannot be built. " + error)</p>
-    <textarea class="amp-netlist" aria-label="Chain netlist" readonly rows="6">@netlist</textarea>
+    <textarea class="amp-netlist mono" aria-label="Chain netlist" readonly rows="6">@netlist</textarea>
 
     <ClipPlayer @ref="player" Netlist="@netlist" Cache="Cache" ShowPicker="false" />
 </section>

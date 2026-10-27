@@ -38,27 +38,27 @@
 
 <DockLayout @ref="dock" Default="DefaultLayout" StorageKey="ssp.dock.editor.v2">
     <DockPanel Id="text" Title="Netlist">
-        <textarea @bind="netlist" @bind:event="oninput" @bind:after="Typed" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+        <textarea @bind="netlist" @bind:event="oninput" @bind:after="Typed" rows="16" cols="80" spellcheck="false" aria-label="Netlist" class="mono"></textarea>
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">
         <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" View="@project?.View" ViewChanged="ViewChanged" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point" Covered="@(sheet is not null)" OpenNetlist="@OpenNetlist">
             <Actions>
                 <div class="toolbar" role="toolbar" aria-label="Editor actions">
-                    <button type="button" class="run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running">Run</button>
-                    <button type="button" class="undo" disabled="@(!history.CanUndo)" @onclick="Undo">Undo</button>
-                    <button type="button" class="redo" disabled="@(!history.CanRedo)" @onclick="Redo">Redo</button>
+                    <button type="button" class="ctl btn run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running"><span class="lbl">Run</span><i class="caret"></i></button>
+                    <button type="button" class="ctl btn undo" disabled="@(!history.CanUndo)" @onclick="Undo"><span class="lbl">Undo</span><i class="caret"></i></button>
+                    <button type="button" class="ctl btn redo" disabled="@(!history.CanRedo)" @onclick="Redo"><span class="lbl">Redo</span><i class="caret"></i></button>
                     @* NOTE: The rarely used actions share one menu, so the tool row fits at laptop widths. The buttons stay in the page and the CSS shows them while the menu is open. *@
                     <span class="export-menu@(exportOpen ? " open" : "")" @onkeydown="ExportKey">
-                        <button type="button" class="export-toggle" aria-haspopup="true" aria-expanded="@(exportOpen ? "true" : "false")" title="Share, download and the parts list" @onclick="() => exportOpen = !exportOpen">Export</button>
+                        <button type="button" class="ctl btn export-toggle" aria-haspopup="true" aria-expanded="@(exportOpen ? "true" : "false")" title="Share, download and the parts list" @onclick="() => exportOpen = !exportOpen"><span class="lbl">Export</span><i class="caret"></i></button>
                         <span class="export-items" role="group" aria-label="Export" @onclick="() => exportOpen = false">
-                            <button type="button" class="share" title="Copy a link that holds this netlist" @onclick="Share">Share link</button>
+                            <button type="button" class="ctl btn share" title="Copy a link that holds this netlist" @onclick="Share"><span class="lbl">Share link</span><i class="caret"></i></button>
                             <SchematicExport @ref="export" Netlist="@drawn" />
                         </span>
                     </span>
                     @* NOTE: The line has a fixed width, so the marker and the failure text move nothing beside it. *@
                     <span class="live-line">
-                        <span class="live-state@(stale ? " stale" : "")" role="status">@LiveText()</span>
+                        <span class="mono live-state@(stale ? " stale" : "")" role="status">@LiveText()</span>
                         @if (liveFailure is not null)
                         {
                             <span class="live-failed" role="alert" title="@liveFailure">The last edit does not solve. @liveFailure The results are from the last good run.</span>
@@ -67,7 +67,7 @@
                     <span class="toolbar-status" role="status">@toolbarStatus</span>
                     @if (showStart)
                     {
-                        <button type="button" class="start-here-button" @onclick="() => Refocus(CommandPalette.PaletteMode.Sheet)">Start here</button>
+                        <button type="button" class="ctl btn start-here-button" @onclick="() => Refocus(CommandPalette.PaletteMode.Sheet)"><span class="lbl">Start here</span><i class="caret"></i></button>
                     }
                     <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
                 </div>
@@ -122,7 +122,7 @@
             @if (result.OperatingPoint is { } op)
             {
                 <label><input type="checkbox" class="show-internal" @bind="showInternal" /> Show internal nodes</label>
-                <table class="voltages">
+                <table class="voltages mono">
                     <thead><tr><th>Node</th><th>Voltage</th></tr></thead>
                     <tbody>
                         @foreach (var node in NodeView.Names(op.NodeVoltages.Keys, result.OutputNode, showInternal))
@@ -195,7 +195,7 @@
 <nav class="panel-bar" aria-label="Panels">
     @foreach (var (id, title) in SheetPanels)
     {
-        <button type="button" data-panel="@id" aria-pressed="@(sheet == id ? "true" : "false")" @onclick="() => Sheet(id)">@title</button>
+        <button class="ctl btn" type="button" data-panel="@id" aria-pressed="@(sheet == id ? "true" : "false")" @onclick="() => Sheet(id)"><span class="lbl">@title</span><i class="caret"></i></button>
     }
 </nav>
 </CascadingValue>

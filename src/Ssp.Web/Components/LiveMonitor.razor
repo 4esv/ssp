@@ -9,10 +9,10 @@
     <p class="monitor-note">monitor, not real time</p>
     <p class="panel-hint">Press Start monitor to hear your input through the circuit. The netlist needs an ssp:input node.</p>
 
-    <button type="button" class="monitor-start" @onclick="Start" disabled="@(running || starting)">Start monitor</button>
-    <button type="button" class="monitor-stop" @onclick="Stop" disabled="@(!running)">Stop monitor</button>
+    <button type="button" class="ctl btn monitor-start" @onclick="Start" disabled="@(running || starting)"><span class="lbl">Start monitor</span><i class="caret"></i></button>
+    <button type="button" class="ctl btn monitor-stop" @onclick="Stop" disabled="@(!running)"><span class="lbl">Stop monitor</span><i class="caret"></i></button>
 
-    <p class="monitor-latency">Latency: @(latency is { } ms ? ms.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) : "–") ms</p>
+    <p class="monitor-latency mono">Latency: @(latency is { } ms ? ms.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) : "–") ms</p>
     <p class="monitor-dropped">Dropped chunks: @(dropped + failed)</p>
     <p class="monitor-status" role="status">@status</p>
 </section>

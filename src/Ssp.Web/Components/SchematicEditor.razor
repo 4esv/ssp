@@ -21,24 +21,24 @@
             <span class="tool-label">Add a part</span>
             @foreach (var kind in SchematicEdits.Kinds.Keys)
             {
-                <button type="button" class="place" data-kind="@kind" disabled="@hasErrors" @onclick="() => Place(kind)">@Label(kind)</button>
+                <button type="button" class="ctl btn place" data-kind="@kind" disabled="@hasErrors" @onclick="() => Place(kind)"><span class="lbl">@Label(kind)</span><i class="caret"></i></button>
             }
         </div>
         <div class="tool-group" role="group" aria-label="Tools">
             <span class="tool-label">Connect</span>
-            <button type="button" class="tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)">Wire</button>
-            <button type="button" class="tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)">Ground</button>
+            <button type="button" class="ctl btn tool" data-tool="wire" aria-pressed="@Pressed(Tool.Wire)" @onclick="() => Select(Tool.Wire)"><span class="lbl">Wire</span><i class="caret"></i></button>
+            <button type="button" class="ctl btn tool" data-tool="ground" aria-pressed="@Pressed(Tool.Ground)" @onclick="() => Select(Tool.Ground)"><span class="lbl">Ground</span><i class="caret"></i></button>
         </div>
         <div class="tool-group" role="group" aria-label="Selection">
-            <button type="button" class="tool" data-tool="select" aria-pressed="@(boxTool ? "true" : "false")" title="Drag a box to select parts. A tap on a part adds it or takes it out." @onclick="ToggleBox">Select</button>
+            <button type="button" class="ctl btn tool" data-tool="select" aria-pressed="@(boxTool ? "true" : "false")" title="Drag a box to select parts. A tap on a part adds it or takes it out." @onclick="ToggleBox"><span class="lbl">Select</span><i class="caret"></i></button>
             @* NOTE: Copy, Cut and Delete of a group are its actions on the canvas. Paste shows once there is a copy. *@
             @if (clip is not null)
             {
-                <button type="button" class="tool" data-action="paste" disabled="@hasErrors" title="Paste (Ctrl+V or Cmd+V)" @onclick="PasteClip">Paste</button>
+                <button type="button" class="ctl btn tool" data-action="paste" disabled="@hasErrors" title="Paste (Ctrl+V or Cmd+V)" @onclick="PasteClip"><span class="lbl">Paste</span><i class="caret"></i></button>
             }
         </div>
         <div class="tool-group" role="group" aria-label="Circuit">
-            <button type="button" class="tool" data-action="new" title="Start an empty circuit. Undo brings the old one back." @onclick="NewCircuit">New</button>
+            <button type="button" class="ctl btn tool" data-action="new" title="Start an empty circuit. Undo brings the old one back." @onclick="NewCircuit"><span class="lbl">New</span><i class="caret"></i></button>
         </div>
     </div>
     @* NOTE: The hint and the first steps share one line, so they take no height from the canvas. *@
@@ -81,8 +81,8 @@
         <form class="block-save" @onsubmit="SaveBlock">
             <input class="block-name" type="text" autocomplete="off" spellcheck="false" aria-label="Name of the block" value="@savingName"
                    @oninput="e => savingName = e.Value?.ToString()" @onkeydown:stopPropagation />
-            <button type="submit">Save block</button>
-            <button type="button" @onclick="() => saving = null">Cancel</button>
+            <button class="ctl btn" type="submit"><span class="lbl">Save block</span><i class="caret"></i></button>
+            <button class="ctl btn" type="button" @onclick="() => saving = null"><span class="lbl">Cancel</span><i class="caret"></i></button>
         </form>
     }
     @if (valueError is not null && ValueBox())
@@ -91,7 +91,7 @@
     }
     @if (undo is { } undoable)
     {
-        <p class="delete-status" role="status">Deleted @undoable.Name. <button type="button" @onclick="Undo">Undo</button></p>
+        <p class="delete-status" role="status">Deleted @undoable.Name. <button class="ctl btn" type="button" @onclick="Undo"><span class="lbl">Undo</span><i class="caret"></i></button></p>
     }
     <div class="schematic-body">
     <div class="palette" role="group" aria-label="Parts palette">
@@ -119,14 +119,14 @@
                 @foreach (var b in myBlocks)
                 {
                     var saved = b;
-                    <button type="button" data-block="@("my:" + saved.Id)" @onclick="() => Pick(saved.Name, saved.Netlist, saved.Layout)">@saved.Name</button>
+                    <button class="ctl btn" type="button" data-block="@("my:" + saved.Id)" @onclick="() => Pick(saved.Name, saved.Netlist, saved.Layout)"><span class="lbl">@saved.Name</span><i class="caret"></i></button>
                 }
             }
             <p class="block-heading">Stages</p>
             @foreach (var b in CircuitLibrary.Blocks)
             {
                 var block = b;
-                <button type="button" data-block="@block.FileName" @onclick="() => Pick(block.Title, block.Netlist, block.Layout)">@block.Title</button>
+                <button class="ctl btn" type="button" data-block="@block.FileName" @onclick="() => Pick(block.Title, block.Netlist, block.Layout)"><span class="lbl">@block.Title</span><i class="caret"></i></button>
             }
         </div>
     }
@@ -144,7 +144,7 @@
             <ul class="netlist-errors" role="alert">
                 @foreach (var d in errors)
                 {
-                    <li>@ErrorText(d) <button type="button" class="open-netlist" @onclick="OpenNetlist">Open the Netlist panel</button></li>
+                    <li>@ErrorText(d) <button type="button" class="ctl btn wrap open-netlist" @onclick="OpenNetlist"><span class="lbl">Open the Netlist panel</span><i class="caret"></i></button></li>
                 }
             </ul>
         }
@@ -268,11 +268,11 @@
                 <div class="pin-menu" role="menu" @onclick:stopPropagation aria-label="Go @way.ToString().ToLowerInvariant() from @Name(origin)" style="@MenuStyle(origin, way)">
                     @foreach (var kind in SchematicEdits.Kinds.Keys)
                     {
-                        <button type="button" role="menuitem" data-kind="@kind" @onclick="() => Choose(kind)">@Label(kind)</button>
+                        <button class="ctl btn" type="button" role="menuitem" data-kind="@kind" @onclick="() => Choose(kind)"><span class="lbl">@Label(kind)</span><i class="caret"></i></button>
                     }
-                    <button type="button" role="menuitem" data-action="wire" @onclick="() => Choose(WireChoice)">Wire</button>
-                    <button type="button" role="menuitem" data-action="ground" @onclick="() => Choose(GroundChoice)">Ground</button>
-                    <button type="button" role="menuitem" data-action="connect" @onclick="() => Choose(ConnectChoice)">Connect to a pin</button>
+                    <button class="ctl btn" type="button" role="menuitem" data-action="wire" @onclick="() => Choose(WireChoice)"><span class="lbl">Wire</span><i class="caret"></i></button>
+                    <button class="ctl btn" type="button" role="menuitem" data-action="ground" @onclick="() => Choose(GroundChoice)"><span class="lbl">Ground</span><i class="caret"></i></button>
+                    <button class="ctl btn" type="button" role="menuitem" data-action="connect" @onclick="() => Choose(ConnectChoice)"><span class="lbl">Connect to a pin</span><i class="caret"></i></button>
                 </div>
             }
             @if (ActionSpots() is { } spots)
@@ -280,7 +280,7 @@
                 <div class="part-actions" role="toolbar" aria-label="Selection" @onclick:stopPropagation>
                     @foreach (var (action, label, style) in spots)
                     {
-                        <button type="button" class="part-action" data-action="@action" aria-label="@label" title="@label" style="@style" @onclick="() => Act(action)">@ActionGlyph(action)</button>
+                        <button type="button" class="ctl btn part-action" data-action="@action" aria-label="@label" title="@label" style="@style" @onclick="() => Act(action)"><span class="lbl">@ActionGlyph(action)</span><i class="caret"></i></button>
                     }
                 </div>
             }
@@ -289,23 +289,23 @@
                 <ul class="problems" aria-label="Problems">
                     @foreach (var problem in problems)
                     {
-                        <li><button type="button" class="@($"problem-item {problem.Severity.ToString().ToLowerInvariant()}")" @onclick="() => SelectPart(problem.Reference)" @onclick:stopPropagation>@problem.Message</button></li>
+                        <li><button type="button" class="ctl btn wrap @($"problem-item {problem.Severity.ToString().ToLowerInvariant()}")" @onclick="() => SelectPart(problem.Reference)" @onclick:stopPropagation><span class="lbl">@problem.Message</span><i class="caret"></i></button></li>
                     }
                 </ul>
             }
             <div class="schematic-zoom" role="group" aria-label="Zoom" @onclick:stopPropagation @ondblclick:stopPropagation>
-                <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)">&minus;</button>
-                <input class="zoom-level" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="Zoom level" value="@($"{(int)Math.Round(Zoom() * 100)}%")"
+                <button class="ctl btn" type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (-)" disabled="@(view is { Zoom: <= ViewTransform.MinZoom })" @onclick="() => ZoomStep(1 / ZoomStepFactor)"><span class="lbl">&minus;</span><i class="caret"></i></button>
+                <input class="zoom-level mono" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="Zoom level" value="@($"{(int)Math.Round(Zoom() * 100)}%")"
                        @onchange="ZoomTyped" @onkeydown:stopPropagation @onfocus="() => zoomMenu = false" />
-                <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)" disabled="@(view is { Zoom: >= ViewTransform.MaxZoom })" @onclick="() => ZoomStep(ZoomStepFactor)">+</button>
-                <button type="button" data-zoom="fit" title="Fit the circuit (0)" @onclick="FitView">Fit</button>
-                <button type="button" data-zoom="menu" aria-label="Zoom menu" aria-haspopup="menu" aria-expanded="@(zoomMenu ? "true" : "false")" @onclick="() => zoomMenu = !zoomMenu">&#9662;</button>
+                <button class="ctl btn" type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)" disabled="@(view is { Zoom: >= ViewTransform.MaxZoom })" @onclick="() => ZoomStep(ZoomStepFactor)"><span class="lbl">+</span><i class="caret"></i></button>
+                <button class="ctl btn" type="button" data-zoom="fit" title="Fit the circuit (0)" @onclick="FitView"><span class="lbl">Fit</span><i class="caret"></i></button>
+                <button class="ctl btn" type="button" data-zoom="menu" aria-label="Zoom menu" aria-haspopup="menu" aria-expanded="@(zoomMenu ? "true" : "false")" @onclick="() => zoomMenu = !zoomMenu"><span class="lbl">&#9662;</span><i class="caret"></i></button>
                 @if (zoomMenu)
                 {
                     <div class="zoom-menu" role="menu">
-                        <button type="button" role="menuitem" data-zoom-item="fit" @onclick="FitView">Fit</button>
-                        <button type="button" role="menuitem" data-zoom-item="100" @onclick="() => ZoomLevel(1)">100%</button>
-                        <button type="button" role="menuitem" data-zoom-item="selection" title="Fit selection (F)" @onclick="FitSelection">Fit selection</button>
+                        <button class="ctl btn" type="button" role="menuitem" data-zoom-item="fit" @onclick="FitView"><span class="lbl">Fit</span><i class="caret"></i></button>
+                        <button class="ctl btn" type="button" role="menuitem" data-zoom-item="100" @onclick="() => ZoomLevel(1)"><span class="lbl">100%</span><i class="caret"></i></button>
+                        <button class="ctl btn" type="button" role="menuitem" data-zoom-item="selection" title="Fit selection (F)" @onclick="FitSelection"><span class="lbl">Fit selection</span><i class="caret"></i></button>
                     </div>
                 }
             </div>

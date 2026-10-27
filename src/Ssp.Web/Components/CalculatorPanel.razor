@@ -23,7 +23,7 @@
             <input type="number" step="any" data-input="@name" value="@Number(values[index])" @onchange="e => Enter(index, e)" />
         </label>
     }
-    <p class="result">@result</p>
+    <p class="result mono">@result</p>
     <table class="parts">
         <thead><tr><th>Part</th><th>Value</th><th>Write to</th></tr></thead>
         <tbody>
@@ -47,7 +47,7 @@
             }
         </tbody>
     </table>
-    <button type="button" class="write" disabled="@(!CanWrite)" @onclick="Write">Write to schematic</button>
+    <button type="button" class="ctl btn write" disabled="@(!CanWrite)" @onclick="Write"><span class="lbl">Write to schematic</span><i class="caret"></i></button>
 </section>
 
 @code {

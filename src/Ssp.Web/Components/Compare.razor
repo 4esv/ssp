@@ -19,11 +19,11 @@
         }
     </select>
     <input class="values" @bind="values" @bind:event="oninput" placeholder="1k, 4k7, 10k" aria-label="Values" />
-    <button class="compare" @onclick="Run" disabled="@(running || parts.Count == 0)">Compare</button>
-    <button class="freeze" @onclick="Freeze" disabled="@(magnitude.Count == 0)">Freeze</button>
+    <button class="ctl btn compare" @onclick="Run" disabled="@(running || parts.Count == 0)"><span class="lbl">Compare</span><i class="caret"></i></button>
+    <button class="ctl btn freeze" @onclick="Freeze" disabled="@(magnitude.Count == 0)"><span class="lbl">Freeze</span><i class="caret"></i></button>
     @if (frozenMagnitude.Count > 0)
     {
-        <button class="unfreeze" @onclick="Unfreeze">Clear frozen</button>
+        <button class="ctl btn unfreeze" @onclick="Unfreeze"><span class="lbl">Clear frozen</span><i class="caret"></i></button>
     }
 
     @if (diagnostics.Count > 0)
@@ -41,7 +41,7 @@
         <div class="magnitude">
             <LineChart X="frequencies" Series="All(magnitude, frozenMagnitude)" Dashed="frozenMagnitude.Keys" LogX="true" XLabel="Frequency" XUnit="Hz" YLabel="Gain" YUnit="dB" />
         </div>
-        <table class="series">
+        <table class="series mono">
             <thead><tr><th scope="col">Series</th><th scope="col">Peak gain</th><th scope="col">At</th><th scope="col">Gain at 1 kHz</th></tr></thead>
             <tbody>
                 @foreach (var (name, gains) in All(magnitude, frozenMagnitude))

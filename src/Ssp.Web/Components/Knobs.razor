@@ -16,8 +16,8 @@
             <label class="knob">
                 <span class="part">@knob.Part</span>
                 <input type="range" min="0" max="1" step="0.01" value="@Number(knob.Position)" @oninput="e => Move(index, e)" />
-                <span class="taper">@knob.Taper</span>
-                <span class="position">@Percent(knob.Position)</span>
+                <span class="taper mono">@knob.Taper</span>
+                <span class="position mono">@Percent(knob.Position)</span>
             </label>
         }
         @foreach (var (part, throws, position) in switches)
@@ -27,7 +27,7 @@
                 @foreach (var at in Ssp.Core.Parts.Switch.Positions(throws))
                 {
                     var to = at;
-                    <button type="button" aria-pressed="@(to == position ? "true" : "false")" @onclick="() => Set(part, to)">@PositionName(throws, to)</button>
+                    <button class="ctl btn" type="button" aria-pressed="@(to == position ? "true" : "false")" @onclick="() => Set(part, to)"><span class="lbl">@PositionName(throws, to)</span><i class="caret"></i></button>
                 }
             </div>
         }

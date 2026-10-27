@@ -1,27 +1,37 @@
-/* NOTE: Bare HTML (#182): layout, sizes and interaction states only, browser default controls, and two colour tokens (system text and background). The app is light only (#318): the schematic previews are black strokes on a transparent background, so a dark page hides them. */
-:root { color-scheme: light; --bg: Canvas; --text: CanvasText; }
-body { margin: 1rem; line-height: 1.5; background: var(--bg); color: var(--text); }
-p { max-width: 65ch; }
+/* NOTE: The look is the vendored substrate (substrate/css, see its README): one pixel, two inks, three faces, controls as words in brackets. app.css keeps the editor layout, the dock geometry and the schematic sizes, and it names no colour but the substrate's tokens (#182). The app is light only (#318): the schematic previews are black strokes on a transparent background, so a dark page hides them. */
+:root { color-scheme: light; --line: var(--u) solid var(--ink); --frame: calc(2 * var(--u)) solid var(--ink); }
+body { margin: 16px; background: var(--ground); color: var(--ink); }
 :disabled { cursor: not-allowed; }
-[aria-pressed="true"], .dock-tab[aria-selected="true"], .project-list li.current .project-open { font-weight: 600; text-decoration: underline; }
+/* NOTE: The brackets are drawn, not read: a screen reader and an accessible name get the word only. Every control that is not a bracket control is plain text in the ink. */
+.doc .btn .lbl::before { content: '[' / ''; } .doc .btn .lbl::after { content: ']' / ''; }
+.doc button:not(.ctl) { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; text-align: inherit; cursor: pointer; }
+.doc :is(input:not([type="checkbox"], [type="range"], [type="file"]), select, textarea) { font: inherit; color: var(--ink); background: var(--ground); border: var(--line); padding: 0 calc(4 * var(--u)); box-sizing: border-box; }
+.doc :is(input[type="checkbox"], input[type="range"]) { color: var(--ink); } .doc svg:not([fill]) { fill: currentColor; } .doc input[type="checkbox"] { appearance: none; width: calc(12 * var(--u)); height: calc(12 * var(--u)); margin: 0 calc(4 * var(--u)) 0 0; border: var(--line); background: var(--ground); vertical-align: calc(-1 * var(--u)); } .doc input[type="checkbox"]:checked { background: var(--ink); } .doc input[type="checkbox"]:disabled { border-color: var(--off); }
+.doc input[type="range"] { appearance: none; height: calc(20 * var(--u)); margin: 0; background: none; } .doc input[type="range"]::-webkit-slider-runnable-track { height: var(--u); background: var(--dim); } .doc input[type="range"]::-moz-range-track { height: var(--u); background: var(--dim); }
+.doc input[type="range"]::-webkit-slider-thumb { appearance: none; width: calc(4 * var(--u)); height: calc(15 * var(--u)); margin-top: calc(-7 * var(--u)); border: 0; background: var(--ink); } .doc input[type="range"]::-moz-range-thumb { width: calc(4 * var(--u)); height: calc(15 * var(--u)); border: 0; background: var(--ink); }
+/* NOTE: The cells layer draws the titles over the page, so it sits over the panels and the floating windows. The editor takes the whole window, so its page has no measure and no top margin. */
+canvas.cells { z-index: 50; margin: 0; } /* NOTE: The body holds the cells layer, and the flow rule spaces every child of .substrate, so the layer drops a line below its titles without this. */
+.doc:has(.editor) { max-width: none; margin-top: 0; } .doc:has(.gallery) { max-width: calc(960 * var(--u)); }
+.dock-panel h2:not(.dock-panel-title) { margin: 0 0 calc(4 * var(--u)); }
 /* NOTE: Every control shows a ring with keyboard navigation. Blazor focuses the page heading, which is not a control. */
 :focus-visible { outline: 2px solid; outline-offset: 2px; }
 h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .dock-tab:focus-visible, .dock-close:focus-visible { outline-offset: -2px; } .dock-splitter:focus-visible { outline-offset: 0; }
 .schematic-pins .pin:focus-visible, .schematic-pins .part:focus-visible, .schematic-pins .knob:focus-visible { outline-offset: 1px; }
-.project-import:focus-within, .command-palette li.active button { outline: 2px solid; }
-#blazor-error-ui { display: none; position: fixed; bottom: 0; left: 0; width: 100%; padding: 0.5rem; background: var(--bg); border-top: 1px solid; }
+.project-import:focus-within { outline: var(--frame); } .command-palette .roster li.active { background: var(--ink); color: var(--ground); } .command-palette .roster li.active kbd { color: inherit; }
+#blazor-error-ui { display: none; position: fixed; bottom: 0; left: 0; width: 100%; padding: 0.5rem; background: var(--ground); border-top: var(--frame); }
 #blazor-error-ui .dismiss { cursor: pointer; float: right; }
-/* NOTE: The series keep their colours: a colour is how a curve is told from the others. The legend sits under the plot. The output curve is thicker. */
+/* NOTE: A chart is tones of the ink: four tones, then the same four dashed, then dotted, so twelve curves differ without a third colour. The legend sits under the plot. The output curve is thicker. */
 .line-chart { display: block; max-width: 100%; height: auto; font-size: 10px; }
 .line-chart .plot-area { fill: none; stroke: currentColor; }
 .line-chart .grid { stroke: currentColor; stroke-opacity: 0.15; }
 .line-chart .series { stroke-width: 1.5; } .line-chart .series.output { stroke-width: 3; }
-.line-chart .series-0 { stroke: #3b82c4; fill: #3b82c4; } .line-chart .series-1 { stroke: #e0642c; fill: #e0642c; } .line-chart .series-6 { stroke: #d0467a; fill: #d0467a; } .line-chart .series-7 { stroke: #7a6a4f; fill: #7a6a4f; } .line-chart .series-8 { stroke: #1f4e8c; fill: #1f4e8c; } .line-chart .series-9 { stroke: #8fb339; fill: #8fb339; } .line-chart .series-10 { stroke: #b3341f; fill: #b3341f; } .line-chart .series-11 { stroke: #5c5c8f; fill: #5c5c8f; } .line-chart .series-4 { stroke: #c9a227; fill: #c9a227; } .line-chart .series-5 { stroke: #2aa6a6; fill: #2aa6a6; }
-.line-chart .series-6 { stroke: #d0467a; fill: #d0467a; } .line-chart .series-7 { stroke: #7a6a4f; fill: #7a6a4f; } .line-chart .series-8 { stroke: #1f4e8c; fill: #1f4e8c; } .line-chart .series-9 { stroke: #8fb339; fill: #8fb339; } .line-chart .series-10 { stroke: #b3341f; fill: #b3341f; } .line-chart .series-11 { stroke: #5c5c8f; fill: #5c5c8f; }
+.line-chart :is(.series-0, .series-4, .series-8) { stroke: var(--ink); fill: var(--ink); } .line-chart :is(.series-1, .series-5, .series-9) { stroke: var(--dim); fill: var(--dim); }
+.line-chart :is(.series-2, .series-6, .series-10) { stroke: var(--half); fill: var(--half); } .line-chart :is(.series-3, .series-7, .series-11) { stroke: var(--off); fill: var(--off); }
+.line-chart path:is(.series-4, .series-5, .series-6, .series-7) { stroke-dasharray: 6 3; } .line-chart path:is(.series-8, .series-9, .series-10, .series-11) { stroke-dasharray: 2 2; }
 .line-chart path.series { fill: none; }
 .line-chart path.series.frozen { stroke-dasharray: 4 3; opacity: 0.8; }
-.line-chart .legend text { paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+.line-chart .legend text { paint-order: stroke; stroke: var(--ground); stroke-width: 3px; stroke-linejoin: round; }
 .compare table.series { border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 0.5rem 0; }
 .compare table.series th, .compare table.series td { padding: 0.25rem 0.5rem; text-align: right; white-space: nowrap; }
 .compare table.series th[scope="row"], .compare table.series thead th:first-child { text-align: left; }
@@ -29,13 +39,11 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 /* NOTE: The dock tree places each tab strip, panel and splitter in percent. A border marks where a panel ends. Drop zones show while a tab is dragged. */
 .dock-layout { --dock-tab-height: 2rem; position: relative; height: calc(100vh - 7rem); min-height: 30rem; margin-top: 0.5rem; }
 .dock-layout.resizing { user-select: none; }
-.dock-tabs { position: absolute; box-sizing: border-box; height: var(--dock-tab-height); display: flex; overflow-x: auto; }
-.dock-tab-item { display: flex; white-space: nowrap; }
-.dock-tab { padding: 0 0.4rem; font-size: 0.875rem; }
-.dock-close { padding: 0 0.5rem; min-width: 1.5rem; }
-.dock-help { flex-basis: 100%; font-size: 0.875rem; }
-.dock-panel { position: absolute; box-sizing: border-box; overflow: auto; padding: 0.5rem; border: 1px solid; background: var(--bg); } /* NOTE: A plot in the dock scales to fit its panel, so the bottom dock shows the first plot whole (#343). */ .dock-panel[data-panel="plots"] { container-type: size; } .dock-panel[data-panel="plots"] h2 { margin: 0 0 0.25rem; font-size: 1rem; } .dock-panel[data-panel="plots"] .line-chart { width: auto; max-width: 100%; max-height: calc(100cqh - 2.75rem); }
-.dock-panel > textarea { box-sizing: border-box; width: 100%; height: 100%; resize: none; } .dock-panel-title { display: none; margin: 0 0 0.5rem; font-size: 1rem; }
+.dock-tabs { position: absolute; box-sizing: border-box; height: var(--dock-tab-height); display: flex; gap: calc(8 * var(--u)); overflow: auto hidden; scrollbar-width: thin; scrollbar-color: var(--dim) transparent; }
+.dock-tab-item { display: flex; align-items: flex-start; white-space: nowrap; }
+.dock-help { flex-basis: 100%; }
+.dock-panel { position: absolute; box-sizing: border-box; overflow: auto; padding: 0.5rem; border: var(--line); background: var(--ground); } /* NOTE: A plot in the dock scales to fit its panel, so the bottom dock shows the first plot whole (#343). */ .dock-panel[data-panel="plots"] { container-type: size; } .dock-panel[data-panel="plots"] h2 { margin: 0 0 0.25rem; } .dock-panel[data-panel="plots"] .line-chart { width: auto; max-width: 100%; max-height: calc(100cqh - 2.75rem); }
+.dock-panel > textarea { box-sizing: border-box; width: 100%; height: 100%; resize: none; } .dock-panel-title { display: none; margin: 0 0 0.5rem; }
 .dock-splitter { position: absolute; z-index: 2; }
 .dock-splitter.row { width: 6px; transform: translateX(-3px); cursor: col-resize; } .dock-splitter.column { height: 6px; transform: translateY(-3px); cursor: row-resize; }
 .dock-splitter:hover, .dock-splitter:focus-visible { background: currentColor; }
@@ -47,9 +55,9 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .dock-zone.left { left: 0; top: 0; bottom: 0; width: 25%; } .dock-zone.right { right: 0; top: 0; bottom: 0; width: 25%; }
 .dock-zone.top { top: 0; left: 25%; right: 25%; height: 25%; } .dock-zone.bottom { bottom: 0; left: 25%; right: 25%; height: 25%; }
 /* NOTE: A floating window is a bar and a corner grip over its panel. Its z-index comes from its order. */
-.dock-float-bar { position: absolute; box-sizing: border-box; height: var(--dock-tab-height); display: flex; align-items: center; border: 1px solid; background: var(--bg); cursor: move; touch-action: none; user-select: none; }
-.dock-float-title { flex: 1; padding: 0 0.4rem; font-size: 0.875rem; font-weight: 600; overflow: hidden; white-space: nowrap; } .dock-float-dock, .dock-float-btn { padding: 0 0.5rem; min-width: 1.5rem; }
-.dock-float-grip { position: absolute; width: 1rem; height: 1rem; box-sizing: border-box; border-right: 3px solid; border-bottom: 3px solid; cursor: nwse-resize; touch-action: none; }
+.dock-float-bar { position: absolute; box-sizing: border-box; height: var(--dock-tab-height); display: flex; align-items: center; border: var(--line); background: var(--ground); cursor: move; touch-action: none; user-select: none; }
+.dock-float-title { flex: 1; padding: 0 0.4rem; overflow: hidden; white-space: nowrap; } .dock-float-dock, .dock-float-btn { padding: 0 0.5rem; min-width: 1.5rem; }
+.dock-float-grip { position: absolute; width: 1rem; height: 1rem; box-sizing: border-box; border-right: var(--frame); border-bottom: var(--frame); cursor: nwse-resize; touch-action: none; }
 .dock-layout.floating-drag { user-select: none; } .dock-layout.floating-drag .dock-drop { display: block; pointer-events: none; }
 .dock-closed { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
 .dc-nodes { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; list-style: none; }
@@ -72,11 +80,11 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .schematic-pins .pin.problem { stroke: currentColor; stroke-width: 3px; vector-effect: non-scaling-stroke; fill: currentColor; fill-opacity: 0.5; }
 .schematic-pins .part.problem { stroke: currentColor; stroke-width: 2; stroke-dasharray: 6 3; }
 /* NOTE: Node voltages sit in the pin layer and the stale marker has a fixed place, so the live run moves no layout. */
-.schematic-pins .net-voltage { fill: currentColor; pointer-events: none; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; font-variant-numeric: tabular-nums; }
+.schematic-pins .net-voltage { fill: currentColor; pointer-events: none; paint-order: stroke; stroke: var(--ground); stroke-width: 3px; font-variant-numeric: tabular-nums; }
 .schematic-pins .net-voltage.stale, .dc-overlay.stale .dc-label { opacity: 0.45; }
 .schematic-pins .knob { cursor: ns-resize; touch-action: none; }
 .schematic-pins .knob-hit { fill: transparent; stroke: none; }
-.schematic-pins .knob-face { fill: var(--bg); stroke: currentColor; stroke-width: 1.5; }
+.schematic-pins .knob-face { fill: var(--ground); stroke: currentColor; stroke-width: 1.5; }
 .schematic-pins .knob-pointer { stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .schematic-pins .knob:hover .knob-face, .schematic-pins .knob.turning .knob-face { stroke-width: 2.5; }
 .schematic-pins .switch { cursor: pointer; touch-action: manipulation; }
@@ -84,10 +92,9 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .schematic-pins .switch:focus-visible .switch-hit, .schematic-pins .switch:hover .switch-hit { stroke: currentColor; stroke-opacity: 0.35; }
 .pin-add { cursor: pointer; }
 .pin-add-hit { fill: transparent; }
-.pin-add-dot { fill: currentColor; stroke: var(--bg); stroke-width: 1; pointer-events: none; }
+.pin-add-dot { fill: currentColor; stroke: var(--ground); stroke-width: 1; pointer-events: none; }
 .pin-add.chosen .pin-add-dot { stroke: currentColor; stroke-width: 2; }
-.pin-add-sign { fill: var(--bg); font-weight: 700; pointer-events: none; }
-.net-name { font-weight: 600; }
+.pin-add-sign { fill: var(--ground); pointer-events: none; }
 /* NOTE: One row over the canvas that scrolls sideways if it does not fit. The palette adds parts, so the part buttons do not show; the letter keys still work. */
 .schematic-tools { display: flex; flex: none; gap: 0.5rem; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 0.125rem; }
 .schematic-tools .tool-group { display: flex; flex: none; align-items: center; gap: 0.25rem; padding-right: 0.5rem; }
@@ -100,18 +107,16 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 /* NOTE: The Export menu holds the rarely used actions. Closed, it shows its button only. The parts list is a fixed sheet, so it shows either way. */
 .schematic-tools .export-menu { position: relative; flex: none; }
 .schematic-tools .export-items { display: none; }
-.schematic-tools .export-menu.open .export-items { position: absolute; z-index: 30; top: calc(100% + 0.25rem); left: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0.25rem; padding: 0.25rem; background: var(--bg); border: 1px solid; }
+.schematic-tools .export-menu.open .export-items { position: absolute; z-index: 30; top: calc(100% + 0.25rem); left: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0.25rem; padding: 0.25rem; background: var(--ground); border: var(--frame); }
 .schematic-tools .export-menu:not(.open) .export-items { display: contents; }
 .schematic-tools .export-menu:not(.open) .export-items > button { display: none; }
-.schematic-status { display: flex; gap: 1rem; align-items: baseline; flex: none; height: 1.5rem; overflow: hidden; white-space: nowrap; font-size: 0.875rem; }
+.schematic-status { display: flex; gap: 1rem; align-items: baseline; flex: none; height: 1.5rem; overflow: hidden; white-space: nowrap; }
 .schematic-hint { flex: none; margin: 0; }
 .schematic-empty { margin: 1rem 0; }
 .schematic-blank { min-height: 12rem; }
 .first-run-hints { display: flex; gap: 1rem; min-width: 0; margin: 0; padding: 0; list-style: none; overflow: hidden; text-overflow: ellipsis; }
 .first-run-hints li { flex: none; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; margin-bottom: 0.25rem; }
-.toolbar button { min-width: 5rem; }
-.toolbar-hint, .toolbar-status, .panel-hint { font-size: 0.875rem; }
 .toolbar-hint { margin-left: auto; }
 .panel-hint { margin: 0.25rem 0 0.5rem; }
 .run-errors { margin: 0 0 0.25rem; padding-left: 1.25rem; }
@@ -123,31 +128,28 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .switch .part { width: 4rem; }
 .knob .position { min-width: 3rem; text-align: right; font-variant-numeric: tabular-nums; }
 .calculator-panel .input { display: flex; flex-direction: column; gap: 0.125rem; margin-bottom: 0.5rem; }
-.home-links { display: flex; gap: 1rem; }
-.home-versions { margin-top: 4rem; }
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 1rem; padding: 0; list-style: none; }
-.gallery li { display: flex; flex-direction: column; }
-.gallery .preview { order: -1; margin: 0 0 0.5rem; aspect-ratio: 4 / 3; overflow: hidden; }
-.gallery .preview img { width: 100%; height: 100%; display: block; }
-.gallery .file { display: block; font-size: 0.8em; }
+.home-links { display: flex; flex-wrap: wrap; gap: 0 calc(8 * var(--u)); } .home-versions { margin-top: 4rem; }
+/* NOTE: The gallery is a row of cards wider than the measure: the preview on a well, the title as a link, the file name in mono. */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(200 * var(--u)), 1fr)); gap: calc(20 * var(--u)); padding: 0; list-style: none; }
+.gallery li { display: flex; flex-direction: column; align-items: flex-start; } .gallery .file { display: block; color: var(--dim); }
+.gallery .preview { order: -1; align-self: stretch; margin: 0 0 calc(4 * var(--u)); aspect-ratio: 4 / 3; overflow: hidden; background: var(--well); } .gallery .preview img { width: 100%; height: 100%; display: block; }
 /* NOTE: The palette is a narrow column of two at the left of the canvas. It takes no canvas height and never scrolls the page. */
 .schematic-editor, .schematic-editor .schematic { position: relative; }
 .schematic-editor .schematic { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .schematic-body { display: flex; gap: 1rem; align-items: stretch; }
 .schematic-body .schematic { flex: 1; min-width: 0; min-height: 18rem; height: 60vh; margin: 0; padding: 0; overflow: hidden; }
-.palette { display: grid; grid-template-columns: repeat(2, 3.5rem); grid-auto-rows: min-content; gap: 0.25rem; flex: none; overflow-y: auto; }
-.palette-item { display: flex; flex-direction: column; align-items: center; padding: 0.125rem; min-width: 0; user-select: none; -webkit-user-select: none; font-size: 0.625rem; line-height: 1.1; }
-.palette-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette { display: grid; grid-template-columns: repeat(2, 4.5rem); grid-auto-rows: min-content; gap: 0.25rem; flex: none; overflow-y: auto; }
+.palette-item { display: flex; flex-direction: column; align-items: center; padding: 0.125rem; min-width: 0; user-select: none; -webkit-user-select: none; } .doc .palette-item:disabled { color: var(--dim); } .doc .palette-item[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+.palette-name { max-width: 100%; overflow: hidden; text-align: center; }
 .palette-symbol svg { display: block; width: 2.75rem; height: 1.5rem; }
 /* NOTE: The schematic and the pin layer are one pixel to one view box unit at 100%, and the transform places them. They stay hidden until the pane is measured and the view is set, so no frame shows a view that is then replaced. */
 .schematic-editor .schematic > svg { position: absolute; top: 0; left: 0; max-width: none; transform-origin: 0 0; visibility: hidden; }
 .schematic-editor .schematic[data-view] > svg { visibility: visible; width: var(--w); height: var(--h); transform: translate(var(--x), var(--y)) scale(var(--z)); }
 /* NOTE: The zoom control is in the bottom right corner. Fit keeps the circuit above it. Floating boxes have a background and a border so they read over the circuit. */
-.schematic-zoom { position: absolute; z-index: 1; bottom: 0.25rem; right: 0.25rem; display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; background: var(--bg); border: 1px solid; }
-.schematic-zoom .zoom-menu { position: absolute; bottom: 100%; right: 0; display: flex; flex-direction: column; margin-bottom: 0.25rem; padding: 0.25rem; background: var(--bg); border: 1px solid; white-space: nowrap; }
-.schematic-zoom button { min-width: 2rem; min-height: 2rem; padding: 0 0.25rem; }
-.schematic-zoom .zoom-level { width: 3.5rem; box-sizing: border-box; text-align: center; font-size: 0.85em; font-variant-numeric: tabular-nums; }
-.pin-menu { position: absolute; left: 0.5rem; right: 0.5rem; top: 3.5rem; z-index: 2; display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.25rem; background: var(--bg); border: 1px solid; }
+.schematic-zoom { position: absolute; z-index: 1; bottom: 0.25rem; right: 0.25rem; display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; background: var(--ground); border: var(--line); }
+.schematic-zoom .zoom-menu { position: absolute; bottom: 100%; right: 0; display: flex; flex-direction: column; margin-bottom: 0.25rem; padding: 0.25rem; background: var(--ground); border: var(--frame); white-space: nowrap; }
+.schematic-zoom .zoom-level { width: 3.5rem; box-sizing: border-box; text-align: center; font-variant-numeric: tabular-nums; }
+.pin-menu { position: absolute; left: 0.5rem; right: 0.5rem; top: 3.5rem; z-index: 2; display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.25rem; background: var(--ground); border: var(--frame); }
 .pin-menu button { min-height: 2.75rem; min-width: 2.75rem; }
 /* NOTE: In the dock the schematic fills its panel, so the bar and the menu at the bottom of the canvas are in view. */
 .dock-panel:has(.schematic-editor) { display: flex; flex-direction: column; padding: 0.25rem; }
@@ -156,7 +158,7 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .dock-panel:has(.schematic-editor) .schematic-body .schematic { height: auto; min-height: 0; }
 /* NOTE: The part actions are 44 px. Before the pane is measured there is no pixel position, so they sit in one row near the top of the pane. */
 .part-actions { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
-.part-action { position: absolute; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); pointer-events: auto; background: var(--bg); font-size: 1.25rem; line-height: 1; }
+.part-action { position: absolute; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); pointer-events: auto; background: var(--ground); line-height: 1; }
 .part-action[data-action="delete"] { left: calc(50% - 4.5rem); top: 12%; }
 .part-action[data-action="rotate"] { left: calc(50% - 1.5rem); top: 12%; }
 .part-action[data-action="flip"] { left: calc(50% + 1.5rem); top: 12%; }
@@ -167,25 +169,24 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 .value-edit-box { position: absolute; left: 8rem; bottom: 0.5rem; z-index: 3; margin: 0; }
 .value-edit { width: 7rem; min-height: 44px; box-sizing: border-box; padding: 0 0.5rem; text-align: center; }
 .value-edit[aria-invalid="true"] { outline: 2px dashed; outline-offset: 2px; }
-.value-error { position: absolute; left: 8rem; bottom: 3.5rem; z-index: 3; margin: 0; padding: 0.25rem 0.5rem; font-size: 0.85rem; background: var(--bg); border: 1px solid; }
+.value-error { position: absolute; left: 8rem; bottom: 3.5rem; z-index: 3; margin: 0; padding: 0.25rem 0.5rem; background: var(--ground); border: var(--frame); }
 .block-list { display: flex; flex-direction: column; gap: 0.25rem; flex: none; width: 13rem; max-height: 100%; box-sizing: border-box; overflow-y: auto; padding: 0 0.25rem 0.5rem; }
-.block-list button { flex: none; min-height: 44px; text-align: left; font-size: 0.8rem; line-height: 1.2; }
-.block-heading { margin: 0.5rem 0 0; font-size: 0.75rem; font-weight: 600; }
+.block-list .ctl { flex: none; white-space: normal; text-align: left; }
+.block-heading { margin: 0.5rem 0 0; }
 .block-save { position: absolute; left: 8rem; bottom: 0.5rem; z-index: 3; display: flex; gap: 0.25rem; margin: 0; }
 .block-save input { width: 10rem; min-height: 44px; box-sizing: border-box; padding: 0 0.5rem; }
 .block-save button { min-height: 44px; }
 /* NOTE: The problem list floats over the top left of the canvas, under the part actions, and scrolls inside a fixed height, so a new problem moves nothing. */
 .schematic-editor .problems { position: absolute; z-index: 1; left: 0.25rem; top: 0.25rem; max-width: min(32rem, calc(100% - 0.5rem)); max-height: 6rem; overflow-y: auto; list-style: none; margin: 0; padding: 0; }
-.schematic-editor .problem-item { display: block; width: 100%; min-height: 28px; padding: 0.15rem 0.5rem; font-size: 0.9em; text-align: left; cursor: pointer; }
-.live-state { flex: none; min-width: 5.5em; font-size: 0.9em; }
-.live-state.stale, .stale-mark { font-style: italic; }
+.schematic-editor .problem-item { display: block; width: 100%; min-height: 28px; padding: 0.15rem 0.5rem; text-align: left; cursor: pointer; }
+.live-state { flex: none; min-width: 5.5em; }
+.live-state.stale, .stale-mark { color: var(--dim); }
 .live-line { display: flex; gap: 0.5rem; flex: none; height: 1.5rem; min-height: 1.5rem; overflow: hidden; white-space: nowrap; }
 .live-failed { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.command-palette, .shortcut-sheet { position: fixed; top: 4rem; left: 50%; transform: translateX(-50%); width: min(32rem, calc(100vw - 2rem)); max-height: calc(100vh - 6rem); max-height: calc(100dvh - 5rem); overflow: auto; z-index: 20; padding: 0.25rem; background: var(--bg); border: 1px solid; }
+.command-palette, .shortcut-sheet { position: fixed; top: 4rem; left: 50%; transform: translateX(-50%); width: min(32rem, calc(100vw - 2rem)); max-height: calc(100vh - 6rem); max-height: calc(100dvh - 5rem); overflow: auto; z-index: 20; padding: 0.25rem; background: var(--ground); border: var(--frame); }
 .command-palette input { width: 100%; box-sizing: border-box; }
 .command-palette ul { list-style: none; margin: 0.25rem 0 0; padding: 0; }
 .command-palette li button { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem; width: 100%; text-align: left; }
-.command-palette kbd { font-size: 0.8em; }
 .shortcut-sheet table { width: 100%; border-collapse: collapse; }
 .shortcut-sheet th, .shortcut-sheet td { text-align: left; padding: 0.25rem 0.5rem; }
 /* NOTE: The editor page is one screen high. The dock takes the height that the bars leave, so the page does not scroll (#163). */
@@ -193,35 +194,33 @@ h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
 body:has(.editor) { margin: 0; }
 .editor { display: flex; flex-direction: column; box-sizing: border-box; height: 100vh; height: 100dvh; padding: 0.5rem; }
 /* NOTE: The project bar is one short row over the panels. The list opens over the panels and moves nothing. */
-.project-bar { position: relative; display: flex; flex: none; gap: 0.25rem; align-items: center; margin-bottom: 0.25rem; font-size: 0.875rem; }
-.project-name { flex: 0 1 16rem; min-width: 0; font-weight: 600; }
-.project-list { position: absolute; top: 100%; left: 0; z-index: 20; box-sizing: border-box; width: min(28rem, 100%); max-height: 60vh; overflow-y: auto; padding: 0.5rem; border: 1px solid; background: var(--bg); }
+.project-bar { position: relative; display: flex; flex: none; gap: 0.25rem; align-items: center; margin-bottom: 0.25rem; }
+.project-name { flex: 0 1 16rem; min-width: 0; }
+.project-list { position: absolute; top: 100%; left: 0; z-index: 20; box-sizing: border-box; width: min(28rem, 100%); max-height: 60vh; overflow-y: auto; padding: 0.5rem; border: var(--frame); background: var(--ground); }
 .project-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.5rem; }
-.project-import { padding: 0.25rem 0.5rem; border: 1px solid; cursor: pointer; }
+.project-import { padding: 0.25rem 0.5rem; border: var(--line); cursor: pointer; }
 .project-import input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .project-list ul { margin: 0; padding: 0; list-style: none; }
 .project-list li { display: flex; gap: 0.25rem; align-items: center; padding: 0.125rem 0; }
 .project-list .project-open { flex: 1; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-.editor > .dock-closed { margin-top: 0; font-size: 0.875rem; }
-.editor > .dock-closed button { padding: 0 0.5rem; }
+.editor > .dock-closed { margin-top: 0; }
 .editor > .dock-layout { flex: 1; height: auto; min-height: 0; margin-top: 0.25rem; }
-.voltages tr.pointed { outline: 2px solid; outline-offset: -2px; } .voltages tr.output { font-weight: 600; }
+.voltages tr.pointed { outline: 2px solid; outline-offset: -2px; }
 .panel-bar { display: none; }
 /* NOTE: The toolbar scrolls and clips, so the parts list is a sheet fixed to the bottom of the window. */
-.parts-panel { position: fixed; left: 0.5rem; right: 0.5rem; bottom: 0.5rem; z-index: 20; max-height: 50vh; overflow: auto; background: var(--bg); border: 1px solid; }
+.parts-panel { position: fixed; left: 0.5rem; right: 0.5rem; bottom: 0.5rem; z-index: 20; max-height: 50vh; overflow: auto; background: var(--ground); border: var(--frame); }
 .parts-panel .parts-close { float: right; margin: 0.25rem; }
-.parts-list { border-collapse: collapse; font-size: 0.85rem; }
+.parts-list { border-collapse: collapse; }
 .parts-list th, .parts-list td { padding: 0.2rem 0.5rem; text-align: left; }
 /* NOTE: The shortcut hint shows only where the row has room for it. The palette (Ctrl+K) and the sheet (?) work at any width. */
 @media (max-width: 100rem) { .schematic-tools .toolbar-hint { display: none; } }
 @media (min-width: 48.01rem) { .schematic-tools { overflow-x: visible; } }
-/* NOTE: A finger needs 44 px. */
+/* NOTE: A finger needs 44 px. The substrate's pad round a control takes no pointer, so on a touch screen each control is a 44 px box, and the pressed band stays on the word. */
 @media (pointer: coarse) {
-    .schematic-zoom button, .schematic-tools button, .projects-toggle, .project-name, .zoom-level, .open-netlist { min-width: 2.75rem; min-height: 2.75rem; }
-    .palette-item, .schematic-editor .problem-item { min-height: 2.75rem; } .shortcut-sheet a, .home-links a, .gallery a, label:has(.show-internal) { display: inline-flex; align-items: center; min-height: 2.75rem; } .calculator-panel select, .calculator-panel input, .calculator-panel .write { min-height: 2.75rem; box-sizing: border-box; }
-    .dock-close, .dock-tab, .dock-float-btn, .dock-float-dock, .dock-bar button { min-width: 2.75rem; min-height: 2.75rem; }
+    .doc .ctl { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; box-sizing: border-box; } .doc .btn:is(:active, .s-active, [aria-pressed="true"]:not([data-alts]), [aria-checked="true"]):not(:disabled) { background-position: 0 calc(50% + 1.5 * var(--u)); }
+    .palette-item, .schematic-editor .problem-item, .project-name, .zoom-level, .doc :is(input:not([type="checkbox"], [type="file"]), select, textarea) { min-height: 44px; } label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center; min-height: 44px; }
 }
-/* NOTE: On a narrow screen the schematic is the whole screen, the palette is one row, and the bottom bar opens one other panel over it. */
+/* NOTE: On a narrow screen the schematic is the whole screen, the palette is one row, and the bottom bar opens one other panel over it. The substrate hides [hidden] with !important, so an open sheet shows with !important too. */
 @media (max-width: 48rem), (max-height: 30rem) {
     .dock-layout { height: auto; min-height: 0; }
     .dock-tabs, .dock-splitter, .dock-drop, .dock-float-bar, .dock-float-grip, .dock-float-btn { display: none !important; }
@@ -229,20 +228,20 @@ body:has(.editor) { margin: 0; }
     .dock-panel-title { display: block; }
     .dock-panel > textarea { height: 16rem; }
     .schematic-tools .export-menu.open .export-items { position: fixed; top: auto; left: 0.5rem; right: 0.5rem; bottom: 0.5rem; }
-    .schematic-tools { flex-wrap: wrap; overflow-x: visible; } /* NOTE: The toolbar and the tool groups give their buttons to one wrapping row, with New first, so no row holds one button (#387). */ .schematic-tools .toolbar, .schematic-tools .tool-group { display: contents; } .schematic-tools [data-action="new"] { order: -1; } .schematic-tools .live-line, .schematic-tools .toolbar-status { order: 9; } /* NOTE: The live line takes the room left on its row, so it does not wrap to an empty row of its own (#391). */ .schematic-tools .live-line { flex: 1 1 0; min-width: 3.5em; } /* NOTE: The cut failure text hides on a phone. "Stale" stays, and the canvas error list holds the full message (#412). */ .schematic-tools .live-failed { display: none; } /* NOTE: A panel is for reading, so the editing controls give way to the circuit (#387). */ .editor[data-sheet] .palette, .editor[data-sheet] .schematic-status, .editor[data-sheet] .start-here-button, .editor[data-sheet] .tool-group[aria-label="Tools"], .editor[data-sheet] .tool-group[aria-label="Selection"] { display: none; }
-    @media (orientation: portrait) { .schematic-body { flex-direction: column; } .palette { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 3.75rem; overflow-x: auto; overflow-y: hidden; } } /* NOTE: In landscape the palette stays a column at the left edge, so the circuit gets the height below the toolbar (#402). */
+    .schematic-tools { flex-wrap: wrap; overflow-x: visible; } /* NOTE: The toolbar and the tool groups give their buttons to one wrapping row, with New first, so no row holds one button (#387). */ .schematic-tools .toolbar, .schematic-tools .tool-group { display: contents; } .schematic-tools [data-action="new"] { order: -1; } .schematic-tools .live-line, .schematic-tools .toolbar-status { order: 9; } /* NOTE: An empty status is a live region with no text, so it leaves the flow and cannot wrap to a row of its own. */ .schematic-tools .toolbar-status:empty { position: absolute; } /* NOTE: The live line takes the room left on its row, so it does not wrap to an empty row of its own (#391). */ .schematic-tools .live-line { flex: 1 1 0; min-width: 3em; } /* NOTE: 3em at the mono size keeps "Stale" and leaves the five file buttons and the live line one row on a 375 px phone. */ /* NOTE: The cut failure text hides on a phone. "Stale" stays, and the canvas error list holds the full message (#412). */ .schematic-tools .live-failed { display: none; } /* NOTE: A panel is for reading, so the editing controls give way to the circuit (#387). */ .editor[data-sheet] .palette, .editor[data-sheet] .schematic-status, .editor[data-sheet] .start-here-button, .editor[data-sheet] .tool-group[aria-label="Tools"], .editor[data-sheet] .tool-group[aria-label="Selection"] { display: none; }
+    @media (orientation: portrait) { .schematic-body { flex-direction: column; } .palette { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 4.5rem; overflow-x: auto; overflow-y: hidden; padding-bottom: calc(8 * var(--u)); } } /* NOTE: In landscape the palette stays a column at the left edge, so the circuit gets the height below the toolbar (#402). */
     .block-list { width: auto; max-height: 11.5rem; }
     .block-save { left: 0.5rem; right: 0.5rem; }
     .block-save input { flex: 1; min-width: 0; }
     .editor > .dock-closed, .schematic-tools .toolbar-hint { display: none; }
     .editor > .dock-layout { position: relative; }
     .editor .dock-panel, .editor .dock-panel[hidden] { display: none; }
-    .editor .dock-panel[data-panel="schematic"] { position: absolute; inset: 0 !important; display: flex; width: auto !important; margin: 0; height: auto !important; }
+    .editor .dock-panel[data-panel="schematic"] { position: absolute; inset: 0 !important; display: flex !important; width: auto !important; margin: 0; height: auto !important; }
     .editor .dock-panel[data-panel="schematic"] .dock-panel-title { display: none; } /* NOTE: An open panel takes the lower 50 percent. The schematic ends above it, so the fit uses the part that the user sees (#382). */ .editor[data-sheet] .dock-panel[data-panel="schematic"] { bottom: 50% !important; }
     .editor[data-sheet="text"] .dock-panel[data-panel="text"], .editor[data-sheet="knobs"] .dock-panel[data-panel="knobs"], .editor[data-sheet="results"] .dock-panel[data-panel="results"],
     .editor[data-sheet="plots"] .dock-panel[data-panel="plots"], .editor[data-sheet="calculators"] .dock-panel[data-panel="calculators"], .editor[data-sheet="dc"] .dock-panel[data-panel="dc"],
     .editor[data-sheet="compare"] .dock-panel[data-panel="compare"], .editor[data-sheet="clip"] .dock-panel[data-panel="clip"], .editor[data-sheet="monitor"] .dock-panel[data-panel="monitor"],
-    .editor[data-sheet="amp"] .dock-panel[data-panel="amp"] { position: absolute; z-index: 5; inset: auto 0 0 0 !important; display: block; width: auto !important; height: 50% !important; margin: 0; overflow: auto; border-top: 2px solid; }
-    .panel-bar { display: flex; flex: none; gap: 0.25rem; overflow-x: auto; padding-top: 0.25rem; }
+    .editor[data-sheet="amp"] .dock-panel[data-panel="amp"] { position: absolute; z-index: 5; inset: auto 0 0 0 !important; display: block !important; width: auto !important; height: 50% !important; margin: 0; overflow: auto; border-top: var(--frame); }
+    .panel-bar { display: flex; flex: none; gap: 0.25rem; overflow-x: auto; padding: 0.25rem 0 calc(8 * var(--u)); } /* NOTE: The bottom pad holds the scroll bar, so it never covers the lower edge of a tab. */
     .panel-bar button { flex: none; min-height: 2.75rem; } /* NOTE: A phone in landscape has no height to spare, so the sheet takes the right half and the schematic the left half (#395). */ @media (min-aspect-ratio: 1/1) { .schematic-status { display: none; } .editor[data-sheet] .dock-panel[data-panel="schematic"] { right: 50% !important; bottom: 0 !important; } .editor[data-sheet] .dock-panel:not([data-panel="schematic"]) { inset: 0 0 0 auto !important; width: 50% !important; height: auto !important; } }
 }

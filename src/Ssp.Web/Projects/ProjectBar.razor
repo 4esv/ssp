@@ -3,16 +3,16 @@
 @* NOTE: The bar shows the name of the open project. The list opens under it, over the panels. *@
 <div class="project-bar">
     <input class="project-name" value="@Current.Name" aria-label="Project name" spellcheck="false" @onchange="Renamed" />
-    <button type="button" class="projects-toggle" aria-expanded="@(open ? "true" : "false")" @onclick="Toggle">Projects</button>
-    <span class="project-state" role="status">@State</span>
+    <button type="button" class="ctl btn projects-toggle" aria-expanded="@(open ? "true" : "false")" @onclick="Toggle"><span class="lbl">Projects</span><i class="caret"></i></button>
+    <span class="project-state mono" role="status">@State</span>
 
     @if (open)
     {
         <div class="project-list" role="dialog" aria-label="Projects">
             <div class="project-actions">
-                <button type="button" class="project-new" @onclick="New">New</button>
-                <label class="project-import">Import .cir<InputFile accept=".cir,.net,.sp,.txt" OnChange="Import" /></label>
-                <button type="button" class="project-export" @onclick="Export">Export .cir</button>
+                <button type="button" class="ctl btn project-new" @onclick="New"><span class="lbl">New</span><i class="caret"></i></button>
+                <label class="ctl btn project-import"><span class="lbl">Import .cir</span><InputFile accept=".cir,.net,.sp,.txt" OnChange="Import" /></label>
+                <button type="button" class="ctl btn project-export" @onclick="Export"><span class="lbl">Export .cir</span><i class="caret"></i></button>
             </div>
             @if (importError is not null)
             {
@@ -22,9 +22,9 @@
                 @foreach (var project in projects)
                 {
                     <li class="@(project.Id == Current.Id ? "current" : null)">
-                        <button type="button" class="project-open" @onclick="() => Choose(project)">@project.Name</button>
-                        <button type="button" class="project-duplicate" title="Duplicate" @onclick="() => Duplicate(project)">Duplicate</button>
-                        <button type="button" class="project-delete" title="Delete" @onclick="() => Delete(project)">Delete</button>
+                        <button type="button" class="ctl btn project-open @(project.Id == Current.Id ? "s-active" : null)" @onclick="() => Choose(project)"><span class="lbl">@project.Name</span><i class="caret"></i></button>
+                        <button type="button" class="ctl btn project-duplicate" title="Duplicate" @onclick="() => Duplicate(project)"><span class="lbl">Duplicate</span><i class="caret"></i></button>
+                        <button type="button" class="ctl btn project-delete" title="Delete" @onclick="() => Delete(project)"><span class="lbl">Delete</span><i class="caret"></i></button>
                     </li>
                 }
             </ul>
