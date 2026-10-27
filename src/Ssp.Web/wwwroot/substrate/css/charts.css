@@ -1,0 +1,78 @@
+.fig {
+  position: relative;
+  margin-top: calc(20 * var(--u));
+  outline: none;
+}
+.fig canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+.fig {
+  max-width: 100%;
+}
+.fig .words {
+  position: absolute;
+  inset: 0;
+}
+.fig .w {
+  position: absolute;
+  white-space: pre;
+  font-family: 'Handjet Cells', sans-serif;
+  font-size: calc(17 * var(--u));
+  line-height: calc(20 * var(--u));
+  color: var(--ink);
+}
+.fig .w.m {
+  font-family: 'Handjet Cells Mono', monospace;
+}
+.fig .w.dim {
+  color: var(--dim);
+}
+.fig .readout {
+  margin-left: calc(8 * var(--u));
+}
+.fig:focus-visible::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: calc(5 * var(--u));
+  width: calc(4 * var(--u));
+  height: calc(11 * var(--u));
+  background: var(--ink);
+  animation: blink 1s steps(1) infinite;
+}
+.diagram.fig:focus-visible::after {
+  top: calc(-15 * var(--u));
+}
+
+.chart canvas {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0 calc(2 * var(--u)) 0 calc(3 * var(--u));
+  image-rendering: pixelated;
+}
+
+.tbl.bars :is(td.n, td.bar) {
+  white-space: nowrap;
+}
+.tbl.bars td.n {
+  font-family: 'Handjet Cells Mono', monospace;
+  text-align: right;
+}
+.tbl.bars td.bar span {
+  display: inline-block;
+  vertical-align: top;
+  height: calc(20 * var(--u));
+  width: calc(var(--n) * var(--u));
+  background: linear-gradient(currentColor, currentColor) 0 calc(4 * var(--u)) / 100%
+    calc(15 * var(--u)) no-repeat;
+}
+.tbl.bars tbody tr {
+  position: relative;
+}
+.tbl.bars.sorting td {
+  background: var(--ground);
+}
+.doc p.dim {
+  color: var(--dim);
+}

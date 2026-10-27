@@ -1,0 +1,592 @@
+:root {
+  --blue: #205ea6;
+  --visited: color-mix(in oklab, var(--ink) 72%, var(--blue));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --blue: #4385be;
+  }
+}
+:root[data-theme='dark'] {
+  --blue: #4385be;
+}
+.doc {
+  max-width: 56ch;
+  margin-top: calc(40 * var(--u));
+}
+.doc h1 {
+  font-family: 'Pixelta Cells', sans-serif;
+  font-weight: normal;
+  font-size: calc(17 * var(--u));
+  line-height: calc(38 * var(--u));
+  margin: 0;
+}
+.doc h2 {
+  font: inherit;
+  color: var(--dim);
+  margin: calc(40 * var(--u)) 0 0;
+}
+.doc p {
+  margin: calc(20 * var(--u)) 0 0;
+}
+.doc h2 + p {
+  margin-top: 0;
+}
+.rules,
+.dim,
+.msg,
+.panel {
+  color: var(--dim);
+}
+.doc code,
+kbd,
+.v,
+.box,
+.t {
+  font-family: 'Handjet Cells Mono', monospace;
+}
+.doc p code {
+  background: var(--well);
+  padding: 0 calc(2 * var(--u));
+  color: var(--ink);
+}
+kbd {
+  color: var(--dim);
+}
+.v,
+.t {
+  white-space: pre;
+}
+
+.doc .ctl {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  outline: none;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.doc .ctl::before {
+  inset: min(0px, calc((20 * var(--u) - 44px) / 2)) min(0px, calc((28 * var(--u) - 44px) / 2));
+}
+.doc .ctl:disabled {
+  color: var(--dim);
+}
+.doc .disc,
+.doc .disc .lbl {
+  white-space: normal;
+}
+.doc .btn:disabled .lbl::before,
+.doc .btn:disabled .lbl::after,
+.doc :is(.chk, .rad, .sw, .disc):disabled .box::before,
+.doc :is(.chk, .rad, .sw, .disc):disabled .box::after {
+  color: var(--off);
+}
+.caret {
+  display: none;
+  position: absolute;
+  top: calc(5 * var(--u));
+  width: calc(4 * var(--u));
+  height: calc(11 * var(--u));
+  background: currentColor;
+  pointer-events: none;
+  animation: blink 1s steps(1) infinite;
+}
+.doc .ctl:is(:focus-visible, .s-focus) .caret {
+  display: block;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.doc .btn {
+  padding: 0 calc(2 * var(--u));
+}
+.doc .btn .lbl::before {
+  content: '[';
+  margin-right: calc(4 * var(--u));
+}
+.doc .btn .lbl::after {
+  content: ']';
+  margin-left: calc(4 * var(--u));
+}
+.doc .btn .caret {
+  left: calc(7 * var(--u));
+}
+.doc .strong .lbl::before,
+.doc .strong .lbl::after {
+  text-shadow: var(--u) 0 currentColor;
+}
+.doc .btn:is(:hover, .s-hover):not(:disabled, :active, .s-active) .lbl::before,
+.doc .btn:is(:hover, .s-hover):not(:disabled, :active, .s-active) .lbl::after,
+.doc
+  :is(.chk, .rad, .sw, .disc):is(:hover, .s-hover):not(:disabled, :active, .s-active)
+  .box::before,
+.doc
+  :is(.chk, .rad, .sw, .disc):is(:hover, .s-hover):not(:disabled, :active, .s-active)
+  .box::after {
+  animation: dither-blink 0.9s linear infinite;
+  mask-size: var(--dither) var(--dither);
+}
+.doc
+  .btn:is(:active, .s-active, [aria-pressed='true']:not([data-alts]), [aria-checked='true']):not(
+    :disabled
+  ) {
+  color: var(--ground);
+  background: linear-gradient(var(--ink), var(--ink)) 0 calc(4 * var(--u)) / 100%
+    calc(15 * var(--u)) no-repeat;
+}
+.doc .btn[aria-busy='true'] {
+  cursor: progress;
+}
+.hold {
+  display: inline-grid;
+}
+.hold > * {
+  grid-area: 1 / 1;
+  margin-left: calc(var(--mid, 0) * var(--u));
+  text-align: left;
+}
+.hold > :not(.on, .dither-swap-out) {
+  visibility: hidden;
+}
+.spin {
+  font-family: 'Handjet Cells Mono', monospace;
+}
+
+.doc .box {
+  margin-right: calc(4 * var(--u));
+  white-space: pre;
+}
+.doc .box::before {
+  content: '[';
+}
+.doc .box::after {
+  content: ']';
+}
+.doc .rad .box::before {
+  content: '(';
+}
+.doc .rad .box::after {
+  content: ')';
+}
+.doc .box i {
+  font-style: normal;
+}
+.doc .box i::before {
+  content: ' ';
+}
+.doc .chk[aria-checked='true'] .box i::before {
+  content: 'x';
+}
+.doc .sw .box i::before {
+  content: 'off';
+}
+.doc .sw[aria-checked='true'] .box i::before {
+  content: 'on ';
+}
+.doc .disc .box i::before {
+  content: '+';
+}
+.doc .disc[aria-expanded='true'] .box i::before {
+  content: '-';
+}
+.doc .rad[aria-checked='true'] .box i {
+  background:
+    linear-gradient(currentColor, currentColor) calc(1 * var(--u)) calc(10 * var(--u)) /
+      calc(5 * var(--u)) calc(3 * var(--u)) no-repeat,
+    linear-gradient(currentColor, currentColor) calc(2 * var(--u)) calc(9 * var(--u)) /
+      calc(3 * var(--u)) calc(5 * var(--u)) no-repeat;
+}
+.doc .box ~ .caret {
+  left: calc(21 * var(--u));
+}
+.doc .sw .caret {
+  left: calc(35 * var(--u));
+}
+.doc :is(.chk, .rad, .sw, .disc):is(:active, .s-active) .box {
+  color: var(--ground);
+  background: linear-gradient(var(--ink), var(--ink)) 0 calc(4 * var(--u)) / 100%
+    calc(15 * var(--u)) no-repeat;
+}
+.doc :is(.chk, .rad, .sw, .disc):disabled .box {
+  color: var(--dim);
+}
+
+.grp::before {
+  content: '[';
+  margin-right: calc(2 * var(--u));
+}
+.grp::after {
+  content: ']';
+  margin-left: calc(2 * var(--u));
+}
+.doc .grp .btn {
+  --sep: none;
+  --fill: none;
+  --dots: none;
+  padding: 0 calc(4 * var(--u)) 0 calc(8 * var(--u));
+  background: var(--dots), var(--fill), var(--sep);
+}
+.doc .grp .btn + .btn {
+  --sep: linear-gradient(var(--dim), var(--dim)) 0 calc(4 * var(--u)) / var(--u) calc(15 * var(--u))
+    no-repeat;
+}
+.doc .grp .btn .lbl::before,
+.doc .grp .btn .lbl::after {
+  content: none;
+}
+.doc .grp .btn .caret {
+  left: calc(3 * var(--u));
+}
+.doc .grp .btn:is(:hover, .s-hover):not([aria-checked='true']) {
+  --dots: linear-gradient(90deg, var(--ink) 50%, transparent 0) 0 calc(19 * var(--u)) /
+    calc(2 * var(--u)) var(--u) repeat-x;
+}
+.doc :is(.menu .btn, .btn[data-close]):focus-visible:not(:disabled) .lbl::before,
+.doc :is(.menu .btn, .btn[data-close]):focus-visible:not(:disabled) .lbl::after {
+  animation: dither-blink 0.9s linear infinite;
+  mask-size: var(--dither) var(--dither);
+}
+.doc .menu .grp .btn:focus-visible {
+  --dots: linear-gradient(90deg, var(--ink) 50%, transparent 0) 0 calc(19 * var(--u)) /
+    calc(2 * var(--u)) var(--u) repeat-x;
+}
+.doc .grp .btn:is([aria-checked='true'], :active, .s-active):not(:disabled) {
+  color: var(--ground);
+  background: var(--dots), var(--fill), var(--sep);
+  --fill: linear-gradient(var(--ink), var(--ink)) calc(2 * var(--u)) calc(4 * var(--u)) /
+    calc(100% - 3 * var(--u)) calc(15 * var(--u)) no-repeat;
+}
+.doc .grp {
+  position: relative;
+}
+.doc .grp.gliding .btn:is([aria-checked], :active, .s-active) {
+  color: var(--ink);
+  background: var(--dots), var(--sep);
+}
+.doc .grp .ghost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  pointer-events: none;
+  color: var(--ground);
+  background: var(--ink);
+}
+.doc .grp .ghost .btn:is([aria-checked], :active, .s-active) {
+  --fill: none;
+  --sep: none;
+  --dots: none;
+  color: var(--ground);
+  background: none;
+}
+.doc .grp .ghost .caret {
+  display: none;
+}
+.panel {
+  margin-top: 0;
+}
+
+.sel {
+  position: relative;
+}
+.list {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  top: calc(100% + 4 * var(--u));
+  display: flex;
+  flex-direction: column;
+  background: var(--ground);
+  border: calc(2 * var(--u)) solid var(--ink);
+  padding: calc(4 * var(--u)) 0;
+}
+.list[hidden] {
+  display: none;
+}
+.list button {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  text-align: left;
+  padding: 0 calc(8 * var(--u)) 0 calc(4 * var(--u));
+  white-space: nowrap;
+  cursor: pointer;
+}
+.list button::before {
+  content: '  ';
+  white-space: pre;
+  font-family: 'Handjet Cells Mono', monospace;
+}
+.list button[aria-selected='true']::before {
+  content: '> ';
+}
+.list button:is(:hover, :focus-visible) {
+  background: var(--ink);
+  color: var(--ground);
+  outline: none;
+}
+
+.doc .fieldw {
+  cursor: text;
+}
+.doc .fieldw .pr {
+  display: inline;
+  color: var(--dim);
+  margin-right: calc(4 * var(--u));
+}
+.doc .fieldw:focus-within .pr {
+  color: var(--ink);
+}
+.doc .field {
+  height: calc(20 * var(--u));
+  line-height: inherit;
+  vertical-align: top;
+  caret-shape: block;
+}
+.doc .fieldw.area {
+  display: flex;
+  align-items: start;
+  margin-top: calc(20 * var(--u));
+}
+.doc .fieldw.area .field {
+  width: 100%;
+  height: auto;
+  resize: vertical;
+}
+.doc .fieldw.bad .pr,
+.msg.err {
+  color: var(--ink);
+}
+.bang {
+  background: var(--ink);
+  color: var(--ground);
+  padding: 0 calc(2 * var(--u));
+}
+
+.fader,
+.meter {
+  white-space: nowrap;
+}
+.fader::before {
+  content: '[';
+}
+.fader::after {
+  content: ']';
+}
+.fader {
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+.fader canvas,
+.meter canvas {
+  vertical-align: top;
+}
+
+.doc .lnk {
+  text-decoration: underline;
+  text-decoration-thickness: var(--u);
+  text-underline-offset: calc(4 * var(--u));
+  text-decoration-color: var(--half);
+}
+.doc .lnk:visited {
+  color: var(--visited);
+}
+.doc .lnk:is(:hover, .s-hover) {
+  text-decoration-color: currentColor;
+}
+.doc .lnk:is(:focus-visible, .s-focus) {
+  background: linear-gradient(var(--ink), var(--ink)) 0 calc(4 * var(--u)) / 100%
+    calc(15 * var(--u)) no-repeat;
+  color: var(--ground);
+}
+.doc .lnk.ext::after {
+  content: '->';
+  display: inline-block;
+  margin-left: calc(3 * var(--u));
+  color: var(--dim);
+}
+.prev {
+  position: absolute;
+  z-index: 3;
+  max-width: calc(280 * var(--u));
+  background: var(--ground);
+  border: calc(2 * var(--u)) solid var(--ink);
+  padding: calc(4 * var(--u)) calc(8 * var(--u));
+  pointer-events: none;
+}
+.prev b {
+  display: block;
+  font-weight: normal;
+}
+.prev span {
+  color: var(--dim);
+}
+
+.doc .fn {
+  padding: 0;
+}
+.doc .fn .lbl::before {
+  content: '[';
+}
+.doc .fn .lbl::after {
+  content: ']';
+}
+.doc .fn:is(:hover, .s-hover):not([aria-expanded='true']) .lbl::before,
+.doc .fn:is(:hover, .s-hover):not([aria-expanded='true']) .lbl::after {
+  animation: dither-blink 0.9s linear infinite;
+  mask-size: var(--dither) var(--dither);
+}
+.doc .fn:is([aria-expanded='true'], :focus-visible) {
+  color: var(--ground);
+  background: linear-gradient(var(--ink), var(--ink)) 0 calc(4 * var(--u)) / 100%
+    calc(15 * var(--u)) no-repeat;
+}
+.doc .fn .caret {
+  display: none !important;
+}
+.fnote {
+  padding-left: calc(16 * var(--u));
+}
+.opening {
+  overflow: hidden;
+}
+
+.lamp {
+  margin: 0 calc(4 * var(--u));
+  padding: 0 calc(2 * var(--u));
+}
+.lamp::before {
+  content: '[';
+  color: var(--dim);
+  margin-right: calc(2 * var(--u));
+}
+.lamp::after {
+  content: ']';
+  color: var(--dim);
+  margin-left: calc(2 * var(--u));
+}
+.lamp.lit {
+  color: var(--ground);
+  background: linear-gradient(var(--ink), var(--ink)) 0 calc(4 * var(--u)) / 100%
+    calc(15 * var(--u)) no-repeat;
+}
+.lamp.lit::before,
+.lamp.lit::after {
+  color: inherit;
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24 * var(--u));
+  translate: -50% calc(60 * var(--u));
+  background: var(--ink);
+  color: var(--ground);
+  padding: 0 calc(8 * var(--u));
+  transition: translate 0.25s steps(6, end);
+  --fade: 0.4s;
+}
+.toast:not(:empty)::before {
+  content: '[ ';
+  white-space: pre;
+}
+.toast:not(:empty)::after {
+  content: ' ]';
+  white-space: pre;
+}
+.toast.up {
+  translate: -50% 0;
+}
+
+.dlg {
+  color: var(--ink);
+  background: var(--ground);
+  border: calc(2 * var(--u)) solid var(--ink);
+  padding: 0 calc(12 * var(--u)) calc(12 * var(--u));
+  overflow: hidden;
+  max-width: calc(360 * var(--u));
+  font: inherit;
+}
+.dlg::backdrop {
+  background: var(--d50);
+  opacity: 0.6;
+}
+.dlg-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 calc(-12 * var(--u));
+  padding: 0 calc(4 * var(--u)) 0 calc(12 * var(--u));
+  background: var(--ink);
+  color: var(--ground);
+}
+.dlg-title .ctl {
+  color: var(--ground);
+}
+.dlg-title .btn:active .lbl::before,
+.dlg-title .btn:active .lbl::after {
+  color: var(--ink) !important;
+  background: linear-gradient(var(--ground), var(--ground)) 0 calc(4 * var(--u)) / 100%
+    calc(15 * var(--u)) no-repeat !important;
+}
+.tbl {
+  border-collapse: collapse;
+  margin-top: calc(20 * var(--u));
+  display: block;
+  max-width: 100%;
+}
+.tbl :is(th, td) {
+  overflow-wrap: anywhere;
+}
+.tbl th {
+  text-align: left;
+  font-weight: normal;
+  padding: 0 calc(16 * var(--u)) 0 0;
+}
+.tbl td {
+  padding: 0 calc(16 * var(--u)) 0 calc(9 * var(--u));
+}
+.codeblock {
+  position: relative;
+  margin-top: calc(20 * var(--u));
+}
+.codeblock pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--well);
+  padding: 0 calc(10 * var(--u));
+  font-family: 'Handjet Cells Mono', monospace;
+  line-height: calc(20 * var(--u));
+}
+.codeblock .copy {
+  position: absolute;
+  right: calc(4 * var(--u));
+  top: 0;
+}
+.codeblock:has(> .copy:not([hidden])) pre {
+  padding-top: calc(20 * var(--u));
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(20 * var(--u));
+  margin-top: calc(20 * var(--u));
+}
+.strip figure {
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    animation: none;
+  }
+  .toast {
+    transition: none;
+  }
+}

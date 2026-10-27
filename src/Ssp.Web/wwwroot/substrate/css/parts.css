@@ -1,0 +1,775 @@
+.doc p.cap {
+  margin-top: calc(20 * var(--u));
+}
+.doc .cap + * {
+  margin-top: 0;
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.astext {
+  margin-top: calc(20 * var(--u));
+}
+.astext pre {
+  margin: 0;
+  white-space: pre;
+  background: var(--well);
+  padding: 0 calc(10 * var(--u));
+  font-family: 'Handjet Cells Mono', monospace;
+  line-height: calc(20 * var(--u));
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dim) transparent;
+  color: var(--ink);
+}
+.astext pre:focus-visible {
+  outline: calc(2 * var(--u)) solid var(--ink);
+  outline-offset: calc(2 * var(--u));
+}
+.astext pre.blocks {
+  white-space: pre;
+  overflow-wrap: normal;
+  font-family: monospace;
+  font-size: calc(10 * var(--u));
+  line-height: 1;
+}
+
+.rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  container-type: inline-size;
+}
+.rows:has(> .row) {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  column-gap: calc(8 * var(--u));
+}
+.rows .row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+}
+.rows > li:not(.row) {
+  grid-column: 1 / -1;
+}
+@media (min-width: 300px) {
+  .doc .grp {
+    white-space: nowrap;
+  }
+}
+.doc .ctl.wrap,
+.doc a.ctl.lnk {
+  white-space: normal;
+}
+.slot .tbl {
+  max-width: 100%;
+}
+.strip figure .rows {
+  width: min(calc(290 * var(--u)), calc(100vw - 32px));
+}
+.slot .tbl td {
+  padding-left: 0;
+}
+.rows .row:first-child {
+  margin-top: 0;
+}
+.row > .lamp,
+.row > .kname {
+  grid-column: 1;
+}
+.row > .head,
+.row > .secret {
+  grid-column: 2;
+  min-width: 0;
+}
+.row > .acts {
+  grid-column: 3;
+}
+.row > .detail,
+.row > .rowmsg {
+  grid-column: 2 / -1;
+  color: var(--dim);
+}
+.row > .rowmsg {
+  color: var(--ink);
+}
+@container (max-width: 420px) {
+  .row > .acts {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+}
+@container (max-width: 260px) {
+  .row > :is(.acts, .detail, .rowmsg) {
+    grid-column: 1 / -1;
+  }
+}
+.row .head .state {
+  margin-left: calc(4 * var(--u));
+}
+.rows code,
+.kname {
+  font-family: 'Handjet Cells Mono', monospace;
+}
+.rows li.none {
+  margin: 0;
+}
+.doc .lamp.dot {
+  margin: 0;
+  padding: 0;
+  font-family: 'Handjet Cells Mono', monospace;
+}
+.doc .lamp.dot::before,
+.doc .lamp.dot::after {
+  margin: 0;
+}
+.lamp.dot i {
+  display: inline-block;
+  vertical-align: top;
+  width: calc(7 * var(--u));
+  height: calc(20 * var(--u));
+}
+.lamp.dot.on i {
+  background:
+    linear-gradient(var(--ink), var(--ink)) calc(1 * var(--u)) calc(10 * var(--u)) /
+      calc(5 * var(--u)) calc(3 * var(--u)) no-repeat,
+    linear-gradient(var(--ink), var(--ink)) calc(2 * var(--u)) calc(9 * var(--u)) /
+      calc(3 * var(--u)) calc(5 * var(--u)) no-repeat;
+}
+.state,
+.detail,
+.chip,
+.secret,
+.t.swap {
+  display: inline-grid;
+  justify-items: start;
+}
+:is(.state, .detail, .chip, .secret) > * {
+  grid-area: 1 / 1;
+}
+.secret {
+  font-family: 'Handjet Cells Mono', monospace;
+  word-break: break-all;
+}
+.frow {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: calc(8 * var(--u));
+  align-items: baseline;
+}
+.frow + .frow {
+  margin-top: 0;
+}
+.frow .acts {
+  margin-left: auto;
+}
+.frow .detail {
+  flex-basis: 100%;
+  color: var(--dim);
+}
+
+.well {
+  background: var(--well);
+  padding: 0 calc(10 * var(--u));
+  margin-top: calc(20 * var(--u));
+}
+.doc .well p {
+  margin: 0;
+}
+.well.over {
+  box-shadow: inset 0 0 0 calc(2 * var(--u)) var(--ink);
+}
+.files {
+  list-style: none;
+  padding: 0;
+  margin: calc(20 * var(--u)) 0 0;
+}
+.files li {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: calc(8 * var(--u));
+  align-items: baseline;
+}
+.files .fname {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.files li[data-state='cancelled'] .fname,
+.files li[data-state='skipped'] .fname {
+  color: var(--dim);
+}
+.files li:not([data-state='waiting'], [data-state='sending']) [data-cancel] {
+  display: none;
+}
+.result {
+  margin-top: calc(20 * var(--u));
+}
+.doc .field.wide {
+  width: calc(300 * var(--u));
+  max-width: calc(100vw - 96px);
+}
+
+.doc .pin .field {
+  width: calc(84 * var(--u));
+  font-family: 'Handjet Cells Mono', monospace;
+  background: repeating-linear-gradient(
+      90deg,
+      var(--dim) 0 calc(6 * var(--u)),
+      transparent calc(6 * var(--u)) calc(7 * var(--u))
+    )
+    0 calc(19 * var(--u)) / 100% var(--u) no-repeat;
+}
+.doc .field.when {
+  width: calc(112 * var(--u));
+  font-family: 'Handjet Cells Mono', monospace;
+}
+.msg.ok {
+  color: var(--ink);
+}
+
+dialog.drawer {
+  position: fixed;
+  margin: 0;
+  padding: 0 calc(12 * var(--u)) calc(12 * var(--u));
+  border: 0;
+  max-width: none;
+  max-height: none;
+  color: var(--ink);
+  background: var(--ground);
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  transition: translate 0.24s steps(8, end);
+}
+dialog.drawer.right {
+  inset: 0 0 0 auto;
+  height: 100%;
+  width: min(calc(320 * var(--u)), calc(100vw - 48px));
+  translate: 100% 0;
+  border-left: calc(2 * var(--u)) solid var(--ink);
+}
+dialog.drawer.bottom {
+  inset: auto 0 0 0;
+  width: 100%;
+  max-height: 90%;
+  translate: 0 100%;
+  border-top: calc(2 * var(--u)) solid var(--ink);
+}
+dialog.drawer.in {
+  translate: 0 0;
+}
+dialog.drawer::backdrop,
+dialog.cmdk::backdrop {
+  background: var(--d50);
+  opacity: 0.6;
+}
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: calc(8 * var(--u));
+}
+.doc .drawer .ctl[data-close] .lbl::before,
+.doc .drawer .ctl[data-close] .lbl::after {
+  content: none;
+}
+.doc .drawer [data-close] .lbl {
+  padding: 0 calc(4 * var(--u));
+}
+
+dialog.cmdk {
+  margin: calc(40 * var(--u)) auto auto;
+  width: min(calc(440 * var(--u)), calc(100vw - 32px));
+  box-sizing: border-box;
+  border: calc(2 * var(--u)) solid var(--ink);
+  background: var(--ground);
+  color: var(--ink);
+  padding: calc(8 * var(--u)) calc(12 * var(--u));
+  max-width: none;
+}
+.roster {
+  list-style: none;
+  margin: calc(8 * var(--u)) 0 0;
+  padding: 0;
+  height: min(calc(260 * var(--u)), 50vh);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dim) transparent;
+}
+.roster li {
+  display: flex;
+  gap: calc(8 * var(--u));
+  padding: 0 calc(4 * var(--u));
+  white-space: nowrap;
+  cursor: pointer;
+}
+.roster .cn {
+  font-family: 'Handjet Cells Mono', monospace;
+}
+.roster .ca {
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: clip;
+}
+.roster li[aria-selected='true'] {
+  background: var(--ink);
+  color: var(--ground);
+}
+.roster li[aria-selected='true'] .ca {
+  color: var(--ground);
+}
+.cmdk .msg {
+  margin: calc(4 * var(--u)) 0 0;
+  min-height: calc(20 * var(--u));
+}
+
+.split .list {
+  top: calc(100% + 4 * var(--u));
+}
+.split .list button {
+  font-family: 'Handjet Cells', sans-serif;
+}
+.split .list button::before {
+  content: none;
+}
+.split .list button {
+  padding: 0 calc(8 * var(--u));
+}
+
+.lives {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(260 * var(--u))), 1fr));
+  gap: 0 calc(20 * var(--u));
+}
+.slot .rows.mini li {
+  margin: 0;
+}
+.slot .tbl {
+  margin-top: 0;
+}
+.slot .tbl td.n {
+  font-family: 'Handjet Cells Mono', monospace;
+  text-align: right;
+}
+.slot .fig {
+  margin-top: 0;
+}
+.doc .slot p.status {
+  margin-top: 0;
+}
+.bone {
+  display: inline-block;
+  vertical-align: top;
+  width: calc(var(--n) * var(--u));
+  height: calc(15 * var(--u));
+  margin: calc(4 * var(--u)) calc(8 * var(--u)) 0 0;
+  background: var(--d25);
+}
+.mframe img {
+  display: block;
+  width: calc(96 * var(--u));
+  height: calc(132 * var(--u));
+  object-fit: cover;
+}
+
+.set {
+  margin-top: calc(20 * var(--u));
+  outline: none;
+}
+.stage {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+}
+.stage img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+}
+.stage img:not(.on, .dither-swap-out),
+.stage.cells img {
+  visibility: hidden;
+}
+.stage .cellsfig {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+}
+.doc .stepper {
+  margin-top: 0;
+}
+.count {
+  font-family: 'Handjet Cells Mono', monospace;
+  white-space: pre;
+  position: relative;
+}
+.set:focus-visible ~ .stepper .count::after {
+  content: '';
+  position: absolute;
+  right: calc(-6 * var(--u));
+  top: calc(5 * var(--u));
+  width: calc(4 * var(--u));
+  height: calc(11 * var(--u));
+  background: var(--ink);
+  animation: blink 1s steps(1) infinite;
+}
+#set-cap {
+  margin-left: calc(8 * var(--u));
+}
+.frame.vid {
+  margin-top: 0;
+  cursor: pointer;
+}
+.frame.vid video {
+  display: block;
+  object-fit: contain;
+  background: var(--well);
+}
+.player {
+  white-space: normal;
+}
+
+.code {
+  position: relative;
+}
+.doc .code pre,
+.mdfile .code pre {
+  margin: calc(20 * var(--u)) 0 0;
+  padding: 0;
+  background: var(--well);
+  font-family: 'Handjet Cells Mono', monospace;
+  line-height: calc(20 * var(--u));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  outline: none;
+  tab-size: 4;
+}
+.mdfile .view.prose .code pre {
+  padding: 0 calc(10 * var(--u));
+}
+.ln {
+  display: block;
+  padding-right: calc(10 * var(--u));
+}
+.ln-n {
+  color: var(--dim);
+  text-decoration: none;
+}
+.ln-n::before {
+  content: attr(data-n);
+  display: inline-block;
+  width: calc(var(--ln-d, 2) * 7 * var(--u));
+  text-align: right;
+  margin: 0 calc(10 * var(--u)) 0 calc(8 * var(--u));
+}
+.ln-n:hover {
+  color: var(--ink);
+}
+.cm {
+  color: var(--dim);
+}
+.ln.lit {
+  background: var(--ink);
+  color: var(--ground);
+}
+.ln.lit :is(.ln-n, .cm) {
+  color: var(--ground);
+}
+.code:has(> pre:focus-visible)::before,
+.view.code:has(> pre:focus-visible)::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  left: calc(2 * var(--u));
+  top: calc(33 * var(--u));
+  width: calc(4 * var(--u));
+  height: calc(11 * var(--u));
+  background: var(--ink);
+  animation: blink 1s steps(1) infinite;
+}
+.mdfile {
+  margin-top: calc(20 * var(--u));
+}
+.mdfile .view.prose p.h {
+  margin-top: 0;
+  color: var(--dim);
+}
+.mdfile .view.code pre {
+  margin-top: 0;
+}
+.mdfile .view.code:has(> pre:focus-visible)::before {
+  top: calc(13 * var(--u));
+}
+
+.tagline {
+  line-height: calc(40 * var(--u));
+}
+.entries li {
+  margin-top: 0;
+}
+.entries li:first-child {
+  margin-top: 0;
+}
+.doc .entries {
+  margin-top: calc(20 * var(--u));
+}
+#tag-count {
+  margin: 0 calc(8 * var(--u));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.drawer {
+    transition: none;
+  }
+}
+.slot .status .t {
+  white-space: normal;
+}
+.bone {
+  max-width: calc(100% - 8 * var(--u));
+}
+
+.shell {
+  container-type: inline-size;
+  margin-top: calc(20 * var(--u));
+  background: var(--well);
+  min-height: calc(200 * var(--u));
+  display: grid;
+}
+.shell.rail {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+.shell.bar {
+  grid-template-rows: minmax(0, 1fr) max-content;
+}
+.shell .pane {
+  padding: 0 calc(12 * var(--u));
+}
+.shell.bar .pane {
+  grid-row: 1;
+}
+.shell .tools {
+  padding: calc(8 * var(--u)) 0;
+}
+.shell.rail .tools {
+  border-right: var(--u) solid var(--dim);
+  padding-right: calc(4 * var(--u));
+}
+.doc .shell .tools p {
+  margin: 0 0 0 calc(8 * var(--u));
+}
+.doc .shell .tools p:first-child {
+  margin-top: 0;
+}
+.shell .tool {
+  display: flex;
+  align-items: start;
+  gap: calc(6 * var(--u));
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0 calc(8 * var(--u));
+  outline: none;
+  position: relative;
+}
+.shell .tool canvas {
+  image-rendering: pixelated;
+}
+.shell .tool[aria-current] {
+  background: var(--ink);
+  color: var(--ground);
+}
+.shell .tool:hover:not([aria-current]) span {
+  text-decoration: underline dotted;
+  text-decoration-thickness: var(--u);
+  text-underline-offset: calc(4 * var(--u));
+}
+.shell .tool.ext span::after {
+  content: ' ->';
+  color: var(--dim);
+}
+.shell .tool:focus-visible::after {
+  content: '';
+  position: absolute;
+  left: calc(2 * var(--u));
+  top: calc(5 * var(--u));
+  width: calc(4 * var(--u));
+  height: calc(11 * var(--u));
+  background: currentColor;
+  animation: blink 1s steps(1) infinite;
+}
+.shell.bar .tools {
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: var(--u) solid var(--dim);
+  padding: 0;
+}
+.shell.bar .tool {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: calc(2 * var(--u));
+  padding: calc(6 * var(--u)) 0 0;
+}
+@container (max-width: 300px) {
+  .shell.bar .tool span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .shell.bar .tool {
+    padding-bottom: calc(6 * var(--u));
+  }
+}
+.shell.bar .tool:focus-visible::after {
+  left: calc(4 * var(--u));
+  top: calc(10 * var(--u));
+}
+
+.rack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 calc(24 * var(--u));
+  align-items: end;
+}
+.rack .fig,
+.piano.fig,
+.iconed .fig {
+  margin-top: calc(20 * var(--u));
+  overflow: visible;
+  touch-action: none;
+}
+.dial,
+.pad,
+.piano,
+.cellgrid,
+.glframe {
+  outline: none;
+  cursor: pointer;
+  touch-action: none;
+}
+.doc .rack p.t,
+.doc p.t {
+  margin-top: 0;
+  white-space: pre-wrap;
+}
+:is(.dial, .pad, .piano, .cellgrid, .glframe).fig:focus-visible::after {
+  content: none;
+}
+.dial:focus-visible + .t,
+.pad:focus-visible + .t,
+.glframe:focus-visible + .t {
+  background: linear-gradient(var(--ink), var(--ink)) 0 calc(5 * var(--u)) / calc(4 * var(--u))
+    calc(11 * var(--u)) no-repeat;
+  padding-left: calc(8 * var(--u));
+}
+
+.ground.fig {
+  overflow: hidden;
+}
+
+.iconed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 calc(24 * var(--u));
+  align-items: end;
+}
+.previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(12 * var(--u));
+  align-items: end;
+}
+.previews .fig {
+  margin-top: calc(20 * var(--u));
+}
+.cellgrid:focus-visible ~ .tools-line {
+  color: inherit;
+}
+
+::highlight(reading) {
+  background-color: var(--ink);
+  color: var(--ground);
+}
+.readable .h {
+  color: var(--dim);
+}
+.readable.plain p {
+  font-family: sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.glframe.fig {
+  overflow: hidden;
+}
+
+.ctl {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  min-height: calc(28 * var(--u));
+  box-sizing: border-box;
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctl::before {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  inset: min(0px, calc((28 * var(--u) - 44px) / 2)) min(0px, calc((28 * var(--u) - 44px) / 2));
+}
+.ctl[hidden],
+[hidden] {
+  display: none !important;
+}
+.caret {
+  display: none;
+}
+.btn {
+  padding: 0 calc(8 * var(--u));
+}
+.cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+}
+.cmd code {
+  font-family: 'Handjet Cells Mono', monospace;
+  background: var(--well);
+}
+.lnk {
+  min-height: 0;
+  text-decoration: underline;
+  text-decoration-thickness: calc(1 * var(--u));
+  text-underline-offset: calc(4 * var(--u));
+  text-decoration-color: var(--half);
+}
+.ctl:focus-visible {
+  outline: calc(2 * var(--u)) solid var(--ink);
+  outline-offset: calc(2 * var(--u));
+}
+.ctl:is(:disabled, [aria-disabled='true']) {
+  --ink: var(--dim);
+  cursor: default;
+}

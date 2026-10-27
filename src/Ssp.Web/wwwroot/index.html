@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
     <meta charset="utf-8" />
@@ -7,21 +7,23 @@
     <title>ssp</title>
     <base href="/" />
     <link rel="preload" id="webassembly" />
+    <link rel="stylesheet" href="substrate/css/index.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="css/print.css" media="print" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <script type="importmap"></script>
 </head>
 
-<body>
+<body class="substrate">
     <div id="app">Loading...</div>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
+        <a href="." class="reload ctl btn"><span class="lbl">Reload</span><i class="caret"></i></a>
         <span class="dismiss">X</span>
     </div>
     <script type="module" src="js/schematic-canvas#[.{fingerprint}].js"></script>
+    <script type="module" src="js/substrate#[.{fingerprint}].js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 

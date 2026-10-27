@@ -1,0 +1,151 @@
+@font-face {
+  font-family: 'Pixelta Cells';
+  src:
+    url(../fonts/pixelta-cells.woff2) format('woff2'),
+    url(../fonts/pixelta-cells.woff) format('woff'),
+    url(../fonts/pixelta-cells.ttf) format('truetype');
+  font-display: block;
+}
+@font-face {
+  font-family: 'Handjet Cells';
+  src:
+    url(../fonts/handjet-cells.woff2) format('woff2'),
+    url(../fonts/handjet-cells.woff) format('woff'),
+    url(../fonts/handjet-cells.ttf) format('truetype');
+  font-display: block;
+}
+@font-face {
+  font-family: 'Handjet Cells Mono';
+  src:
+    url(../fonts/handjet-cells-mono.woff2) format('woff2'),
+    url(../fonts/handjet-cells-mono.woff) format('woff'),
+    url(../fonts/handjet-cells-mono.ttf) format('truetype');
+  font-display: block;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}
+
+:root {
+  --px: 1;
+  --ink: #18181b;
+  --ground: #e4e4e7;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ink: #e4e4e7;
+    --ground: #18181b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --ink: #e4e4e7;
+  --ground: #18181b;
+  color-scheme: dark;
+}
+:root {
+  --dim: color-mix(in srgb, var(--ink) 70%, var(--ground));
+  --code-ground: color-mix(in srgb, var(--ink) 9%, var(--ground));
+  --u: calc(var(--px) * 1px);
+  --well: var(--code-ground);
+  --off: color-mix(in srgb, var(--ink) 34%, var(--ground));
+  --half: color-mix(in srgb, var(--ink) 50%, var(--ground));
+  --d25: conic-gradient(var(--ink) 0 25%, transparent 0) 0 0 / calc(2 * var(--u)) calc(2 * var(--u));
+  --d50: conic-gradient(var(--ink) 0 25%, transparent 0 50%, var(--ink) 0 75%, transparent 0) 0 0 /
+    calc(2 * var(--u)) calc(2 * var(--u));
+}
+
+.substrate {
+  font-family: 'Handjet Cells', sans-serif;
+  font-size: 17px;
+  font-size: calc(17 * var(--px) * 1px);
+  line-height: 20px;
+  line-height: calc(20 * var(--px) * 1px);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.substrate > * {
+  margin: 0;
+}
+.substrate > * + * {
+  margin-top: 20px;
+  margin-top: calc(20 * var(--px) * 1px);
+}
+.substrate h1 {
+  font-family: 'Pixelta Cells', sans-serif;
+  font-weight: normal;
+  font-size: 17px;
+  font-size: calc(17 * var(--px) * 1px);
+  line-height: 38px;
+  line-height: calc(38 * var(--px) * 1px);
+}
+.substrate .dim {
+  color: #55555a;
+  color: var(--dim);
+}
+.substrate code,
+.substrate pre,
+.substrate .mono {
+  font-family: 'Handjet Cells Mono', monospace;
+  font-size: 17px;
+  font-size: calc(17 * var(--px) * 1px);
+  line-height: 20px;
+  line-height: calc(20 * var(--px) * 1px);
+}
+.substrate code {
+  background: #cfcfd3;
+  background: var(--code-ground);
+  padding: 0 2px;
+  padding: 0 calc(2 * var(--px) * 1px);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.substrate pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #cfcfd3;
+  background: var(--code-ground);
+  padding: 8px 10px;
+  padding: calc(8 * var(--px) * 1px) calc(10 * var(--px) * 1px);
+}
+.substrate pre code {
+  background: none;
+  padding: 0;
+}
+.substrate td,
+.substrate th {
+  text-align: left;
+  font-weight: inherit;
+  vertical-align: baseline;
+  padding: 0 16px 0 0;
+  padding: 0 calc(16 * var(--px) * 1px) 0 0;
+}
+.substrate th {
+  color: #55555a;
+  color: var(--dim);
+}
+.substrate table {
+  border-collapse: collapse;
+}
+.substrate [data-chart] {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+canvas.cells {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.cells-on,
+.cells-on * {
+  color: transparent !important;
+  text-decoration-color: transparent !important;
+}
+.cells-on ::selection {
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+}
