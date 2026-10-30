@@ -6,15 +6,15 @@ namespace Ssp.Web.Tests;
 
 /// <summary>
 /// wwwroot/substrate is vendored: it is the substrate export as published, and nobody edits it here. So CssBareTests
-/// reads only app.css, and this test checks the vendored files against the export's manifest. The three Pixelta Cells
-/// font files are left out on purpose: the licence of that font for a public repository is not decided. Its
-/// font-face stays, and a face that does not load leaves its text as text.
+/// reads only app.css, and this test checks the vendored files against the export's manifest. Pixelta Cells is left
+/// out on purpose, its three font files and its rows (faces/title.js): the licence of that font for a public
+/// repository is not decided. The titles use Handjet Cells (app.css), so no page asks for the missing files.
 /// </summary>
 public partial class VendoredSubstrateTests
 {
     static readonly string WwwRoot = Path.Combine(RepoPaths.Root, "src", "Ssp.Web", "wwwroot");
     static readonly string Substrate = Path.Combine(WwwRoot, "substrate");
-    static readonly string[] LeftOut = ["fonts/pixelta-cells.ttf", "fonts/pixelta-cells.woff", "fonts/pixelta-cells.woff2"];
+    static readonly string[] LeftOut = ["fonts/pixelta-cells.ttf", "fonts/pixelta-cells.woff", "fonts/pixelta-cells.woff2", "js/shared/faces/title.js"];
 
     [Fact]
     public void EveryVendoredFileIsTheExportUnchanged()
