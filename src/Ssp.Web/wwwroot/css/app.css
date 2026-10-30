@@ -5,17 +5,18 @@ body { margin: 16px; background: var(--ground); color: var(--ink); }
 /* NOTE: The brackets are drawn, not read: a screen reader and an accessible name get the word only. Every control that is not a bracket control is plain text in the ink. */
 .doc .btn .lbl::before { content: '[' / ''; } .doc .btn .lbl::after { content: ']' / ''; }
 .doc button:not(.ctl) { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; text-align: inherit; cursor: pointer; }
-.doc :is(input:not([type="checkbox"], [type="range"], [type="file"]), select, textarea) { font: inherit; color: var(--ink); background: var(--ground); border: var(--line); padding: 0 calc(4 * var(--u)); box-sizing: border-box; }
+.doc :is(input:not([type="checkbox"], [type="range"], [type="file"]), select, textarea:not(.mono)) { font: inherit; } .doc :is(input:not([type="checkbox"], [type="range"], [type="file"]), select, textarea) { color: var(--ink); background: var(--ground); border: var(--line); padding: 0 calc(4 * var(--u)); box-sizing: border-box; }
 .doc :is(input[type="checkbox"], input[type="range"]) { color: var(--ink); } .doc svg:not([fill]) { fill: currentColor; } .doc input[type="checkbox"] { appearance: none; width: calc(12 * var(--u)); height: calc(12 * var(--u)); margin: 0 calc(4 * var(--u)) 0 0; border: var(--line); background: var(--ground); vertical-align: calc(-1 * var(--u)); } .doc input[type="checkbox"]:checked { background: var(--ink); } .doc input[type="checkbox"]:disabled { border-color: var(--off); }
 .doc input[type="range"] { appearance: none; height: calc(20 * var(--u)); margin: 0; background: none; } .doc input[type="range"]::-webkit-slider-runnable-track { height: var(--u); background: var(--dim); } .doc input[type="range"]::-moz-range-track { height: var(--u); background: var(--dim); }
 .doc input[type="range"]::-webkit-slider-thumb { appearance: none; width: calc(4 * var(--u)); height: calc(15 * var(--u)); margin-top: calc(-7 * var(--u)); border: 0; background: var(--ink); } .doc input[type="range"]::-moz-range-thumb { width: calc(4 * var(--u)); height: calc(15 * var(--u)); border: 0; background: var(--ink); }
 /* NOTE: The cells layer draws the titles over the page, so it sits over the panels and the floating windows. The editor takes the whole window, so its page has no measure and no top margin. */
 canvas.cells { z-index: 50; margin: 0; } /* NOTE: The body holds the cells layer, and the flow rule spaces every child of .substrate, so the layer drops a line below its titles without this. */
 .doc:has(.editor) { max-width: none; margin-top: 0; } .doc:has(.gallery) { max-width: calc(960 * var(--u)); }
-.dock-panel h2:not(.dock-panel-title) { margin: 0 0 calc(4 * var(--u)); }
+.dock-panel h2:not(.dock-panel-title) { margin: 0 0 calc(4 * var(--u)); } /* NOTE: The editor is a tool, not a page of prose: the substrate's space above a paragraph, a heading and the line after a heading stays out of it, so each part keeps its own margin. */ .doc .editor :is(p, h2, h2 + *) { margin-top: 0; } .doc .editor .dock-panel-title { margin-bottom: 0.5rem; } .doc .editor .panel-hint { margin: 0.25rem 0 0.5rem; }
 /* NOTE: Every control shows a ring with keyboard navigation. Blazor focuses the page heading, which is not a control. */
 :focus-visible { outline: 2px solid; outline-offset: 2px; }
 h1[tabindex="-1"]:focus-visible, .editor:focus { outline: none; }
+/* NOTE: Titles are in Handjet Cells, at the title line: Pixelta Cells is not vendored (#416), so no page asks for it. */ .substrate h1, .doc h1 { font: inherit; line-height: calc(38 * var(--u)); }
 .dock-tab:focus-visible, .dock-close:focus-visible { outline-offset: -2px; } .dock-splitter:focus-visible { outline-offset: 0; }
 .schematic-pins .pin:focus-visible, .schematic-pins .part:focus-visible, .schematic-pins .knob:focus-visible { outline-offset: 1px; }
 .project-import:focus-within { outline: var(--frame); } .command-palette .roster li.active { background: var(--ink); color: var(--ground); } .command-palette .roster li.active kbd { color: inherit; }
@@ -218,6 +219,7 @@ body:has(.editor) { margin: 0; }
 /* NOTE: A finger needs 44 px. The substrate's pad round a control takes no pointer, so on a touch screen each control is a 44 px box, and the pressed band stays on the word. */
 @media (pointer: coarse) {
     .doc .ctl { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; box-sizing: border-box; } .doc .btn:is(:active, .s-active, [aria-pressed="true"]:not([data-alts]), [aria-checked="true"]):not(:disabled) { background-position: 0 calc(50% + 1.5 * var(--u)); }
+    .dock-layout { --dock-tab-height: 44px; } .dock-tab-item { align-items: center; } /* NOTE: A group draws its dots, its band and its rules as three layers. On a 44 px tab each layer stays on the line of the word, in the middle of the box. */ .doc .dock-tab-item.grp .btn.ctl:not(:disabled) { background-position: 0 calc(50% + 9.5 * var(--u)), calc(2 * var(--u)) calc(50% + 1.5 * var(--u)), 0 calc(50% + 1.5 * var(--u)); }
     .palette-item, .schematic-editor .problem-item, .project-name, .zoom-level, .doc :is(input:not([type="checkbox"], [type="file"]), select, textarea) { min-height: 44px; } label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center; min-height: 44px; }
 }
 /* NOTE: On a narrow screen the schematic is the whole screen, the palette is one row, and the bottom bar opens one other panel over it. The substrate hides [hidden] with !important, so an open sheet shows with !important too. */

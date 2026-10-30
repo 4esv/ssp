@@ -16,18 +16,18 @@
     }
     <p class="clip-source">Sample: @Choice.Name</p>
 
-    <button type="button" class="ctl btn clip-play" @onclick="() => Try(Netlist)" disabled="@busy"><span class="lbl">Play clip</span><i class="caret"></i></button>
-    <button type="button" class="ctl btn clip-render-again" @onclick="() => Try(Netlist, force: true)" disabled="@busy"><span class="lbl">Render again</span><i class="caret"></i></button>
+    <button type="button" class="ctl btn clip-play" @onclick="() => Try(Netlist)" disabled="@busy"><span class="lbl">Play clip</span></button>
+    <button type="button" class="ctl btn clip-render-again" @onclick="() => Try(Netlist, force: true)" disabled="@busy"><span class="lbl">Render again</span></button>
     @if (OutOfDate)
     {
-        <button type="button" class="ctl btn clip-play-old" @onclick="PlayOld" disabled="@busy"><span class="lbl">Play old</span><i class="caret"></i></button>
+        <button type="button" class="ctl btn clip-play-old" @onclick="PlayOld" disabled="@busy"><span class="lbl">Play old</span></button>
     }
     @* NOTE: A cancel hides the button in the same render as the "Cancelled." status. The render unwinds after it (#225). *@
     @if (busy && !cancelled)
     {
-        <button type="button" class="ctl btn clip-cancel" @onclick="Cancel"><span class="lbl">Cancel</span><i class="caret"></i></button>
+        <button type="button" class="ctl btn clip-cancel" @onclick="Cancel"><span class="lbl">Cancel</span></button>
     }
-    <button type="button" class="ctl btn clip-download" @onclick="Download" disabled="@(shown is null)"><span class="lbl">Download WAV</span><i class="caret"></i></button>
+    <button type="button" class="ctl btn clip-download" @onclick="Download" disabled="@(shown is null)"><span class="lbl">Download WAV</span></button>
 
     @if (OutOfDate)
     {

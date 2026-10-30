@@ -20,7 +20,7 @@ else
             @foreach (var (node, volts) in Nodes())
             {
                 <li>
-                    <button type="button" class="ctl btn dc-node" data-node="@node" @onclick="() => probe = node"><span class="lbl">@node</span><i class="caret"></i></button>
+                    <button type="button" class="ctl btn dc-node" data-node="@node" @onclick="() => probe = node"><span class="lbl">@node</span></button>
                     @if (show)
                     {
                         <span class="dc-label mono" data-node="@node">@Volts(volts)</span>

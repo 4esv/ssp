@@ -45,14 +45,14 @@
         <SchematicEditor Netlist="@drawn" Layout="schematicLayout" Changed="Edit" View="@project?.View" ViewChanged="ViewChanged" NodeVoltages="@result?.OperatingPoint?.NodeVoltages" Stale="@stale" Pointed="Point" Covered="@(sheet is not null)" OpenNetlist="@OpenNetlist">
             <Actions>
                 <div class="toolbar" role="toolbar" aria-label="Editor actions">
-                    <button type="button" class="ctl btn run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running"><span class="lbl">Run</span><i class="caret"></i></button>
-                    <button type="button" class="ctl btn undo" disabled="@(!history.CanUndo)" @onclick="Undo"><span class="lbl">Undo</span><i class="caret"></i></button>
-                    <button type="button" class="ctl btn redo" disabled="@(!history.CanRedo)" @onclick="Redo"><span class="lbl">Redo</span><i class="caret"></i></button>
+                    <button type="button" class="ctl btn run" title="Run (Ctrl+Enter or Cmd+Enter)" @onclick="Run" disabled="@running"><span class="lbl">Run</span></button>
+                    <button type="button" class="ctl btn undo" disabled="@(!history.CanUndo)" @onclick="Undo"><span class="lbl">Undo</span></button>
+                    <button type="button" class="ctl btn redo" disabled="@(!history.CanRedo)" @onclick="Redo"><span class="lbl">Redo</span></button>
                     @* NOTE: The rarely used actions share one menu, so the tool row fits at laptop widths. The buttons stay in the page and the CSS shows them while the menu is open. *@
                     <span class="export-menu@(exportOpen ? " open" : "")" @onkeydown="ExportKey">
-                        <button type="button" class="ctl btn export-toggle" aria-haspopup="true" aria-expanded="@(exportOpen ? "true" : "false")" title="Share, download and the parts list" @onclick="() => exportOpen = !exportOpen"><span class="lbl">Export</span><i class="caret"></i></button>
+                        <button type="button" class="ctl btn export-toggle" aria-haspopup="true" aria-expanded="@(exportOpen ? "true" : "false")" title="Share, download and the parts list" @onclick="() => exportOpen = !exportOpen"><span class="lbl">Export</span></button>
                         <span class="export-items" role="group" aria-label="Export" @onclick="() => exportOpen = false">
-                            <button type="button" class="ctl btn share" title="Copy a link that holds this netlist" @onclick="Share"><span class="lbl">Share link</span><i class="caret"></i></button>
+                            <button type="button" class="ctl btn share" title="Copy a link that holds this netlist" @onclick="Share"><span class="lbl">Share link</span></button>
                             <SchematicExport @ref="export" Netlist="@drawn" />
                         </span>
                     </span>
@@ -67,7 +67,7 @@
                     <span class="toolbar-status" role="status">@toolbarStatus</span>
                     @if (showStart)
                     {
-                        <button type="button" class="ctl btn start-here-button" @onclick="() => Refocus(CommandPalette.PaletteMode.Sheet)"><span class="lbl">Start here</span><i class="caret"></i></button>
+                        <button type="button" class="ctl btn start-here-button" @onclick="() => Refocus(CommandPalette.PaletteMode.Sheet)"><span class="lbl">Start here</span></button>
                     }
                     <span class="toolbar-hint">Search actions: Ctrl+K or Cmd+K. Shortcuts: ?</span>
                 </div>
@@ -195,7 +195,7 @@
 <nav class="panel-bar" aria-label="Panels">
     @foreach (var (id, title) in SheetPanels)
     {
-        <button class="ctl btn" type="button" data-panel="@id" aria-pressed="@(sheet == id ? "true" : "false")" @onclick="() => Sheet(id)"><span class="lbl">@title</span><i class="caret"></i></button>
+        <button class="ctl btn" type="button" data-panel="@id" aria-pressed="@(sheet == id ? "true" : "false")" @onclick="() => Sheet(id)"><span class="lbl">@title</span></button>
     }
 </nav>
 </CascadingValue>

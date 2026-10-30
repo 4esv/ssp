@@ -10,15 +10,15 @@
 @if (SchematicView.Drawable(Circuit()))
 {
     @* NOTE: The file is the same SVG that the schematic shows. A data URL needs no server. *@
-    <button type="button" class="ctl btn svg-download" title="Save the schematic as an SVG file" @onclick="Save"><span class="lbl">Download SVG</span><i class="caret"></i></button>
-    <button type="button" class="ctl btn pdf-download" title="Save the schematic and the parts list as a PDF file" @onclick="SavePdf"><span class="lbl">Download PDF</span><i class="caret"></i></button>
-    <button type="button" class="ctl btn parts-csv" title="Save the parts list as a CSV file" @onclick="SaveCsv"><span class="lbl">Parts CSV</span><i class="caret"></i></button>
-    <button type="button" class="ctl btn parts-toggle" aria-expanded="@showParts.ToString().ToLowerInvariant()" title="Show the parts list" @onclick="ToggleParts"><span class="lbl">Parts</span><i class="caret"></i></button>
+    <button type="button" class="ctl btn svg-download" title="Save the schematic as an SVG file" @onclick="Save"><span class="lbl">Download SVG</span></button>
+    <button type="button" class="ctl btn pdf-download" title="Save the schematic and the parts list as a PDF file" @onclick="SavePdf"><span class="lbl">Download PDF</span></button>
+    <button type="button" class="ctl btn parts-csv" title="Save the parts list as a CSV file" @onclick="SaveCsv"><span class="lbl">Parts CSV</span></button>
+    <button type="button" class="ctl btn parts-toggle" aria-expanded="@showParts.ToString().ToLowerInvariant()" title="Show the parts list" @onclick="ToggleParts"><span class="lbl">Parts</span></button>
     @if (showParts)
     {
         var list = Parts();
         <section class="parts-panel" aria-label="Parts list">
-            <button type="button" class="ctl btn parts-close" @onclick="ToggleParts"><span class="lbl">Close</span><i class="caret"></i></button>
+            <button type="button" class="ctl btn parts-close" @onclick="ToggleParts"><span class="lbl">Close</span></button>
             <table class="parts-list">
                 <thead><tr><th>Qty</th><th>Refs</th><th>Value</th><th>Kind</th><th>Footprint</th><th>Buy</th></tr></thead>
                 <tbody>

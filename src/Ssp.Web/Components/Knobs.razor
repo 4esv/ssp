@@ -27,7 +27,7 @@
                 @foreach (var at in Ssp.Core.Parts.Switch.Positions(throws))
                 {
                     var to = at;
-                    <button class="ctl btn" type="button" aria-pressed="@(to == position ? "true" : "false")" @onclick="() => Set(part, to)"><span class="lbl">@PositionName(throws, to)</span><i class="caret"></i></button>
+                    <button class="ctl btn" type="button" aria-pressed="@(to == position ? "true" : "false")" @onclick="() => Set(part, to)"><span class="lbl">@PositionName(throws, to)</span></button>
                 }
             </div>
         }

@@ -19,11 +19,11 @@
         }
     </select>
     <input class="values" @bind="values" @bind:event="oninput" placeholder="1k, 4k7, 10k" aria-label="Values" />
-    <button class="ctl btn compare" @onclick="Run" disabled="@(running || parts.Count == 0)"><span class="lbl">Compare</span><i class="caret"></i></button>
-    <button class="ctl btn freeze" @onclick="Freeze" disabled="@(magnitude.Count == 0)"><span class="lbl">Freeze</span><i class="caret"></i></button>
+    <button class="ctl btn compare" @onclick="Run" disabled="@(running || parts.Count == 0)"><span class="lbl">Compare</span></button>
+    <button class="ctl btn freeze" @onclick="Freeze" disabled="@(magnitude.Count == 0)"><span class="lbl">Freeze</span></button>
     @if (frozenMagnitude.Count > 0)
     {
-        <button class="ctl btn unfreeze" @onclick="Unfreeze"><span class="lbl">Clear frozen</span><i class="caret"></i></button>
+        <button class="ctl btn unfreeze" @onclick="Unfreeze"><span class="lbl">Clear frozen</span></button>
     }
 
     @if (diagnostics.Count > 0)

@@ -5,14 +5,14 @@
 @inject IJSRuntime JS
 
 <div class="dock-closed dock-bar">
-    <button type="button" class="ctl btn dock-reset" @onclick="Reset"><span class="lbl">Reset layout</span><i class="caret"></i></button>
-    <button type="button" class="ctl btn dock-help-toggle" aria-expanded="@(helpShown ? "true" : "false")" aria-label="Layout help" title="Layout help" @onclick="() => helpShown = !helpShown"><span class="lbl">?</span><i class="caret"></i></button>
+    <button type="button" class="ctl btn dock-reset" @onclick="Reset"><span class="lbl">Reset layout</span></button>
+    <button type="button" class="ctl btn dock-help-toggle" aria-expanded="@(helpShown ? "true" : "false")" aria-label="Layout help" title="Layout help" @onclick="() => helpShown = !helpShown"><span class="lbl">?</span></button>
     @if (model.Closed.Count > 0)
     {
         <span>Hidden:</span>
         @foreach (var panel in model.Closed)
         {
-            <button type="button" class="ctl btn dock-open" data-panel="@panel" title="Show @Title(panel)" @onclick="() => Open(panel)"><span class="lbl">+ @Title(panel)</span><i class="caret"></i></button>
+            <button type="button" class="ctl btn dock-open" data-panel="@panel" title="Show @Title(panel)" @onclick="() => Open(panel)"><span class="lbl">+ @Title(panel)</span></button>
         }
     }
     @if (helpShown)
@@ -37,9 +37,9 @@
                     <button type="button" role="tab" class="ctl btn dock-tab @(shown ? "s-active" : null)" data-panel="@panel" aria-selected="@(shown ? "true" : "false")"
                             draggable="true" title="@KeyHelp" @ref="tabs[panel]"
                             @onclick="() => Show(panel)" @ondblclick="() => Close(panel)" @onkeydown="e => Key(panel, e)"
-                            @ondragstart="() => StartDrag(panel)" @ondragend="EndTabDrag"><span class="lbl">@Title(panel)</span><i class="caret"></i></button>
-                    <button type="button" class="ctl btn dock-float-btn" aria-label="Float @Title(panel)" title="Float @Title(panel)" @onclick="() => Float(panel)"><span class="lbl">↗</span><i class="caret"></i></button>
-                    <button type="button" class="ctl btn dock-close" aria-label="Hide @Title(panel)" title="Hide @Title(panel)" @onclick="() => Close(panel)"><span class="lbl">–</span><i class="caret"></i></button>
+                            @ondragstart="() => StartDrag(panel)" @ondragend="EndTabDrag"><span class="lbl">@Title(panel)</span></button>
+                    <button type="button" class="ctl btn dock-float-btn" aria-label="Float @Title(panel)" title="Float @Title(panel)" @onclick="() => Float(panel)"><span class="lbl">↗</span></button>
+                    <button type="button" class="ctl btn dock-close" aria-label="Hide @Title(panel)" title="Hide @Title(panel)" @onclick="() => Close(panel)"><span class="lbl">–</span></button>
                 </span>
             }
         </div>
@@ -58,9 +58,9 @@
              @onpointerdown="e => StartFloatDrag(window, FloatMode.Move, e)">
             <span class="dock-float-title">@Title(panel)</span>
             <button type="button" class="ctl btn dock-float-dock" aria-label="Dock @Title(panel)" title="Dock @Title(panel)"
-                    @onpointerdown:stopPropagation="true" @onclick="() => Open(panel)"><span class="lbl">Dock</span><i class="caret"></i></button>
+                    @onpointerdown:stopPropagation="true" @onclick="() => Open(panel)"><span class="lbl">Dock</span></button>
             <button type="button" class="ctl btn dock-close" aria-label="Hide @Title(panel)" title="Hide @Title(panel)"
-                    @onpointerdown:stopPropagation="true" @onclick="() => Close(panel)"><span class="lbl">–</span><i class="caret"></i></button>
+                    @onpointerdown:stopPropagation="true" @onclick="() => Close(panel)"><span class="lbl">–</span></button>
         </div>
         <div class="dock-float-grip" data-panel="@panel" style="@FloatGrip(window, layer)" @key="@("grip-" + panel)" aria-hidden="true"
              @onpointerdown="e => StartFloatDrag(window, FloatMode.Resize, e)"></div>
