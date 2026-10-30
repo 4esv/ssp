@@ -1,4 +1,18 @@
-import { NONE, DIM, INK, width } from './lattice.js'
+import { NONE, DIM, INK, LINE, width, whole, prose, mono } from './lattice.js'
+
+export const LAYOUT = { fontSize: 17, padding: 1, autoDirection: true, fontFamily: 'Handjet Cells' }
+export const measurer = { width: (text, size, style) => width(text, style & 4 ? mono : prose) }
+export const MOST = 600
+export const HINT = 'point at a part, or Tab here and use the arrows'
+export const READ = 16
+export const sizeOf = (vw, vh, W, chart, says = []) => ({
+  rows: whole((chart ? LINE : 0) + Math.ceil(vh) + 2),
+  cols: Math.max(
+    W,
+    Math.ceil(vw) + 2,
+    ...(chart ? [HINT, ...says].map((s) => READ + width(s, mono)) : [])
+  ),
+})
 
 const clean = (v) => Number(v.toPrecision(12))
 export function ticks(max, n = 4) {

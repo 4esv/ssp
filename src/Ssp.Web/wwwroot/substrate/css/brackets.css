@@ -29,8 +29,8 @@
 .doc p {
   margin: calc(20 * var(--u)) 0 0;
 }
-.doc h2 + p {
-  margin-top: 0;
+.doc h2 + * {
+  margin-top: calc(20 * var(--u));
 }
 .rules,
 .dim,
@@ -82,19 +82,6 @@ kbd {
 .doc :is(.chk, .rad, .sw, .disc):disabled .box::after {
   color: var(--off);
 }
-.caret {
-  display: none;
-  position: absolute;
-  top: calc(5 * var(--u));
-  width: calc(4 * var(--u));
-  height: calc(11 * var(--u));
-  background: currentColor;
-  pointer-events: none;
-  animation: blink 1s steps(1) infinite;
-}
-.doc .ctl:is(:focus-visible, .s-focus) .caret {
-  display: block;
-}
 @keyframes blink {
   50% {
     opacity: 0;
@@ -112,20 +99,29 @@ kbd {
   content: ']';
   margin-left: calc(4 * var(--u));
 }
-.doc .btn .caret {
-  left: calc(7 * var(--u));
-}
 .doc .strong .lbl::before,
 .doc .strong .lbl::after {
   text-shadow: var(--u) 0 currentColor;
 }
-.doc .btn:is(:hover, .s-hover):not(:disabled, :active, .s-active) .lbl::before,
-.doc .btn:is(:hover, .s-hover):not(:disabled, :active, .s-active) .lbl::after,
 .doc
-  :is(.chk, .rad, .sw, .disc):is(:hover, .s-hover):not(:disabled, :active, .s-active)
+  .btn:is(:hover, .s-hover, :focus-visible, .s-focus):not(:disabled, :active, .s-active)
+  .lbl::before,
+.doc
+  .btn:is(:hover, .s-hover, :focus-visible, .s-focus):not(:disabled, :active, .s-active)
+  .lbl::after,
+.doc
+  :is(.chk, .rad, .sw, .disc):is(:hover, .s-hover, :focus-visible, .s-focus):not(
+    :disabled,
+    :active,
+    .s-active
+  )
   .box::before,
 .doc
-  :is(.chk, .rad, .sw, .disc):is(:hover, .s-hover):not(:disabled, :active, .s-active)
+  :is(.chk, .rad, .sw, .disc):is(:hover, .s-hover, :focus-visible, .s-focus):not(
+    :disabled,
+    :active,
+    .s-active
+  )
   .box::after {
   animation: dither-blink 0.9s linear infinite;
   mask-size: var(--dither) var(--dither);
@@ -200,12 +196,6 @@ kbd {
     linear-gradient(currentColor, currentColor) calc(2 * var(--u)) calc(9 * var(--u)) /
       calc(3 * var(--u)) calc(5 * var(--u)) no-repeat;
 }
-.doc .box ~ .caret {
-  left: calc(21 * var(--u));
-}
-.doc .sw .caret {
-  left: calc(35 * var(--u));
-}
 .doc :is(.chk, .rad, .sw, .disc):is(:active, .s-active) .box {
   color: var(--ground);
   background: linear-gradient(var(--ink), var(--ink)) 0 calc(4 * var(--u)) / 100%
@@ -238,19 +228,11 @@ kbd {
 .doc .grp .btn .lbl::after {
   content: none;
 }
-.doc .grp .btn .caret {
-  left: calc(3 * var(--u));
-}
 .doc .grp .btn:is(:hover, .s-hover):not([aria-checked='true']) {
   --dots: linear-gradient(90deg, var(--ink) 50%, transparent 0) 0 calc(19 * var(--u)) /
     calc(2 * var(--u)) var(--u) repeat-x;
 }
-.doc :is(.menu .btn, .btn[data-close]):focus-visible:not(:disabled) .lbl::before,
-.doc :is(.menu .btn, .btn[data-close]):focus-visible:not(:disabled) .lbl::after {
-  animation: dither-blink 0.9s linear infinite;
-  mask-size: var(--dither) var(--dither);
-}
-.doc .menu .grp .btn:focus-visible {
+.doc .grp .btn:is(:focus-visible, .s-focus) {
   --dots: linear-gradient(90deg, var(--ink) 50%, transparent 0) 0 calc(19 * var(--u)) /
     calc(2 * var(--u)) var(--u) repeat-x;
 }
@@ -282,9 +264,6 @@ kbd {
   --dots: none;
   color: var(--ground);
   background: none;
-}
-.doc .grp .ghost .caret {
-  display: none;
 }
 .panel {
   margin-top: 0;
@@ -343,6 +322,14 @@ kbd {
   color: var(--ink);
 }
 .doc .field {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  box-sizing: border-box;
   height: calc(20 * var(--u));
   line-height: inherit;
   vertical-align: top;
@@ -411,6 +398,25 @@ kbd {
   margin-left: calc(3 * var(--u));
   color: var(--dim);
 }
+.doc .lnk.cover {
+  display: inline-flex;
+  align-items: flex-end;
+  max-width: 100%;
+  white-space: normal;
+}
+.doc .lnk.cover > .lbl {
+  min-width: 0;
+}
+.doc .lnk.cover:is(:focus-visible, .s-focus) {
+  background: none;
+}
+.doc .lnk.cover:is(:hover, .s-hover)::after {
+  color: var(--ink);
+}
+.doc .lnk.cover:is(:focus-visible, .s-focus)::after {
+  background: var(--ink);
+  color: var(--ground);
+}
 .prev {
   position: absolute;
   z-index: 3;
@@ -446,9 +452,6 @@ kbd {
   color: var(--ground);
   background: linear-gradient(var(--ink), var(--ink)) 0 calc(4 * var(--u)) / 100%
     calc(15 * var(--u)) no-repeat;
-}
-.doc .fn .caret {
-  display: none !important;
 }
 .fnote {
   padding-left: calc(16 * var(--u));
@@ -502,6 +505,15 @@ kbd {
 .toast.up {
   translate: -50% 0;
 }
+.toast.up:not(.dither-out) {
+  animation: toast-over calc(1s / 24) steps(1) 0.25s;
+}
+@keyframes toast-over {
+  from,
+  to {
+    translate: -50% calc(-9 * var(--u));
+  }
+}
 
 .dlg {
   color: var(--ink);
@@ -551,6 +563,30 @@ kbd {
 .tbl td {
   padding: 0 calc(16 * var(--u)) 0 calc(9 * var(--u));
 }
+.tbl.whole :is(th, td) {
+  overflow-wrap: normal;
+}
+.tbl.rec,
+.tbl.rec :is(tbody, tr, td) {
+  display: block;
+}
+.tbl.rec thead tr {
+  display: flex;
+  flex-wrap: wrap;
+}
+.tbl.rec thead:not(:has(button)) {
+  display: none;
+}
+.tbl.rec tbody tr + tr {
+  margin-top: calc(20 * var(--u));
+}
+.tbl.rec td {
+  padding: 0;
+}
+.tbl.rec td[data-h]::before {
+  content: attr(data-h) ' ';
+  color: var(--dim);
+}
 .codeblock {
   position: relative;
   margin-top: calc(20 * var(--u));
@@ -569,7 +605,7 @@ kbd {
   right: calc(4 * var(--u));
   top: 0;
 }
-.codeblock:has(> .copy:not([hidden])) pre {
+.codeblock:has(> .copy) pre {
   padding-top: calc(20 * var(--u));
 }
 
@@ -583,10 +619,10 @@ kbd {
   margin: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .caret {
-    animation: none;
-  }
   .toast {
     transition: none;
+  }
+  .toast.up:not(.dither-out) {
+    animation: none;
   }
 }

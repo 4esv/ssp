@@ -13,7 +13,18 @@ import journey from '../pele/esm/diagrams/journey.js'
 import venn from '../pele/esm/diagrams/venn.js'
 import { figure, width, prose, mono, INK, DIM, NONE, LINE, lit, unit } from './lattice.js'
 import { pick } from './touch.js'
-import { paint, CHARTS, sourceOf, said as sayOf, ends } from '../shared/charts.js'
+import {
+  paint,
+  CHARTS,
+  sourceOf,
+  said as sayOf,
+  ends,
+  LAYOUT,
+  measurer,
+  MOST,
+  HINT,
+  sizeOf,
+} from '../shared/charts.js'
 
 register(
   flowchart,
@@ -29,7 +40,6 @@ register(
   journey,
   venn
 )
-const measurer = { width: (text, size, style) => width(text, style & 4 ? mono : prose) }
 
 const attr = (el, name) => {
   for (let n = el; n && n.getAttribute; n = n.parentNode)
@@ -49,16 +59,25 @@ export function diagram(host, source) {
   let chart = false
   let where = new Map()
 
+  let zoom = 1
+  let W = 0
+  let vw = 0
+  let vh = 0
+  const fit = () => {
+    const room = host.clientWidth
+    const w = sizeOf(vw, vh, W, chart, chart ? items.map((it) => it.say) : []).cols * unit()
+    zoom = room && w > room + 0.5 ? room / w : 1
+    if (zoom === 1) return
+    for (const c of host.children) c.style.zoom = zoom
+    const line = LINE * unit()
+    host.style.height = `${Math.ceil(host.getBoundingClientRect().height / line - 0.01) * line}px`
+  }
   function build() {
-    const W = Math.min(Math.floor(host.parentElement.clientWidth / unit()), 600)
-    const { svg } = render(source, {
-      measurer,
-      fontSize: 17,
-      padding: 1,
-      maxWidth: W - 2,
-      autoDirection: true,
-      fontFamily: 'Handjet Cells',
-    })
+    for (const c of host.children) c.style.removeProperty('zoom')
+    host.style.removeProperty('height')
+    zoom = 1
+    W = Math.min(Math.floor(host.parentElement.clientWidth / unit()), MOST)
+    const { svg } = render(source, { ...LAYOUT, measurer, maxWidth: W - 2 })
     const tmp = document.createElement('div')
     tmp.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none'
     tmp.innerHTML = svg
@@ -66,7 +85,7 @@ export function diagram(host, source) {
     const root = tmp.querySelector('svg')
     chart = CHARTS.test(root.getAttribute('class'))
     const { values, xs } = sourceOf(source)
-    const [, , vw, vh] = root.getAttribute('viewBox').split(' ').map(Number)
+    ;[, , vw, vh] = root.getAttribute('viewBox').split(' ').map(Number)
     Object.assign(root.style, {
       width: `${vw}px`,
       height: `${vh}px`,
@@ -77,7 +96,7 @@ export function diagram(host, source) {
     const left = Math.max(0, Math.round((W - vw) / 2))
     const top = chart ? LINE : 0
     const cols = Math.max(W, Math.ceil(vw) + 2)
-    f = figure(host, cols, top + Math.ceil(vh) + 2)
+    f = figure(host, cols, sizeOf(vw, vh, W, chart).rows)
     f.reset()
     const base = root.getScreenCTM().inverse()
     const toLocal = (el) => base.multiply(el.getScreenCTM())
@@ -252,10 +271,11 @@ export function diagram(host, source) {
     f.draw()
     f.show(true)
     if (chart) say()
+    fit()
   }
 
   const say = () => {
-    const text = chosen ? chosen.say : 'point at a part, or Tab here and use the arrows'
+    const text = chosen ? chosen.say : HINT
     const old = f.words.querySelector('.readout:not(.dither-swap-out)')
     const n = f.word(text, 8, 15, { face: mono, cls: `readout${chosen ? '' : ' dim'}` })
     if (old) {
@@ -273,8 +293,8 @@ export function diagram(host, source) {
   }
   const hit = (e) => {
     const r = host.getBoundingClientRect()
-    const k = unit()
-    const x = Math.floor((e.clientX - r.left + host.scrollLeft) / k)
+    const k = unit() * zoom
+    const x = Math.floor((e.clientX - r.left) / k)
     const y = Math.floor((e.clientY - r.top) / k)
     return where.get(y * f.cols + x) || null
   }

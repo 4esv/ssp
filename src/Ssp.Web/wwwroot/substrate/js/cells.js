@@ -9,10 +9,8 @@ const CEIL = 0.06
 const BLOCK = 24
 const AIR = 10
 const SCATTER = 24
+const GROUP = 4
 const WANDER = 3
-const BLOB = 6
-const PART = 16
-const TRAIL = 4
 const FRAY = 2
 const FRAYED = 3
 export const pickPixel = (short, ratio) => (short < 600 ? 3 : ratio < 1.5 ? 1 : 2)
@@ -99,7 +97,6 @@ function mount(
     skip = '',
     field = null,
     quiet = '',
-    tether = null,
   }
 ) {
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -142,8 +139,6 @@ function mount(
   let boxes = new Map()
   let ground = null
   let ticks = 0
-  let P = null
-  let trail = []
   let frayed = null
   const names = new Map([[null, 0]])
   const keys = [null]
@@ -155,6 +150,7 @@ function mount(
   const colourOf = (tone) => tone & 3
   const groupOf = (q) => q.tone >> 2
   let waits = []
+  let dead = false
   let dpr = window.devicePixelRatio || 1
   let dev = defaultPixel()
   let cell = dev / dpr
@@ -166,6 +162,7 @@ function mount(
     tiles.clear()
     canvas.style.width = canvas.style.height = '0'
     for (const el of live) el.classList.remove('cells-on')
+    if (dead) return ((live = []), 0)
     live = (still ? [...article.querySelectorAll('[data-chart]')] : scope()).filter(loaded)
     const charts = [...article.querySelectorAll('[data-chart]')].map((el) => {
       const [kind, list] = el.dataset.chart.split(':')
@@ -275,7 +272,7 @@ function mount(
         }
       }
       for (const link of [scoped, ...scoped.querySelectorAll('a')]) {
-        if (!link.matches('a') || (skip && link.closest(skip))) continue
+        if (!link.matches('a') || link.matches('.cover') || (skip && link.closest(skip))) continue
         const top = (faces[family(link)] || { TOP: 0 }).TOP + 2
         const k = DIM + 4 * idOf(group(link) ?? null)
         clip = clipOf(link)
@@ -302,10 +299,10 @@ function mount(
         0,
       ])
     }
-    for (const el of live) el.classList.add('cells-on')
+    for (const el of live)
+      if (states.get(group(el) ?? null) !== 'gone') el.classList.add('cells-on')
     ground = field ? lay(cols, rows, clipOf, cx, cy, x0, y0) : null
     if (ground) first = false
-    if (ground && !hover) view()
     settled(true)
     draw()
     wake()
@@ -328,8 +325,27 @@ function mount(
     const b = hash(i, j + 1, 7) + (hash(i + 1, j + 1, 7) - hash(i, j + 1, 7)) * u
     return a + (b - a) * v
   }
+  const groupAt = (occ, cols, rows, x, y) => {
+    const out = [occ[y * cols + x]]
+    const had = new Set(out)
+    const q = [[x, y]]
+    while (q.length) {
+      const [x0, y0] = q.pop()
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x0 + dx
+          const yy = y0 + dy
+          if (xx < 0 || yy < 0 || xx >= cols || yy >= rows) continue
+          const o = occ[yy * cols + xx]
+          if (!o || had.has(o)) continue
+          had.add(o)
+          out.push(o)
+          q.push([xx, yy])
+        }
+    }
+    return out
+  }
   const CLEAR = 1
-  const TEXT = 2
   function lay(cols, rows, clipOf, cx, cy, x0, y0) {
     const mask = new Uint8Array(cols * rows)
     const fill = (l, t, r, b, bit, air, clip) => {
@@ -350,13 +366,13 @@ function mount(
     for (const el of document.querySelectorAll(field.clear))
       for (const r of el.getClientRects())
         if (r.width && r.height) fill(r.left, r.top, r.right, r.bottom, CLEAR, air, clipOf(el))
-    for (const [r, el, text] of inkRects(article, field.solid)) {
-      const clip = clipOf(el)
-      if (text) fill(r.left, r.top, r.right, r.bottom, CLEAR, air, clip)
-      fill(r.left, r.top, r.right, r.bottom, TEXT, 0, clip)
-    }
+    for (const [r, el, text] of inkRects(article, field.solid))
+      if (text) fill(r.left, r.top, r.right, r.bottom, CLEAR, air, clipOf(el))
     const endY = field.end()
     const end = Math.max(0, Math.min(rows, Math.ceil((endY - y0) / cell)))
+    const start = field.start
+      ? Math.max(0, Math.min(end, Math.ceil((field.start() - y0) / cell)))
+      : 0
     const top = Math.max(1, Math.round(end / 4))
     const [colL, colR, M] = field.column()
     const env = (px, py) => {
@@ -379,7 +395,7 @@ function mount(
     let topGaps = 0
     let topCells = 0
     const S = 24
-    for (let y = 0; y < end; y++) {
+    for (let y = start; y < end; y++) {
       const py = y0 + y * cell
       const gy = Math.round(py / cell)
       for (let x = 0; x < cols; x++) {
@@ -400,6 +416,28 @@ function mount(
         if (y < top) topCells++
       }
     }
+    const at = new Int32Array(cols * rows)
+    for (let i = 0; i < xs.length; i++) at[ys[i] * cols + xs[i]] = i + 1
+    const keep = new Uint8Array(xs.length)
+    const seen = new Uint8Array(xs.length)
+    for (let i = 0; i < xs.length; i++) {
+      if (seen[i]) continue
+      const group = groupAt(at, cols, rows, xs[i], ys[i])
+      for (const j of group) seen[j - 1] = 1
+      if (group.length >= GROUP) for (const j of group) keep[j - 1] = 1
+      else
+        for (const j of group) {
+          const k = blockOf(xs[j - 1], ys[j - 1])
+          taken.set(k, taken.get(k) - 1)
+        }
+    }
+    for (let i = xs.length - 1; i >= 0; i--)
+      if (!keep[i]) {
+        if (ys[i] < top) topCells--
+        xs.splice(i, 1)
+        ys.splice(i, 1)
+        born.splice(i, 1)
+      }
     const n = xs.length
     const occ = new Int32Array(cols * rows)
     for (let i = 0; i < n; i++) occ[ys[i] * cols + xs[i]] = i + 1
@@ -407,30 +445,27 @@ function mount(
       cols,
       rows,
       mask,
+      start,
       end,
       n,
       gaps,
       top: { rows: top, cells: topCells, gaps: topGaps },
       lx: Int32Array.from(xs),
       ly: Int32Array.from(ys),
-      hx: Int32Array.from(xs),
-      hy: Int32Array.from(ys),
       x: Int32Array.from(xs),
       y: Int32Array.from(ys),
-      hid: new Uint8Array(n),
       born: Int32Array.from(born),
       occ,
       taken,
       blockOf,
       capOf,
-      R: Math.max(2, Math.round(PART / cell)),
       age: first && !still ? 0 : SCATTER,
     }
   }
   let first = true
   const free = (f, x, y) =>
     x >= 0 &&
-    y >= 0 &&
+    y >= f.start &&
     x < f.cols &&
     y < f.end &&
     !(f.mask[y * f.cols + x] & CLEAR) &&
@@ -454,92 +489,36 @@ function mount(
       }
     return k
   }
-  function drift(f, P) {
+  function drift(f) {
     const k = Math.min(12, 3 + Math.floor(f.n / 400))
     for (let t = 0; t < k && f.n; t++) {
       const i = rnd(f.n)
-      if (f.hid[i] || f.x[i] !== f.hx[i] || f.y[i] !== f.hy[i]) continue
       const d = rnd(8)
       const dx = [-1, 0, 1, -1, 1, -1, 0, 1][d]
       const dy = [-1, -1, -1, 0, 0, 1, 1, 1][d]
-      const x = f.hx[i] + dx
-      const y = f.hy[i] + dy
+      const x = f.x[i] + dx
+      const y = f.y[i] + dy
       if (Math.abs(x - f.lx[i]) > WANDER || Math.abs(y - f.ly[i]) > WANDER) continue
-      if (!free(f, x, y) || near(f, i, x, y) < 1 || (P && Math.hypot(x - P[0], y - P[1]) <= f.R))
-        continue
-      const from = f.blockOf(f.hx[i], f.hy[i])
+      if (!free(f, x, y) || near(f, i, x, y) < 1) continue
+      const from = f.blockOf(f.x[i], f.y[i])
       const to = f.blockOf(x, y)
+      if (to !== from && (f.taken.get(to) || 0) >= f.capOf(to)) continue
+      const [ox, oy] = [f.x[i], f.y[i]]
+      const was = groupAt(f.occ, f.cols, f.rows, ox, oy).filter(
+        (o) => o !== i + 1 && Math.abs(f.x[o - 1] - ox) <= 1 && Math.abs(f.y[o - 1] - oy) <= 1
+      )
+      go(f, i, x, y)
+      const now = new Set(groupAt(f.occ, f.cols, f.rows, x, y))
+      if (!was.every((o) => now.has(o))) {
+        go(f, i, ox, oy)
+        continue
+      }
       if (to !== from) {
-        const t = f.taken.get(to) || 0
-        if (t >= f.capOf(to)) continue
-        f.taken.set(to, t + 1)
+        f.taken.set(to, (f.taken.get(to) || 0) + 1)
         f.taken.set(from, f.taken.get(from) - 1)
       }
-      f.hx[i] = x
-      f.hy[i] = y
-      go(f, i, x, y)
     }
   }
-  function part(f, P) {
-    const R = f.R
-    for (let i = 0; i < f.n; i++) {
-      const inside = P && Math.hypot(f.x[i] - P[0], f.y[i] - P[1]) <= R
-      if (inside && !f.hid[i]) {
-        const a = Math.atan2(f.y[i] - P[1], f.x[i] - P[0])
-        let to = null
-        for (let r = R + 1; !to && r <= R + 4; r++)
-          for (const da of [0, 0.3, -0.3, 0.6, -0.6]) {
-            const x = Math.round(P[0] + Math.cos(a + da) * r)
-            const y = Math.round(P[1] + Math.sin(a + da) * r)
-            if (Math.hypot(x - P[0], y - P[1]) > R && free(f, x, y)) {
-              to = [x, y]
-              break
-            }
-          }
-        if (to) go(f, i, ...to)
-        else {
-          f.hid[i] = 1
-          if (f.occ[f.y[i] * f.cols + f.x[i]] === i + 1) f.occ[f.y[i] * f.cols + f.x[i]] = 0
-        }
-        continue
-      }
-      if (f.x[i] === f.hx[i] && f.y[i] === f.hy[i] && !f.hid[i]) continue
-      if (P && Math.hypot(f.hx[i] - P[0], f.hy[i] - P[1]) <= R + 1) continue
-      if (f.hid[i]) {
-        if (free(f, f.hx[i], f.hy[i]))
-          ((f.hid[i] = 0), (f.x[i] = f.hx[i]), (f.y[i] = f.hy[i]), go(f, i, f.hx[i], f.hy[i]))
-        continue
-      }
-      const x = f.x[i] + Math.sign(f.hx[i] - f.x[i])
-      const y = f.y[i] + Math.sign(f.hy[i] - f.y[i])
-      if ((x === f.hx[i] && y === f.hy[i]) || free(f, x, y)) {
-        if (P && Math.hypot(x - P[0], y - P[1]) <= R) continue
-        go(f, i, x, y)
-      }
-    }
-  }
-  function blob(f) {
-    const out = []
-    const seen = new Set()
-    const r0 = BLOB / cell
-    trail.forEach((P, k) => {
-      const r = r0 * (1 - k / (TRAIL + 1))
-      for (let y = Math.floor(P[1] - r); y <= Math.ceil(P[1] + r); y++)
-        for (let x = Math.floor(P[0] - r); x <= Math.ceil(P[0] + r); x++) {
-          if (x < 0 || y < 0 || x >= f.cols || y >= f.rows) continue
-          const at = y * f.cols + x
-          if (seen.has(at) || f.mask[at] & TEXT) continue
-          const d = Math.hypot(x + 0.5 - P[0], y + 0.5 - P[1])
-          if (d > r) continue
-          const step = k + (d > r * 0.5 ? 1 : 0)
-          if (step && (x + y) % (step + 1)) continue
-          seen.add(at)
-          out.push([x, y, !k && d <= r * 0.5 ? INK : DIM])
-        }
-    })
-    return out
-  }
-
   function settled(all = false) {
     if (!waits.length) return
     const away = new Set()
@@ -554,16 +533,16 @@ function mount(
   const rnd = (n) => Math.floor(Math.random() * n)
 
   function draw() {
+    if (dead) return
     const s = Math.round(cell * dpr)
     const { TW, TH, nx, ny } = plan
     const by = new Map()
     const unseen = new Set([...states.keys()].map((k) => names.get(k)))
     const f = ground
     const extra = []
-    if (f && P && !still) for (const [x, y, c] of blob(f)) extra.push({ x, y, tone: c })
     if (f)
       for (let i = 0; i < f.n; i++)
-        if (!f.hid[i] && f.born[i] <= f.age) extra.push({ x: f.x[i], y: f.y[i], tone: DIM })
+        if (f.born[i] <= f.age) extra.push({ x: f.x[i], y: f.y[i], tone: DIM })
     for (const q of extra.length ? [...extra, ...world.p] : world.p) {
       if (unseen.size && q.spot !== undefined && unseen.has(groupOf(q))) continue
       const X = sx + q.x * s
@@ -606,50 +585,77 @@ function mount(
   let last = 0
   let acc = 0
   function frame(now) {
-    acc += Math.min(0.25, (now - last) / 1000)
-    last = now
-    let away = 1
-    let n = 0
-    for (; acc >= 1 / TPS; acc -= 1 / TPS) ((away = step()), n++)
-    if (n) (settled(), draw())
-    raf = away || busy() ? requestAnimationFrame(frame) : 0
+    try {
+      acc += Math.min(0.25, (now - last) / 1000)
+      last = now
+      let away = 1
+      let n = 0
+      for (; acc >= 1 / TPS; acc -= 1 / TPS) ((away = step()), n++)
+      if (n) (settled(), draw())
+      raf = away || busy() ? requestAnimationFrame(frame) : 0
+    } catch (err) {
+      recover('a frame threw', err)
+    }
+  }
+  function recover(why, err) {
+    if (dead) return
+    dead = true
+    if (raf) cancelAnimationFrame(raf)
+    raf = 0
+    const away = world
+      ? [...new Set(world.p.filter((q) => !q.home).map((q) => keys[groupOf(q)]))]
+      : []
+    for (const el of live) el.classList.remove('cells-on')
+    live = []
+    for (const [, t] of tiles) (t.ctx.clearRect(0, 0, t.dw, t.dh), (t.lit = false))
+    ground = null
+    for (const [, done] of waits) done()
+    waits = []
+    const e = err instanceof Error ? err : new Error(`cells: ${why}`)
+    console.error(
+      `cells: ${why}, the text is the page again (away: ${away.join(', ') || 'none'})`,
+      e
+    )
+    window.reportError?.(e)
+  }
+  function watchdog(done, spread) {
+    const span = spread + TPS
+    const wall = ((3 * span) / TPS) * 1000
+    let from = ticks
+    let over = false
+    done.then(() => (over = true))
+    const look = () => {
+      if (over || dead) return
+      if (document.hidden) return ((from = ticks), setTimeout(look, wall))
+      if (ticks === from) return recover('no tick ran in three times an arrival')
+      if (ticks - from >= 3 * span) return recover('an arrival not home in three times its ticks')
+      setTimeout(look, (span / TPS) * 1000)
+    }
+    setTimeout(look, wall)
   }
   function step() {
     ticks++
     if (frayed !== null && !states.has(frayed)) fray1(frayed)
     const away = tick(world)
-    if (tethered) for (const q of world.p) if (!q.home) hold(q)
-    trail = P ? [P, ...trail].slice(0, TRAIL + 1) : trail.slice(0, -1)
     const f = ground
     if (f) {
       f.age++
-      drift(f, P)
-      part(f, P)
+      drift(f)
     }
     return away
   }
   const busy = () =>
     !!ground &&
     !document.hidden &&
-    (window.scrollY < origin[1] + ground.end * cell || !!P || trail.length > 0 || frayed !== null)
+    (window.scrollY < origin[1] + ground.end * cell || frayed !== null)
   function wake() {
-    if (raf || still) return
+    if (raf || still || dead) return
     last = performance.now()
     acc = 0
     raf = requestAnimationFrame(frame)
   }
   document.addEventListener('visibilitychange', wake)
-  window.addEventListener('scroll', () => (hover ? null : view(), wake()), { passive: true })
-  const tethered = !!tether
-  function hold(q) {
-    const g = groupOf(q)
-    const r = Math.round((tether(keys[g]) || 0) / cell)
-    if (!r) return
-    const b = boxes.get(g)
-    const x = Math.max(b[0] - r, Math.min(b[2] + r, q.x))
-    const y = Math.max(b[1] - r, Math.min(b[3] + r, q.y))
-    if (x !== q.x || y !== q.y) setDown(world, q, x, y, q.wait)
-  }
+  window.addEventListener('scroll', wake, { passive: true })
   function fray1(name) {
     const g = names.get(name)
     const b = boxes.get(g)
@@ -671,14 +677,6 @@ function mount(
       groupCache.set(g, [world, world.p.filter((q) => groupOf(q) === g)])
     return groupCache.get(g)[1]
   }
-  const hover = window.matchMedia('(hover: hover)').matches
-  const lattice = (docX, docY) => [(docX - origin[0]) / cell, (docY - origin[1]) / cell]
-  function view() {
-    if (!ground || still) return
-    const d = root.getBoundingClientRect()
-    P = lattice(window.innerWidth / 2 - d.left, window.innerHeight / 2 - d.top)
-  }
-
   const at = (e) => {
     const r = canvas.getBoundingClientRect()
     return [
@@ -693,12 +691,7 @@ function mount(
   }
   let prev = null
   window.addEventListener('pointermove', (e) => {
-    if (!world) return
-    if (ground && hover && e.pointerType === 'mouse' && !still) {
-      const d = root.getBoundingClientRect()
-      P = lattice(e.clientX - d.left, e.clientY - d.top)
-      wake()
-    }
+    if (!world || dead) return
     if (prev && e.timeStamp > prev.t) {
       const f = (e.timeStamp - prev.t) / 1000 / (1 / TPS) / cell
       kick(touched(), ...at(e), (e.clientX - prev.x) / f, (e.clientY - prev.y) / f)
@@ -707,13 +700,12 @@ function mount(
     prev = { x: e.clientX, y: e.clientY, t: e.timeStamp }
   })
   window.addEventListener('pointerdown', (e) => {
-    if (!world) return
+    if (!world || dead) return
     burst(touched(), ...at(e))
     prev = { x: e.clientX, y: e.clientY, t: e.timeStamp }
     wake()
   })
   window.addEventListener('pointerup', (e) => e.pointerType !== 'mouse' && (prev = null))
-  document.documentElement.addEventListener('pointerleave', () => hover && (P = null))
 
   let pending = 0
   async function apply() {
@@ -725,16 +717,33 @@ function mount(
     const mine = ++pending
     await document.fonts.ready
     if (mine !== pending) return null
-    const n = layout()
+    let n = 0
+    try {
+      n = layout()
+    } catch (err) {
+      recover('a lay threw', err)
+    }
+    for (const el of placed) watch.unobserve(el)
+    placed = live.filter((el) => !(quiet && el.closest(quiet)))
+    for (const el of placed) watch.observe(el)
     seen = now()
+    laid = mine
     return n
   }
+  let laid = 0
+  const current = () => laid === pending && now() === seen
 
   let seen = ''
+  let placed = []
   const now = () => {
     const a = article.getBoundingClientRect()
     const d = root.getBoundingClientRect()
-    return `${root.clientWidth} ${window.devicePixelRatio} ${a.left - d.left},${a.top - d.top} ${a.width}x${a.height}`
+    let s = `${root.clientWidth} ${window.devicePixelRatio} ${a.left - d.left},${a.top - d.top} ${a.width}x${a.height}`
+    for (const el of placed) {
+      const r = el.getBoundingClientRect()
+      s += ` ${r.left - a.left},${r.top - a.top}`
+    }
+    return s
   }
   let queued = 0
   const refresh = () =>
@@ -742,7 +751,11 @@ function mount(
       queued = 0
       if (now() !== seen) apply()
     }))
-  const watch = new ResizeObserver(refresh)
+  const watch = new ResizeObserver(() => {
+    if (now() === seen) return
+    if (queued) (cancelAnimationFrame(queued), (queued = 0))
+    apply()
+  })
   watch.observe(root)
   watch.observe(article)
   const watchRatio = () =>
@@ -753,6 +766,11 @@ function mount(
       })
   watchRatio()
   document.fonts.addEventListener('loadingdone', apply)
+  for (const e of ['resize', 'orientationchange', 'pageshow', 'load'])
+    window.addEventListener(e, refresh)
+  window.visualViewport?.addEventListener('resize', refresh)
+  document.fonts.ready.then(refresh)
+  setInterval(() => document.hidden || dead || refresh(), 500)
   let scrolled = 0
   article.addEventListener(
     'scroll',
@@ -763,33 +781,26 @@ function mount(
   )
 
   function set(name, state) {
-    idOf(name)
-    if (state === 'shown') states.delete(name)
-    else states.set(name, state)
+    for (const n of [name].flat()) {
+      idOf(n)
+      if (state === 'shown') states.delete(n)
+      else states.set(n, state)
+    }
     if (world) draw()
   }
   function arrive(names, { rise = 40, spread = 36 } = {}) {
-    for (const n of names) set(n, 'shown')
-    if (still || !world) return Promise.resolve()
+    set(names, 'shown')
+    if (still || !world || dead) return Promise.resolve()
     const ids = new Set(names.map(idOf))
     const up = Math.max(1, Math.round(rise / cell))
     for (const q of pixelsOf(ids))
       setDown(world, q, q.x + rnd(3) - 1, q.y - 1 - rnd(up), rnd(spread))
     const done = new Promise((r) => waits.push([ids, r]))
+    watchdog(done, spread)
     draw()
     wake()
     return done
   }
-  function stir(name, n = 6) {
-    if (still || !world || states.has(name)) return
-    const own = pixelsOf(new Set([idOf(name)])).filter((q) => q.home)
-    for (let i = 0; i < n && own.length; i++) {
-      const q = own.splice(rnd(own.length), 1)[0]
-      setDown(world, q, q.x + rnd(5) - 2, q.y - 1 - rnd(3), 2 + rnd(8))
-    }
-    wake()
-  }
-
   function fray(name) {
     frayed = still || name === undefined ? null : name
     if (frayed !== null) (idOf(frayed), wake())
@@ -797,34 +808,34 @@ function mount(
   const toPage = (x, y) => [origin[0] + x * cell, origin[1] + y * cell]
   return {
     layout: apply,
+    current,
     draw,
     set,
     arrive,
-    stir,
     fray,
     state: (name) => states.get(name) || 'shown',
     field: () => {
       const f = ground
       if (!f) return null
       const list = []
-      for (let i = 0; i < f.n; i++)
-        if (!f.hid[i] && f.born[i] <= f.age) list.push(toPage(f.x[i], f.y[i]))
+      for (let i = 0; i < f.n; i++) if (f.born[i] <= f.age) list.push(toPage(f.x[i], f.y[i]))
       return {
         cells: f.n,
         gaps: f.gaps,
         top: { ...f.top, y: toPage(0, f.top.rows)[1] },
         end: toPage(0, f.end)[1],
         list,
-        pointer: P && !still ? blob(f).map(([x, y]) => toPage(x, y)) : [],
-        at: P && !still ? toPage(...P) : null,
-        radius: f.R * cell,
         cell,
         ticks,
       }
     },
     pixels: (name) =>
       world && names.has(name)
-        ? byGroup(names.get(name)).map((q) => [...toPage(q.x, q.y), q.home])
+        ? byGroup(names.get(name)).map((q) => [
+            ...toPage(q.x, q.y),
+            q.home,
+            ...(q.spot ? toPage(q.spot.x, q.spot.y) : [null, null]),
+          ])
         : [],
     box: (name) => {
       const b = world && boxes.get(names.get(name))

@@ -1,3 +1,5 @@
+import { past } from './overshoot.js'
+
 export const DEFAULTS = {
   radius: 8,
   gain: 1,
@@ -77,13 +79,16 @@ function disturb(w, q, vx, vy) {
   if (q.spot) release(w, q.spot)
   q.spot = null
   q.home = false
+  q.past = false
   q.falling = 0
   q.blocked = 0
+  q.through = 0
   q.wait = o.waitMin + Math.floor(w.rand() * (o.waitMax - o.waitMin + 1))
 }
 
 export function place(w, q, x, y, wait = 0) {
   q.home = false
+  q.past = false
   q.vx = q.vy = 0
   q.falling = 0
   q.blocked = 0
@@ -99,16 +104,35 @@ export function kick(w, cx, cy, vx, vy) {
   }
 }
 
-export function burst(w, cx, cy) {
+export function burst(w, cx, cy, reach = w.opts.radius * 1.5, power = 1, through = 0) {
   const o = w.opts
   for (const q of w.p) {
     const dx = q.x - cx
     const dy = q.y - cy
     const d = Math.hypot(dx, dy)
-    const f = Math.max(0, 1 - d / (o.radius * 1.5))
-    if (f <= 0) continue
+    if (d >= reach) continue
+    const f = (1 - d / reach) ** power
     const a = d > 0 ? Math.atan2(dy, dx) : w.rand() * Math.PI * 2
     disturb(w, q, Math.cos(a) * o.maxSpeed * f, Math.sin(a) * o.maxSpeed * f)
+    q.through = through
+  }
+}
+
+export function orbit(w, cx, cy, { reach, ring, speed }) {
+  w.held = new Set()
+  for (const q of w.p) {
+    const dx = q.x - cx
+    const dy = q.y - cy
+    const d = Math.hypot(dx, dy)
+    if (d > reach) continue
+    w.held.add(q)
+    if (d < 0.5) {
+      disturb(w, q, speed, 0)
+      continue
+    }
+    if (!q.orb) q.orb = Math.max(ring, d / 2)
+    const pull = Math.max(-speed, Math.min(speed, (q.orb - d) * 0.5))
+    disturb(w, q, (-dy / d) * speed + (dx / d) * pull, (dx / d) * speed + (dy / d) * pull)
   }
 }
 
@@ -139,7 +163,8 @@ function drift(w, q) {
       ny = q.y
     }
     if (nx === q.x && ny === q.y) return
-    if (w.occ.has(key(w, nx, ny))) {
+    const o = w.occ.get(key(w, nx, ny))
+    if (o && !(q.through > 0) && !(w.held?.has(q) && w.held.has(o))) {
       q.vx = -q.vx
       q.vy = -q.vy
       return
@@ -174,8 +199,14 @@ function fall(w, q) {
   if (!q.spot) claim(w, q)
   const { x: hx, y: hy } = q.spot
   q.falling++
+  if (q.past) {
+    q.past = false
+    move(w, q, hx, hy)
+  }
   const steps = Math.min(w.opts.fallMax, 1 + (q.falling >> 2))
-  for (let s = 0; s < steps; s++) {
+  let ax = 0
+  let ay = 0
+  for (let s = 0; s < steps && !(q.x === hx && q.y === hy); s++) {
     const dx = sign(hx - q.x)
     const dy = sign(hy - q.y)
     if (!dx && !dy) break
@@ -192,15 +223,31 @@ function fall(w, q) {
             [dx, 0],
           ]
     const free = tries.find(
-      ([ax, ay]) =>
-        (ax || ay) && inside(w, q.x + ax, q.y + ay) && !w.occ.has(key(w, q.x + ax, q.y + ay))
+      ([sx, sy]) =>
+        (sx || sy) && inside(w, q.x + sx, q.y + sy) && !w.occ.has(key(w, q.x + sx, q.y + sy))
     )
     if (free) {
       q.blocked = 0
-      move(w, q, q.x + free[0], q.y + free[1])
+      ;[ax, ay] = free
     } else if (++q.blocked > w.opts.patience) {
-      move(w, q, q.x + dx, q.y + dy)
+      ;[ax, ay] = [dx, dy]
     } else break
+    move(w, q, q.x + ax, q.y + ay)
+  }
+  if (q.x === hx && q.y === hy && (ax || ay)) {
+    const [px, py] = past(
+      hx,
+      hy,
+      ax,
+      ay,
+      steps,
+      (x, y) => inside(w, x, y) && !w.occ.has(key(w, x, y))
+    )
+    if (px !== hx || py !== hy) {
+      move(w, q, px, py)
+      q.past = true
+      return
+    }
   }
   if (q.x === hx && q.y === hy) {
     q.vx = q.vy = 0
@@ -220,8 +267,15 @@ export function tick(w) {
     if (q.wait > 0) {
       q.wait--
       drift(w, q)
+      if (q.through > 0) q.through--
     } else fall(w, q)
     away += !q.home
   }
+  if (w.held) w.orbiting = w.held
+  else if (w.orbiting) {
+    for (const q of w.orbiting) q.orb = 0
+    w.orbiting = null
+  }
+  w.held = null
   return away
 }

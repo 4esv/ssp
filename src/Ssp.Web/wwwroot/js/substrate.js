@@ -1,9 +1,10 @@
 // The titles are drawn as cells by the vendored substrate (wwwroot/substrate, see its README). Blazor renders into
 // #app after this module runs, and it renders again on navigation and on every editor change, so a MutationObserver
 // on #app calls layout() once per frame after the DOM changes. Without JS, or when a face does not load, the titles
-// stay as text.
+// stay as text. Pixelta Cells is not vendored (see VendoredSubstrateTests), so the faces are the two Handjet faces only.
 import { mountCells, defaultPixel } from '../substrate/js/cells.js'
-import { FACES } from '../substrate/js/index.js'
+import * as prose from '../substrate/js/shared/faces/prose.js'
+import * as mono from '../substrate/js/shared/faces/mono.js'
 import { ditherFor } from '../substrate/js/kit/dither.js'
 
 const app = document.getElementById('app')
@@ -29,6 +30,7 @@ const titles = () => [...app.querySelectorAll('h1, h2')].filter(shown)
 // never more device pixels than the ratio, rounded: one CSS pixel on a phone, and the kit's own pixel on a desk.
 const pixel = Math.min(defaultPixel(), Math.max(1, Math.round(window.devicePixelRatio || 1)))
 ditherFor(pixel)
+const FACES = { 'Handjet Cells': prose, 'Handjet Cells Mono': mono }
 const cells = mountCells(app, { faces: FACES, scope: titles, reach: 6 })
 if (cells.pixel !== pixel) cells.pixel = pixel
 const state = { layouts: 0 }

@@ -67,10 +67,10 @@
   background: linear-gradient(currentColor, currentColor) 0 calc(4 * var(--u)) / 100%
     calc(15 * var(--u)) no-repeat;
 }
-.tbl.bars tbody tr {
+.tbl tbody tr {
   position: relative;
 }
-.tbl.bars.sorting td {
+.tbl.sorting td {
   background: var(--ground);
 }
 .doc p.dim {

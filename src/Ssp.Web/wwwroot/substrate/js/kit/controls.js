@@ -17,7 +17,7 @@ export const esc = (s) =>
 export { unit, fade }
 
 export const btn = (t, cls = '', at = '') =>
-  `<button class="ctl btn ${cls}" ${at}><span class="lbl">${t}</span><i class="caret"></i></button>`
+  `<button class="ctl btn ${cls}" ${at}><span class="lbl">${t}</span></button>`
 
 const formWidth = (f) => {
   const ns = [...f.childNodes]
@@ -256,12 +256,14 @@ export function walk(e, items, vertical = true) {
   return items[j]
 }
 
-export function fader(f, onset = () => {}, W = 70) {
+export function fader(f, onset = () => {}, wide = 70) {
+  const across = () => (typeof wide === 'function' ? wide() : wide)
   const cv = f.querySelector('canvas') || f.appendChild(document.createElement('canvas'))
   const span = () => [+f.getAttribute('aria-valuemin'), +f.getAttribute('aria-valuemax')]
   let blink = true
   const draw = () => {
     const [lo, hi] = span()
+    const W = across()
     const dot = pixels(cv, W)
     const x = Math.round(((f.getAttribute('aria-valuenow') - lo) / (hi - lo || 1)) * (W - 2))
     dot(tone('--dim'), 0, 11, W)
@@ -277,13 +279,14 @@ export function fader(f, onset = () => {}, W = 70) {
   const at = (e) => {
     const [lo, hi] = span()
     const r = cv.getBoundingClientRect()
+    const W = across()
     set(lo + ((((e.clientX - r.left) / r.width) * W - 1) / (W - 2)) * (hi - lo))
   }
   f.addEventListener('pointerdown', (e) => (f.setPointerCapture(e.pointerId), at(e)))
   f.addEventListener('pointermove', (e) => f.hasPointerCapture(e.pointerId) && at(e))
   f.addEventListener('keydown', (e) => {
     const [lo, hi] = span()
-    const px = (hi - lo) / (W - 2)
+    const px = (hi - lo) / (across() - 2)
     const d = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key]
     if (d)
       (e.preventDefault(),

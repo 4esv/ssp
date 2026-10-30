@@ -70,13 +70,12 @@ export function read(roots, L, ids = new WeakMap()) {
     const m = css.content.match(/^"(.*)"$/)
     return m && m[1] ? [m[1].replace(/\\"/g, '"'), css] : null
   }
-  const length = (v, full) =>
-    Function(
-      `return ${v
-        .replace(/calc/g, '')
-        .replace(/(-?[\d.]+)%/g, (_, n) => (n * full) / 100)
-        .replace(/px/g, '')}`
-    )()
+  const length = (v, full) => {
+    let sum = 0
+    for (const [, sign, n, unit] of v.matchAll(/([+-]?)\s*([\d.]+)(%|px)?/g))
+      sum += (sign === '-' ? -1 : 1) * (unit === '%' ? (n * full) / 100 : +n)
+    return sum
+  }
   const backgrounds = (css, r) => {
     if (!clear(css.backgroundColor))
       fill(r.left + scrollX, r.top + scrollY, r.width, r.height, css.backgroundColor)

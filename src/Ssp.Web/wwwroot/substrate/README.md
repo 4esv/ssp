@@ -66,9 +66,12 @@ Set on `:root` (defaults in `css/substrate.css`):
 | `js/kit/machines.js` | the controls' rules as pure state |
 | `js/kit/morph.js` | changes told in pixels: unfold, glide |
 | `js/kit/plot.js` | charts at full size, from the same data as their inline form |
+| `js/kit/records.js` | a table too wide for its room read as records, a row a block |
+| `js/kit/sort.js` | a table sorted by its heads, the rows moving to their places |
 | `js/kit/steps.js` | the steps of a change, as numbers (pure) |
 | `js/kit/touch.js` | a readout the pointer drives, on every kind of pointer |
-| `js/kit/toys.js` | the ladybug and the slime dish, drawn from state the host supplies |
+| `js/kit/toys.js` | the ladybug, the slime dish, the seesaw and the board, drawn from state the host supplies |
+| `js/overshoot.js` | the one rule for anything that arrives: past by whole cells, home the next tick (pure) |
 | `js/pele/LICENSE` | Pele's licence (MIT) |
 | `js/scatter.js` | the cellular automaton the cells scatter and settle by (pure) |
 | `js/shared/charts.js` | chart scales, paints and inline syntax (pure) |
@@ -77,6 +80,7 @@ Set on `:root` (defaults in `css/substrate.css`):
 | `js/shared/faces/prose.js` | Handjet Cells, as rows |
 | `js/shared/faces/title.js` | Pixelta Cells, as rows |
 | `js/shared/lattice.js` | the lattice's numbers: tones, levels, widths, lines (pure) |
+| `js/shared/playground.js` | the playground: its walls, the board and the plank (pure) |
 | `js/shared/qr.js` | QR codes as a matrix and as text (pure) |
 | `js/shared/slime.js` | the slime mould (pure, seeded) |
 | `manifest.json` | every file with its size and sha256, the source commit, the rules |

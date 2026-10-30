@@ -13,6 +13,28 @@
   white-space: nowrap;
 }
 
+.doc :is(.inquiry, .hosting) .fieldw {
+  display: flex;
+}
+.doc :is(.inquiry, .hosting) .field.wide {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+.doc .rad:has(> input:checked) .box i {
+  background:
+    linear-gradient(currentColor, currentColor) calc(1 * var(--u)) calc(10 * var(--u)) /
+      calc(5 * var(--u)) calc(3 * var(--u)) no-repeat,
+    linear-gradient(currentColor, currentColor) calc(2 * var(--u)) calc(9 * var(--u)) /
+      calc(3 * var(--u)) calc(5 * var(--u)) no-repeat;
+}
+.doc .rad:has(> input:focus-visible) .box::before,
+.doc .rad:has(> input:focus-visible) .box::after {
+  animation: dither-blink 0.9s linear infinite;
+  mask-size: var(--dither) var(--dither);
+}
+
 .astext {
   margin-top: calc(20 * var(--u));
 }
@@ -31,6 +53,12 @@
 .astext pre:focus-visible {
   outline: calc(2 * var(--u)) solid var(--ink);
   outline-offset: calc(2 * var(--u));
+}
+.asfig {
+  margin-top: calc(20 * var(--u));
+}
+.asfig > pre {
+  display: none;
 }
 .astext pre.blocks {
   white-space: pre;
@@ -217,6 +245,17 @@
   max-width: calc(100vw - 96px);
 }
 
+.qr {
+  display: block;
+  margin-top: calc(20 * var(--u));
+  max-width: 100%;
+}
+.qr svg {
+  display: block;
+  width: calc(164 * var(--u));
+  height: auto;
+}
+
 .doc .pin .field {
   width: calc(84 * var(--u));
   font-family: 'Handjet Cells Mono', monospace;
@@ -252,19 +291,41 @@ dialog.drawer {
 dialog.drawer.right {
   inset: 0 0 0 auto;
   height: 100%;
-  width: min(calc(320 * var(--u)), calc(100vw - 48px));
+  width: calc(min(calc(320 * var(--u)), calc(100vw - 48px)) + 24 * var(--u));
+  margin-right: calc(-24 * var(--u));
   translate: 100% 0;
   border-left: calc(2 * var(--u)) solid var(--ink);
+  border-right: calc(24 * var(--u)) solid var(--ground);
 }
 dialog.drawer.bottom {
   inset: auto 0 0 0;
   width: 100%;
-  max-height: 90%;
+  max-height: calc(90% + 24 * var(--u));
+  margin-bottom: calc(-24 * var(--u));
   translate: 0 100%;
   border-top: calc(2 * var(--u)) solid var(--ink);
+  border-bottom: calc(24 * var(--u)) solid var(--ground);
 }
 dialog.drawer.in {
   translate: 0 0;
+}
+dialog.drawer.right.in {
+  animation: drawer-right-over 0.03s steps(1) 0.24s;
+}
+dialog.drawer.bottom.in {
+  animation: drawer-bottom-over 0.03s steps(1) 0.24s;
+}
+@keyframes drawer-right-over {
+  from,
+  to {
+    translate: calc(-1 * min(100% / 8 - var(--u), 24 * var(--u))) 0;
+  }
+}
+@keyframes drawer-bottom-over {
+  from,
+  to {
+    translate: 0 calc(-1 * min(100% / 8 - var(--u), 24 * var(--u)));
+  }
 }
 dialog.drawer::backdrop,
 dialog.cmdk::backdrop {
@@ -531,6 +592,10 @@ dialog.cmdk {
   dialog.drawer {
     transition: none;
   }
+  dialog.drawer.right.in,
+  dialog.drawer.bottom.in {
+    animation: none;
+  }
 }
 .slot .status .t {
   white-space: normal;
@@ -743,9 +808,6 @@ dialog.cmdk {
 [hidden] {
   display: none !important;
 }
-.caret {
-  display: none;
-}
 .btn {
   padding: 0 calc(8 * var(--u));
 }
@@ -772,4 +834,168 @@ dialog.cmdk {
 .ctl:is(:disabled, [aria-disabled='true']) {
   --ink: var(--dim);
   cursor: default;
+}
+
+:root {
+  --pg-cell: calc(4 * var(--u));
+  --pg-mid: color-mix(in srgb, var(--ink) 37%, var(--ground));
+  --pg-mute: color-mix(in srgb, var(--ink) 73%, var(--ground));
+  --pg-brick: #883c31;
+  --pg-splat: #b81818;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --pg-brick: #e06a4a;
+  }
+}
+:root[data-theme='dark'] {
+  --pg-brick: #e06a4a;
+}
+.toy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2 * var(--pg-cell));
+  color: var(--ink);
+  outline: none;
+}
+.toy:focus-visible {
+  outline: calc(2 * var(--u)) solid var(--ink);
+  outline-offset: calc(2 * var(--u));
+}
+.toy .name {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+}
+.toy[role='button'],
+.toy .mould,
+.toy button {
+  cursor: pointer;
+}
+.toy[aria-disabled='true'],
+.toy[aria-disabled='true'] .mould {
+  cursor: default;
+}
+.maurice::before {
+  content: '';
+  position: absolute;
+  inset: min(0px, calc((100% - 44px / var(--pg-scale, 1)) / 2));
+}
+.maurice .mark {
+  display: grid;
+  place-content: center;
+  width: calc(10 * var(--pg-cell));
+  height: calc(6 * var(--pg-cell));
+}
+.maurice .bug {
+  display: block;
+  width: calc(32 * var(--u));
+  height: calc(24 * var(--u));
+  image-rendering: pixelated;
+}
+.maurice .splat {
+  display: none;
+  width: calc(10 * var(--pg-cell));
+  height: calc(5 * var(--pg-cell));
+  color: var(--pg-splat);
+}
+.maurice.squished .bug {
+  display: none;
+}
+.maurice.squished .splat {
+  display: block;
+}
+.maurice.squished .name::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--pg-cell);
+  background: var(--ink);
+}
+.dish .mould,
+.dish .rim {
+  display: block;
+  width: calc(86 * var(--pg-cell));
+  height: calc(86 * var(--pg-cell));
+  image-rendering: pixelated;
+}
+.dish .rim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+.dish[data-asleep] .mould,
+.dish[data-asleep] .rim {
+  filter: grayscale(1) opacity(0.4);
+}
+.seesaw .plank {
+  display: block;
+  width: calc(96 * var(--pg-cell));
+  height: calc(36 * var(--pg-cell));
+  image-rendering: pixelated;
+}
+.seesaw .end {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: calc(36 * var(--pg-cell));
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.seesaw .end.l {
+  left: 0;
+}
+.seesaw .end.r {
+  right: 0;
+}
+.seesaw .end:focus-visible {
+  outline: calc(2 * var(--u)) solid var(--ink);
+}
+.ttt .board {
+  display: grid;
+  grid-template-columns: repeat(3, calc(12 * var(--pg-cell)));
+  grid-auto-rows: calc(12 * var(--pg-cell));
+  gap: var(--pg-cell);
+  background: linear-gradient(var(--ink), var(--ink)) center / calc(100% - 2 * var(--u))
+    calc(100% - 2 * var(--u)) no-repeat;
+}
+.ttt .sq {
+  position: relative;
+  display: grid;
+  place-content: center;
+  padding: 0;
+  border: 0;
+  background: var(--ground);
+  color: var(--ink);
+}
+.ttt .sq::before {
+  content: '';
+  position: absolute;
+  inset: max(
+    calc(var(--pg-cell) / -2),
+    min(0px, calc((12 * var(--pg-cell) - 44px / var(--pg-scale, 1)) / 2))
+  );
+}
+.ttt .sq:disabled {
+  cursor: default;
+}
+.ttt .sq.line {
+  color: var(--pg-brick);
+}
+.ttt .sq:focus-visible {
+  outline: calc(2 * var(--u)) solid var(--pg-brick);
+  outline-offset: calc(-2 * var(--u));
+}
+.ttt .mk {
+  display: block;
+  width: calc(7 * var(--pg-cell));
+  height: calc(7 * var(--pg-cell));
 }

@@ -1,8 +1,8 @@
 {
   "name": "substrate",
-  "commit": "1aae740910705fd34de6e07ae597e6c70433ad4f",
+  "commit": "ed3acdedf54d764244a7c7b562892a35f9de3eca",
   "dirty": false,
-  "date": "2026-10-26T22:46:49-04:00",
+  "date": "2026-10-29T19:43:43-04:00",
   "rules": [
     "S1. One pixel",
     "S2. Three faces, packaged",
@@ -16,18 +16,18 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 5043,
-      "sha256": "02308df7b1e829f71879ccd9d6123fdda1fcadfa9e5ae0636292be04e7094092"
+      "bytes": 5438,
+      "sha256": "0ba54ccfa2cb1bde8fdf965d5418e070b1a61551a3e90e6237609821563ccf50"
     },
     {
       "path": "css/brackets.css",
-      "bytes": 12588,
-      "sha256": "faa11b4ca1eecf49d1347a4cd1c5c11c0de288a21f06daaf416f1b6a9ea7f08d"
+      "bytes": 13022,
+      "sha256": "64f6dd02d2542e7f576f682b78209291f9e7b6d97f2ae33e42833ea62f4367f4"
     },
     {
       "path": "css/charts.css",
-      "bytes": 1561,
-      "sha256": "d3d5f714c98e1e366ec86a511b5ceaaf02c11a2f92e482af14a3e03f814af8ff"
+      "bytes": 1551,
+      "sha256": "1028a4ee46fe69adc257238fa0fb88b3fc0c771dc21f00f0dee4a061a62d0aae"
     },
     {
       "path": "css/index.css",
@@ -36,8 +36,8 @@
     },
     {
       "path": "css/parts.css",
-      "bytes": 15066,
-      "sha256": "05edafe575a314a5a0b423f1c56d4625858f9a310160b7e08705a525b6249b87"
+      "bytes": 20070,
+      "sha256": "e4dc9d33dd79524c9a6ea0f9c3768106affa7fe64e9731e531507869aa1cc753"
     },
     {
       "path": "css/substrate.css",
@@ -96,8 +96,8 @@
     },
     {
       "path": "js/cells.js",
-      "bytes": 29743,
-      "sha256": "fbb80aa142b2d1a7c2034a01f737407cc164bd4dd0f5b3d1040ba582801834b8"
+      "bytes": 29634,
+      "sha256": "9d0503b6cab9237cb0adcd996a88f02ff6c7bc486ffcbd171480bf360a709e06"
     },
     {
       "path": "js/index.js",
@@ -111,13 +111,13 @@
     },
     {
       "path": "js/kit/controls.js",
-      "bytes": 14675,
-      "sha256": "462ebdf60c1ca24534cddefe9a755cb74a2ddaac94699d82d74d0ba9eaf1a238"
+      "bytes": 14778,
+      "sha256": "12e2e5fcf15abc189b4db1a0a82b6538b28ce65e5174da11e1d6293b96e54a97"
     },
     {
       "path": "js/kit/diagram.js",
-      "bytes": 10737,
-      "sha256": "faa65254852ec7d992e158c2dc383815069de8c8c2b97ad583884feb2d5a4bc7"
+      "bytes": 11137,
+      "sha256": "1693fd897e55e859c1f9104d3cdddfe872c55c78e6574f62b5b880a313cb3ef0"
     },
     {
       "path": "js/kit/dither.js",
@@ -146,13 +146,23 @@
     },
     {
       "path": "js/kit/morph.js",
-      "bytes": 10364,
-      "sha256": "6bbcd447a89bdffa2d8c84485a5f1e4d5b2b64e4c88076feb145b211d83e12ea"
+      "bytes": 10396,
+      "sha256": "74dacd08c1944eefc4e51f16714f21fd943ad71ea9fbb1cd13b659f9603e4a45"
     },
     {
       "path": "js/kit/plot.js",
       "bytes": 8421,
       "sha256": "1b78acefe6e0ee08c9cf3c7b6b2132ec2e65707ae110b8ad5368561e7f4b6795"
+    },
+    {
+      "path": "js/kit/records.js",
+      "bytes": 992,
+      "sha256": "d5d37a8dfe6dd2861acec092deb63e3f2c792758c4e07e14dd49d433e8b58432"
+    },
+    {
+      "path": "js/kit/sort.js",
+      "bytes": 2477,
+      "sha256": "77a66b797cdca41d177c7ba62509b42f028621c7cf7a280bdaa99c00cbd7050d"
     },
     {
       "path": "js/kit/steps.js",
@@ -161,13 +171,18 @@
     },
     {
       "path": "js/kit/touch.js",
-      "bytes": 699,
-      "sha256": "e6df1d16693caaa5713a7ba229b4bea1aaa24998d9dd6951020d503e3275bd2c"
+      "bytes": 1422,
+      "sha256": "6fbe506f1614bb05c9bbd74c2f1474ce78770f9448a5a2787a55837636faa5b7"
     },
     {
       "path": "js/kit/toys.js",
-      "bytes": 4992,
-      "sha256": "57deeb025d1c8201c798d9142daecd33fdab0097316cc44d38dcd5823a5a5b7c"
+      "bytes": 10322,
+      "sha256": "56a39e58324d8cddb981d32c126cd135f06b12a4470a41ae5227a938383239c4"
+    },
+    {
+      "path": "js/overshoot.js",
+      "bytes": 294,
+      "sha256": "04289399ee6dd1f53ce962d0c2a87ec6e7690cd2293a71aa36fc8736a6c4abe4"
     },
     {
       "path": "js/pele/LICENSE",
@@ -401,13 +416,13 @@
     },
     {
       "path": "js/scatter.js",
-      "bytes": 5580,
-      "sha256": "34e383273976b893e56b309370f4bfcbbcd2d2c3b15ce1f5cc7663bd35f17043"
+      "bytes": 6923,
+      "sha256": "aa474b113f4d7d4c0b1ab296ab7896258c6f284afb7d77cb189c51774395a6ef"
     },
     {
       "path": "js/shared/charts.js",
-      "bytes": 2501,
-      "sha256": "ece4eeaf1ac1f362c504240763f135a420d1121c5a13ddd23dada98bd8e5f15d"
+      "bytes": 3083,
+      "sha256": "9ccaa673882de4b5daa718c487cd491fa6e5ee0bba1c32e874e2b79077e81914"
     },
     {
       "path": "js/shared/faces/index.js",
@@ -433,6 +448,11 @@
       "path": "js/shared/lattice.js",
       "bytes": 1352,
       "sha256": "b3690a1114e78b87b6e54555de838b024392d12853d25bc4bb02f14fb1651b27"
+    },
+    {
+      "path": "js/shared/playground.js",
+      "bytes": 1288,
+      "sha256": "1506ab011a1119f0a999f35f883d5b142edc9de8cad14eb208d71bfc72586031"
     },
     {
       "path": "js/shared/qr.js",

@@ -19,3 +19,24 @@ export function pick(host, hit, choose, none) {
     (e) => !finger(e) && document.activeElement !== host && choose(none)
   )
 }
+
+export function press(el, ms, done) {
+  let timer = 0
+  let id = null
+  let fired = false
+  const stop = (e) => e.pointerId === id && (clearTimeout(timer), (id = null))
+  el.addEventListener('pointerdown', (e) => {
+    if (!e.isPrimary || e.button !== 0) return
+    clearTimeout(timer)
+    fired = false
+    id = e.pointerId
+    timer = setTimeout(() => ((id = null), (fired = true), done()), ms)
+  })
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(type, stop)
+  el.addEventListener('contextmenu', (e) => id !== null && e.preventDefault())
+  el.addEventListener(
+    'click',
+    (e) => fired && ((fired = false), e.preventDefault(), e.stopImmediatePropagation()),
+    true
+  )
+}
