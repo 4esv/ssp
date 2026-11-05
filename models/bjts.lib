@@ -1,5 +1,5 @@
 * provenance: 2N3904 NPN general-purpose amplifier datasheet 2N3904-D (revised August 2021), onsemi (Fairchild), https://www.onsemi.com/download/data-sheet/pdf/2n3904-d.pdf; 2N5088 NPN general-purpose amplifier datasheet 2N5088-D, onsemi, https://www.onsemi.com/download/data-sheet/pdf/2n5088-d.pdf; values read from the electrical characteristics tables at TA = 25 C
-* fit: 2N3904: hFE 200 and VBE 0.655 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 70 min at IC = 1 mA, 100..300 at IC = 10 mA, and VBE(sat) 0.65..0.85 V at IC = 10 mA. 2N5088: hFE 500 and VBE 0.601 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 350 min at IC = 1 mA, 300..900 at IC = 0.1 mA, and VBE(on) 0.8 V max at IC = 10 mA. Measured in SpiceSharp at 27 C: VBE = 0.655 V gives IC = 1.001 mA and hFE = 200.0 for Q2N3904; VBE = 0.601 V gives IC = 1.001 mA and hFE = 500.0 for Q2N5088
+* fit: 2N3904: hFE 200 and VBE 0.655 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 70 min at IC = 1 mA, 100..300 at IC = 10 mA, and VBE(sat) 0.65..0.85 V at IC = 10 mA. 2N5088: hFE 500 and VBE 0.601 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 350 min at IC = 1 mA, 300..900 at IC = 0.1 mA, and VBE(on) 0.8 V max at IC = 10 mA. Measured in ssp at 27 C: VBE = 0.655 V gives IC = 1.001 mA and hFE = 200.0 for Q2N3904; VBE = 0.601 V gives IC = 1.001 mA and hFE = 500.0 for Q2N5088
 * author: 4esv
 * license: MIT
 
