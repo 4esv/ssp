@@ -1,0 +1,7 @@
+* provenance: 1N4148 small signal fast switching diode datasheet, document 81857, Rev. 1.6 (07-Nov-2024), Vishay Semiconductors, https://www.vishay.com/docs/81857/1n4148.pdf; the sheet states the 1N914 is electrically equivalent; values read from the electrical characteristics table at Tamb = 25 C
+* fit: CJO = 4 pF is the sheet maximum at VR = 0 V, f = 1 MHz. IS = 6.5e-9 and N = 1.9 put VF at 0.70 V at IF = 10 mA, inside the sheet limit of 1 V max at IF = 10 mA. That 0.70 V is a design target, not a sheet number: the sheet table gives only the maximum, and the typical forward curve (Fig. 2) was not read from the sheet. The leakage in this model is IS = 6.5 nA, inside the sheet limits of 25 nA max at VR = 20 V and 5 uA max at VR = 75 V. Series resistance, breakdown, and transit time are not in the model: the sheet states no value that fixes them (trr 8 ns is measured in a switching circuit), and a number that is not on the sheet is not in the model
+* author: 4esv
+* license: MIT
+
+* The part ids 1N4148 and 1N914 in models/parts.toml both use this model.
+.model 1N4148 D(IS=6.5e-9 N=1.9 CJO=4p)

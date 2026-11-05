@@ -21,6 +21,8 @@ The name is the value after `.model` or `.subckt`.
 
 | File | What it is | Model or subcircuit | Pin order | Source |
 | --- | --- | --- | --- | --- |
+| `models/bjts.lib` | Two silicon NPN small-signal transistors, the 2N3904 and the 2N5088. | `Q2N3904`, `Q2N5088` | — | 2N3904 datasheet, onsemi; 2N5088 datasheet, onsemi. |
+| `models/diodes-si.lib` | The 1N4148 silicon switching diode. The part id `1N914` uses it too. | `1N4148` | — | 1N4148 datasheet, Vishay (document 81857). |
 | `models/diodes.lib` | A 5.1 V Zener diode and a small-signal Schottky diode. | `DZ_5V1`, `DSCHOTTKY` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/jfets.lib` | An N-channel and a P-channel small-signal JFET. | `JN`, `JP` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/led.lib` | Five 5 mm LED colors. | `LED_RED`, `LED_YELLOW`, `LED_GREEN`, `LED_BLUE`, `LED_WHITE` | — | Generic values. No single datasheet. Values are UNVERIFIED. Nearest published family: Kingbright 5 mm LEDs. |
@@ -90,6 +92,9 @@ The `.include` line loads `models/opamp-tl072.cir`. The `X1` line calls the `TL0
 | id | kind | model | footprint |
 | --- | --- | --- | --- |
 | `1N4148` | diode | `1N4148` | DO-35 |
+| `1N914` | diode | `1N4148` | DO-35 |
+| `2N3904` | npn | `Q2N3904` | TO-92 |
+| `2N5088` | npn | `Q2N5088` | TO-92 |
 | `TL072` | opamp | `TL072` | DIP-8 |
 | `LED-RED` | led | `LED_RED` | LED-5MM |
 | `LED-YELLOW` | led | `LED_YELLOW` | LED-5MM |
@@ -139,13 +144,14 @@ A semiconductor kind places a default model. These ids match a palette kind's de
 | njf | `JN` | `JFET-N` |
 | pjf | `JP` | `JFET-P` |
 
-The other ids are not on the palette: `1N4148`, `TL072`, `TRANSFORMER`, `VACTROL`, `LED-YELLOW`,
-`LED-GREEN`, `LED-BLUE`, `LED-WHITE`. The diode kind places a generic `DGEN` model, which has no part id.
+The other ids are not on the palette: `1N4148`, `1N914`, `2N3904`, `2N5088`, `TL072`, `TRANSFORMER`, `VACTROL`,
+`LED-YELLOW`, `LED-GREEN`, `LED-BLUE`, `LED-WHITE`. The diode kind places a generic `DGEN` model and the npn kind
+a generic `QNPN` model. Neither has a part id.
 
 ## Supply your own model
 
-Common pedal parts are not bundled. For example: `1N914`, `2N3904`, `2N5088`, `BC109`. The parts table lists
-`1N4148` (a footprint and a buy link) but ships no `1N4148` model.
+The `1N4148` and `1N914` parts use the `1N4148` model in `models/diodes-si.lib`. Other pedal parts, for
+example `BC109`, are not bundled.
 
 Write the model in your netlist, or add a `.lib` file and `.include` it. Write the values from the datasheet
 (clean-room rule). Change the name and the values for your part. Do not copy model text from a manufacturer
