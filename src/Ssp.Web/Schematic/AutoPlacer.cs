@@ -100,7 +100,8 @@ public static class AutoPlacer
         }
 
         // A rail element sits on the first pin of its net, so the pin has no second symbol.
-        var spare = sheet.Right + 2 * Grid;
+        // NOTE: #421: with no part on the sheet the first spare rail goes at the origin.
+        var spare = sheet.Placed ? sheet.Right + 2 * Grid : -4 * Grid;
         foreach (var rail in rails)
         {
             var reference = Reference(rail, references);
@@ -114,7 +115,8 @@ public static class AutoPlacer
         }
 
         var wires = Wires(sheet, railNets);
-        return Shift(placements, wires, moved ? sheet : null);
+        // NOTE: #421: with no part on the sheet (only rails) the sheet has no edges, so nothing moves.
+        return Shift(placements, wires, moved && sheet.Placed ? sheet : null);
     }
 
     /// <summary>
