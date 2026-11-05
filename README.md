@@ -1,10 +1,11 @@
 # ssp
 
 ssp designs and simulates guitar pedal circuits.
-It has two interfaces: a command line tool and a static web app.
-Both interfaces use the [SpiceSharp](https://github.com/SpiceSharp/SpiceSharp) engine.
+It has a command line tool and a static web app. Both use the
+[SpiceSharp](https://github.com/SpiceSharp/SpiceSharp) engine.
+The web app is at <https://ssp.aesv.io>.
 
-The command line tool and its file formats are stable from version 1.0.0. The web app is not released. It deploys from `main` and can change at any time.
+The CLI and the file formats are stable from version 1.0.0. The web app is not released.
 See [CHANGELOG.md](CHANGELOG.md) and decision record [0008](docs/decisions/0008-versioning.md).
 
 ## Install
@@ -19,71 +20,27 @@ dotnet tool install --global ssp --add-source artifacts
 ssp --version
 ```
 
-The package contains the tool only. The models and the sample audio are in the repository.
-They are not in the package.
-Download one model into the same folder as your netlist:
+Run one circuit:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/4esv/ssp/main/models/opamp-tl072.cir
+ssp run circuits/fixtures/rc-lowpass.cir
 ```
 
-Write this line in your netlist:
+The run prints the DC voltages, the frequency response and the impedances.
 
-```spice
-.include opamp-tl072.cir
-```
-
-A `.include` path is relative to the netlist file. See [models/README.md](models/README.md).
-
-If .NET comes from Homebrew, `ssp` can fail. The error starts with:
-
-```text
-You must install or update .NET to run this application.
-```
-
-It also says `Framework: 'Microsoft.NETCore.App', version '10.0.0'`.
-The system can find an old .NET in another folder first.
-Set `DOTNET_ROOT` and run it again:
-
-```sh
-export DOTNET_ROOT="$(brew --prefix dotnet)/libexec"
-```
-
-## Five-minute tour
-
-Run these commands from the root of the repository.
-
-1. Run a circuit. `ssp run` prints the DC voltages, the small-signal (AC) frequency response, and the impedances.
-   An AC analysis is linear, so it does not show clipping.
-
-   ```sh
-   ssp run circuits/fixtures/rc-lowpass.cir
-   ```
-
-2. Change a part with `--set`. Or run one part at several values with `sweep`.
-
-   ```sh
-   ssp run circuits/fixtures/rc-lowpass.cir --set R1=4k7
-   ssp sweep circuits/fixtures/rc-lowpass.cir --set R1=1k,4k7,10k
-   ```
-
-3. Render audio through a circuit. `render` is a transient analysis. Use it to hear and measure clipping.
-
-   ```sh
-   ssp render circuits/library/fuzz-transistor-diode.cir --in src/Ssp.Web/Audio/riff.wav --out fuzz.wav
-   ```
-
-4. Open the web app at <https://ssp.aesv.io>. Draw a circuit, press Run, and play a clip through it.
+The package holds the tool only. The models and the sample audio are in the repository.
+If .NET comes from Homebrew, see the install note in the [CLI reference](docs/cli.md#install).
 
 ## Documentation
 
+- [docs/index.md](docs/index.md): a five-minute tour.
 - [docs/cli.md](docs/cli.md): every command and option.
 - [docs/web.md](docs/web.md): the web app.
+- [docs/file-format.md](docs/file-format.md): netlists, directives and layout files.
+- [models/README.md](models/README.md): the device models.
 - [docs/README.md](docs/README.md): index of all documents.
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute.
 - [AGENTS.md](AGENTS.md): commands and rules for coding agents.
-
-The documents are also at <https://ssp.aesv.io/docs/>.
 
 ## License
 
