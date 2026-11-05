@@ -1,0 +1,392 @@
+# Hand layout of overdrive-808.cir (#420): four rows read left to right like text. Row 1 is the input buffer, row 2 the clipper with its feedback above the op-amp, row 3 the tone stage, row 4 the Level pot and the output buffer. The supply is above each part and ground below.
+
+[[part]]
+ref = "C1"
+x = 70.0
+y = 100.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C2"
+x = 300.0
+y = 130.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C3"
+x = 90.0
+y = 390.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "C4"
+x = 230.0
+y = 345.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "C5"
+x = 100.0
+y = 790.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "C6"
+x = 20.0
+y = 950.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C7"
+x = 180.0
+y = 1030.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C8"
+x = 190.0
+y = 760.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "C9"
+x = 330.0
+y = 1150.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "D1"
+x = 230.0
+y = 400.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "D2"
+x = 170.0
+y = 455.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "Q1"
+x = 240.0
+y = 100.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "Q2"
+x = 210.0
+y = 1120.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R1"
+x = 50.0
+y = 100.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R10"
+x = 380.0
+y = 700.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "R11"
+x = 250.0
+y = 760.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "R12"
+x = 170.0
+y = 1120.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R13"
+x = 250.0
+y = 1150.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R14"
+x = 270.0
+y = 1150.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R15"
+x = 80.0
+y = 950.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R16"
+x = 420.0
+y = 1150.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R2"
+x = 130.0
+y = 100.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R3"
+x = 205.0
+y = 100.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R4"
+x = 280.0
+y = 130.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R5"
+x = 380.0
+y = 130.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R6"
+x = 90.0
+y = 450.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "R7"
+x = 140.0
+y = 290.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R8"
+x = 20.0
+y = 790.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R9"
+x = 160.0
+y = 790.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RV1_1"
+x = 260.0
+y = 290.0
+rotation = 180
+flip = true
+
+[[part]]
+ref = "RV2_1"
+x = 280.0
+y = 730.0
+rotation = 270
+flip = true
+
+[[part]]
+ref = "RV3_1"
+x = 150.0
+y = 950.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "V1"
+x = 20.0
+y = 100.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "VCC"
+x = 280.0
+y = 70.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "VEE"
+x = 280.0
+y = 190.0
+rotation = 0
+flip = true
+
+[[part]]
+ref = "X1"
+x = 150.0
+y = 560.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "X2"
+x = 340.0
+y = 780.0
+rotation = 0
+flip = false
+
+[[wire]]
+net = "in"
+points = [[20.0, 100.0], [50.0, 100.0]]
+
+[[wire]]
+net = "in"
+points = [[50.0, 100.0], [70.0, 100.0]]
+
+[[wire]]
+net = "q1b"
+points = [[190.0, 100.0], [205.0, 100.0]]
+
+[[wire]]
+net = "q1b"
+points = [[205.0, 100.0], [240.0, 100.0]]
+
+[[wire]]
+net = "e1"
+points = [[280.0, 130.0], [300.0, 130.0]]
+
+[[wire]]
+net = "c2"
+points = [[360.0, 130.0], [380.0, 130.0]]
+
+[[wire]]
+net = "c2"
+points = [[380.0, 130.0], [430.0, 130.0], [430.0, 240.0], [40.0, 240.0], [40.0, 570.0], [150.0, 570.0]]
+
+[[wire]]
+net = "cf"
+points = [[130.0, 290.0], [130.0, 550.0], [150.0, 550.0]]
+
+[[wire]]
+net = "cf"
+points = [[130.0, 290.0], [140.0, 290.0]]
+
+[[wire]]
+net = "cf"
+points = [[130.0, 330.0], [90.0, 330.0]]
+
+[[wire]]
+net = "cf"
+points = [[130.0, 345.0], [170.0, 345.0]]
+
+[[wire]]
+net = "cf"
+points = [[130.0, 400.0], [170.0, 400.0]]
+
+[[wire]]
+net = "cf"
+points = [[130.0, 455.0], [170.0, 455.0]]
+
+[[wire]]
+net = "co"
+points = [[230.0, 560.0], [270.0, 560.0], [270.0, 640.0], [20.0, 640.0], [20.0, 790.0]]
+
+[[wire]]
+net = "co"
+points = [[270.0, 260.0], [270.0, 560.0]]
+
+[[wire]]
+net = "co"
+points = [[230.0, 260.0], [270.0, 260.0]]
+
+[[wire]]
+net = "co"
+points = [[260.0, 290.0], [270.0, 290.0]]
+
+[[wire]]
+net = "co"
+points = [[230.0, 345.0], [270.0, 345.0]]
+
+[[wire]]
+net = "co"
+points = [[230.0, 400.0], [270.0, 400.0]]
+
+[[wire]]
+net = "co"
+points = [[230.0, 455.0], [270.0, 455.0]]
+
+[[wire]]
+net = "tp"
+points = [[80.0, 790.0], [100.0, 790.0]]
+
+[[wire]]
+net = "tp"
+points = [[100.0, 790.0], [160.0, 790.0]]
+
+[[wire]]
+net = "tp"
+points = [[160.0, 790.0], [280.0, 790.0]]
+
+[[wire]]
+net = "tp"
+points = [[280.0, 790.0], [340.0, 790.0]]
+
+[[wire]]
+net = "tn"
+points = [[280.0, 730.0], [320.0, 730.0]]
+
+[[wire]]
+net = "tn"
+points = [[320.0, 700.0], [320.0, 770.0], [340.0, 770.0]]
+
+[[wire]]
+net = "to"
+points = [[380.0, 700.0], [440.0, 700.0], [440.0, 780.0], [440.0, 900.0], [20.0, 900.0], [20.0, 950.0]]
+
+[[wire]]
+net = "to"
+points = [[420.0, 780.0], [440.0, 780.0]]
+
+[[wire]]
+net = "lv"
+points = [[140.0, 950.0], [150.0, 950.0]]
+
+[[wire]]
+net = "lw"
+points = [[180.0, 980.0], [180.0, 1030.0]]
+
+[[wire]]
+net = "q2b"
+points = [[240.0, 1030.0], [240.0, 1050.0], [170.0, 1050.0], [170.0, 1120.0], [210.0, 1120.0]]
+
+[[wire]]
+net = "e2"
+points = [[250.0, 1150.0], [270.0, 1150.0]]
+
+[[wire]]
+net = "out"
+points = [[390.0, 1150.0], [420.0, 1150.0]]
