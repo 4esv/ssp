@@ -1,0 +1,103 @@
+* ssp:title Mid-hump overdrive, 808 type
+* source: the 808-type mid-hump overdrive as commonly published, with its standard part values; public circuit analysis
+*   at electrosmash.com/tube-screamer-analysis. Drawn and written again here, not copied from any simulator file.
+* Sound: the 4.7k + 47n gain leg is a high-pass at 723 Hz, so the clipper gives the bass little gain, 1 + (51k + Drive) / 4.7k
+*   at the mids. The 1N914 pair in the feedback bends the gain down above 0.7 V: a soft clip, and the bass stays clean.
+* The tone stage (1k + 220n low-pass at 723 Hz, 20k Tone pot, 220R + 220n) trims the top. What is left is the mid hump.
+* Supply: the 9 V rail is modelled as VCC = +4.5 V and VEE = -4.5 V around signal ground, as in the other library
+*   circuits; the op-amp models do not find a DC operating point on a single 0 V to 9 V supply (to be filed).
+* ssp:input in
+* ssp:output out
+* ssp:knob RV1 log 0.5
+* ssp:knob RV2 linear 0.5
+* ssp:knob RV3 log 0.5
+* ssp:part D1 1N914
+* ssp:part D2 1N914
+* provenance: NJM4558 dual operational amplifier datasheet Ver. 20260723, Nisshinbo Micro Devices (JRC), https://www.nisshinbo-microdevices.co.jp/en/pdf/datasheet/NJM4558_E.pdf; values read from the datasheet, typical column, V+/V- = +-15 V, Ta = 25 C
+* fit: open-loop gain 100 dB (100 V/mV), GBW 3 MHz, slew rate 1 V/us, output swing +-14 V at RL >= 10 kOhm (1 V rail drop), input resistance 5 MOhm (all p2); output resistance 75 Ohm is a typical value, not a sheet figure
+* author: 4esv
+* license: MIT
+
+* Pins: inp inn out vcc vee. Gain 100000 V/V, GBW 3E+06 Hz, slew rate 1E+06 V/s, rail drop 1 V.
+.subckt JRC4558 inp inn out vcc vee
+Rid inp inn 5E+06
+Bgm 0 x I={5.30516E-05*tanh(0.001*V(inp,inn)/5.30516E-05)}
+Rp x 0 1E+08
+Cc x 0 5.30516E-11
+Bclamp x 0 I={2.65258E-05*(sqrt((V(x)-V(vcc))*(V(x)-V(vcc))+0.000001)-sqrt((V(x)-V(vee))*(V(x)-V(vee))+0.000001)+V(x)-V(vcc)+V(x)-V(vee))}
+Bo o 0 V={V(x)}
+Rout o out 75
+Blo lo 0 V={V(vee)+1-0.5*(V(vee)-V(vcc)+2+sqrt((V(vee)-V(vcc)+2)*(V(vee)-V(vcc)+2)+0.000001))}
+Bout out 0 I={50*(sqrt((V(out)-V(vcc)+1)*(V(out)-V(vcc)+1)+0.000001)-sqrt((V(out)-V(lo))*(V(out)-V(lo))+0.000001)+V(out)-V(vcc)+1+V(out)-V(lo))}
+.ends JRC4558
+
+* provenance: 2N3904 NPN general-purpose amplifier datasheet 2N3904-D (revised August 2021), onsemi (Fairchild), https://www.onsemi.com/download/data-sheet/pdf/2n3904-d.pdf; values read from the electrical characteristics tables at TA = 25 C
+* fit: hFE 200 and VBE 0.655 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 70 min at IC = 1 mA, 100..300 at IC = 10 mA, and VBE(sat) 0.65..0.85 V at IC = 10 mA. Capacitances: Cobo 4.0 pF max at VCB = 5 V and Cibo 8.0 pF max at VEB = 0.5 V, so CJC = 4p and CJE = 8p. Measured in ssp at 27 C: VBE = 0.655 V gives IC = 1.001 mA and hFE = 200.0
+* author: 4esv
+* license: MIT
+.model Q2N3904 NPN (IS=1e-14 BF=200 CJC=4p CJE=8p)
+
+* provenance: 1N4148 small signal fast switching diode datasheet, document 81857, Rev. 1.6 (07-Nov-2024), Vishay Semiconductors, https://www.vishay.com/docs/81857/1n4148.pdf; the sheet states the 1N914 is electrically equivalent; values read from the electrical characteristics table at Tamb = 25 C
+* fit: CJO = 4 pF is the sheet maximum at VR = 0 V, f = 1 MHz. IS = 6.5e-9 and N = 1.9 put VF at 0.70 V at IF = 10 mA, inside the sheet limit of 1 V max at IF = 10 mA. The leakage in this model is IS = 6.5 nA, inside the sheet limits of 25 nA max at VR = 20 V and 5 uA max at VR = 75 V
+* author: 4esv
+* license: MIT
+.model 1N4148 D(IS=6.5e-9 N=1.9 CJO=4p)
+
+V1 in 0 DC 0 AC 1
+VCC vcc 0 DC 4.5
+VEE vee 0 DC -4.5
+
+* Input buffer: Q1 is an emitter follower, the 1M holds the input jack at ground, 22n and 1k feed the base, and 510k
+* sets the base at the 4.5 V reference. The emitter resistor 10k returns to the real ground, VEE.
+R1 in 0 1Meg
+C1 in b1 20n
+R2 b1 q1b 1k
+R3 q1b 0 510k
+Q1 vcc q1b e1 Q2N3904
+R4 e1 vee 10k
+
+* Clipper: the non-inverting stage. C2 is the 1u coupling, 10k the (+) bias, 4.7k and 47n the gain leg,
+* and the 51k + Drive pot, the 1N914 pair and 47p form the feedback impedance from the output to the (-) input.
+C2 e1 c2 1u
+R5 c2 0 10k
+X1 c2 cf co vcc vee JRC4558
+R6 0 ng 4.7k
+C3 ng cf 47n
+R7 cf d 51k
+* The Drive pot is a rheostat: its wiper is strapped to the lug on the output node, so RV1_1 sits across a wire and
+* RV1_2 is the feedback resistance: 0 Ohm at Drive 0 and 500k at Drive 1.
+RV1_1 co co 250k
+RV1_2 co d 250k
+D1 co cf 1N4148
+D2 cf co 1N4148
+C4 co cf 51p
+
+* Tone: 1k and 220n low-pass the clipper output into the second op-amp's (+) input, which 10k biases.
+* The 1k from the output is the feedback, and the 20k pot spans the (-) to the (+) input: at Tone 0 the wiper sits
+* on the (+) node and the 220R + 220n adds to the low-pass, at Tone 1 it sits on the (-) node and lifts the top.
+R8 co tp 1k
+C5 tp 0 220n
+R9 tp 0 10k
+X2 tp tn to vcc vee JRC4558
+R10 to tn 1k
+RV2_1 tn tw 10k
+RV2_2 tw tp 10k
+R11 tw ts 220
+C8 ts 0 220n
+
+* Level: 1u and 1k take the tone output to the 100k Level pot, whose wiper drives the output buffer through 100n.
+C6 to lv0 1u
+R15 lv0 lv 1k
+RV3_1 lv lw 50k
+RV3_2 lw 0 50k
+C7 lw q2b 100n
+R12 q2b 0 510k
+
+* Output buffer: Q2 is a second emitter follower, 10k into the real ground, then 100 Ohm and 10u to the output jack,
+* which the 10k holds at ground.
+Q2 vcc q2b e2 Q2N3904
+R13 e2 vee 10k
+R14 e2 on 100
+C9 on out 10u
+R16 out 0 10k
+.END

@@ -95,11 +95,16 @@ public partial class WireRouteTests(ITestOutputHelper output)
     }
 
     // NOTE: Before #175 the five circuits had 7 wire crossings. Two remain, each an op-amp feedback that has no way round.
+    // The count is of the auto-placer, so it covers these five circuits only. A circuit added since has a hand layout, and
+    // LibraryDiagramTests (#417) checks the wires of that layout.
+    static readonly string[] AutoPlaced =
+        ["buffer-bootstrap-tl072.cir", "clip-feedback-led-tl072.cir", "fuzz-transistor-diode.cir", "gain-two-stage-tl072.cir", "tone-baxandall-active-tl072.cir"];
+
     [Fact]
     public void TheGalleryHasTwoWireCrossingsAtMost()
     {
         var total = 0;
-        foreach (var path in Directory.GetFiles(Path.Combine(RepoPaths.Root, "circuits", "library"), "*.cir")) total += Count(File.ReadAllText(path)).Wires;
+        foreach (var name in AutoPlaced) total += Count(File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "library", name))).Wires;
         Assert.True(total <= 2, $"The gallery has {total} wire crossings.");
     }
 
