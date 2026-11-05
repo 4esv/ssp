@@ -39,7 +39,7 @@
 
 <DockLayout @ref="dock" Default="DefaultLayout" StorageKey="ssp.dock.editor.v2">
     <DockPanel Id="text" Title="Netlist">
-        <textarea @bind="netlist" @bind:event="oninput" @bind:after="Typed" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
+        <textarea class="mono" @bind="netlist" @bind:event="oninput" @bind:after="Typed" rows="16" cols="80" spellcheck="false" aria-label="Netlist"></textarea>
     </DockPanel>
 
     <DockPanel Id="schematic" Title="Schematic">

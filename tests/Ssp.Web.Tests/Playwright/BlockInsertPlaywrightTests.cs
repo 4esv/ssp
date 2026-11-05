@@ -98,15 +98,26 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
     [PlaywrightFact]
     public Task AStageDroppedOnAWireOfTheFuzzStarterSitsInSeriesAndRuns() => WireCore().WaitAsync(Limit);
 
-    // The middle of the longest wire segment that a tap there hits, in client pixels, and the wire index.
+    // A spot on the longest wire segment that a tap there hits, in client pixels, and the wire index. The spot is the
+    // point of the segment farthest from any wire corner or end: a junction within one grid of the tap takes the drop
+    // (SchematicEdits.Drop), and the middle of a segment can sit exactly one grid from one, where a sub-pixel shift of
+    // the page decides (#416).
     const string WireSpot = """
         () => {
+            const hits = [...document.querySelectorAll('.schematic-pins polyline.wire-hit')];
+            const corners = hits.flatMap((p) => [...Array(p.points.numberOfItems).keys()].map((i) => p.points.getItem(i)));
+            const clear = (x, y) => Math.min(...corners.map((c) => Math.hypot(c.x - x, c.y - y)));
             const found = [];
-            for (const p of document.querySelectorAll('.schematic-pins polyline.wire-hit')) {
+            for (const p of hits) {
                 const m = p.getScreenCTM();
                 for (let i = 1; i < p.points.numberOfItems; i++) {
                     const a = p.points.getItem(i - 1), b = p.points.getItem(i);
-                    const s = new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2).matrixTransform(m);
+                    let best = null;
+                    for (let t = 0.2; t <= 0.8; t += 0.05) {
+                        const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+                        if (!best || clear(x, y) > best[2]) best = [x, y, clear(x, y)];
+                    }
+                    const s = new DOMPoint(best[0], best[1]).matrixTransform(m);
                     if (document.elementFromPoint(s.x, s.y) === p) found.push([Math.hypot(b.x - a.x, b.y - a.y), s.x, s.y, +p.dataset.wire]);
                 }
             }

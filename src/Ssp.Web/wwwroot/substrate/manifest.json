@@ -1,0 +1,47 @@
+{
+  "source": "https://github.com/4esv/aesv.io",
+  "commit": "9e6108b806e2ebb962b2bd222a638901b3d881c2",
+  "date": "2026-11-05T04:32:17-05:00",
+  "files": [
+    {
+      "path": "css/substrate.css",
+      "bytes": 3706,
+      "sha256": "452de2995e79071005e1405001c30c20746860c34e815fb0e8b6cabc79339ea3"
+    },
+    {
+      "path": "fonts/LICENSE-Handjet.txt",
+      "bytes": 4527,
+      "sha256": "51918486a5a64efe7e4d2447cdb6d1a3706e38441b0fce4380381e1db06589f7"
+    },
+    {
+      "path": "fonts/handjet-cells-mono.ttf",
+      "bytes": 38456,
+      "sha256": "768f8ae4080720f18b11efdf674dc54098a985bd579f706c9067958664b6df2f"
+    },
+    {
+      "path": "fonts/handjet-cells-mono.woff",
+      "bytes": 5628,
+      "sha256": "66f13ee207230bfd25e442849e2fae8df919ea3ad4388cc4ecef5ce020282b00"
+    },
+    {
+      "path": "fonts/handjet-cells-mono.woff2",
+      "bytes": 3408,
+      "sha256": "b4c9a2aefed8107e06cc0ea49eca8e9c2936902df95f005dd8de2ff07ce2c20e"
+    },
+    {
+      "path": "fonts/handjet-cells.ttf",
+      "bytes": 38904,
+      "sha256": "7ebfd35fe5e0c21828211e696e3752cf3370f241d124c7d4f44882b46d6479cb"
+    },
+    {
+      "path": "fonts/handjet-cells.woff",
+      "bytes": 5960,
+      "sha256": "cbc132cce459ceb1842f8a12bcba7a7649a160d01d8ba3aae0098535888a7031"
+    },
+    {
+      "path": "fonts/handjet-cells.woff2",
+      "bytes": 3652,
+      "sha256": "7ff6242b8c4dfc97278b92d378b8b596112bc593b0273b8a6cc0e2f032d43dee"
+    }
+  ]
+}
