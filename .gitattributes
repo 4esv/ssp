@@ -1,0 +1,2 @@
+# Vendored files are byte-exact: manifest.json holds their sha256.
+src/Ssp.Web/wwwroot/substrate/** -text

@@ -1,7 +1,8 @@
 namespace Ssp.Web.Tests;
 
 /// <summary>
-/// The page is bare HTML. app.css keeps layout and interaction states, and no decoration (#182).
+/// app.css keeps layout and interaction states (#182). The look comes from the vendored substrate (#416): its
+/// faces, so app.css names no font, and its pressed band, a one-ink gradient.
 /// </summary>
 public class CssBareTests
 {
@@ -10,7 +11,6 @@ public class CssBareTests
     [Theory]
     [InlineData("box-shadow")]
     [InlineData("border-radius")]
-    [InlineData("gradient")]
     [InlineData("transition")]
     [InlineData("animation")]
     [InlineData("font-family")]
