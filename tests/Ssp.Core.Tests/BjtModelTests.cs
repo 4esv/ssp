@@ -127,4 +127,17 @@ public class BjtModelTests
         Assert.Contains("2N5088", provenance);
         Assert.Contains("https://", provenance);
     }
+
+    // onsemi 2N3904-D: Cobo 4.0 pF max (VCB = 5 V), Cibo 8.0 pF max (VEB = 0.5 V).
+    // onsemi 2N5088: Ccb 4.0 pF max (VCB = 5 V), Ceb 10 pF max (VEB = 0.5 V).
+    [Theory]
+    [InlineData("Q2N3904", "4p", "8p")]
+    [InlineData("Q2N5088", "4p", "10p")]
+    public void ModelCarriesTheSheetCapacitances(string model, string cjc, string cje)
+    {
+        var line = Lib.Split('\n').First(l => l.StartsWith($".model {model} ", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Contains($"CJC={cjc}", line);
+        Assert.Contains($"CJE={cje}", line);
+    }
 }

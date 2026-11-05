@@ -24,6 +24,7 @@ The table lists every shipped model file. The name is the value after `.model` o
 | File | What it is | Model or subcircuit | Pin order | Source |
 | --- | --- | --- | --- | --- |
 | `models/bjts.lib` | Two silicon NPN small-signal transistors, the 2N3904 and the 2N5088. | `Q2N3904`, `Q2N5088` | — | 2N3904 datasheet, onsemi; 2N5088 datasheet, onsemi. |
+| `models/diodes-si.lib` | The 1N4148 silicon switching diode. The part id `1N914` uses it too. | `1N4148` | — | 1N4148 datasheet, Vishay (document 81857). |
 | `models/diodes.lib` | A 5.1 V Zener diode and a small-signal Schottky diode. | `DZ_5V1`, `DSCHOTTKY` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/jfets.lib` | An N-channel and a P-channel small-signal JFET. | `JN`, `JP` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/led.lib` | Five 5 mm LED colors. | `LED_RED`, `LED_YELLOW`, `LED_GREEN`, `LED_BLUE`, `LED_WHITE` | — | Generic values. No single datasheet. Values are UNVERIFIED. Nearest published family: Kingbright 5 mm LEDs. |
@@ -168,7 +169,7 @@ The other ids are not on the palette: `1N4148`, `1N914`, `2N3904`, `2N5088`, `TL
 
 ## What is not bundled
 
-Common pedal parts are not bundled. For example: `BC109`. The parts table lists `1N4148` and `1N914` (a footprint and a buy link) but ships no `1N4148` model, so the `1N914` row uses the `1N4148` model name.
+Common pedal parts are not bundled. For example: `BC109`. The `1N4148` and `1N914` parts use the `1N4148` model in `models/diodes-si.lib`.
 
 ## Supply your own model
 

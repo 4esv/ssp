@@ -1,13 +1,14 @@
 * provenance: 2N3904 NPN general-purpose amplifier datasheet 2N3904-D (revised August 2021), onsemi (Fairchild), https://www.onsemi.com/download/data-sheet/pdf/2n3904-d.pdf; 2N5088 NPN general-purpose amplifier datasheet 2N5088-D, onsemi, https://www.onsemi.com/download/data-sheet/pdf/2n5088-d.pdf; values read from the electrical characteristics tables at TA = 25 C
-* fit: 2N3904: hFE 200 and VBE 0.655 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 70 min at IC = 1 mA, 100..300 at IC = 10 mA, and VBE(sat) 0.65..0.85 V at IC = 10 mA. 2N5088: hFE 500 and VBE 0.601 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 350 min at IC = 1 mA, 300..900 at IC = 0.1 mA, and VBE(on) 0.8 V max at IC = 10 mA. Measured in ssp at 27 C: VBE = 0.655 V gives IC = 1.001 mA and hFE = 200.0 for Q2N3904; VBE = 0.601 V gives IC = 1.001 mA and hFE = 500.0 for Q2N5088
+* fit: 2N3904: hFE 200 and VBE 0.655 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 70 min at IC = 1 mA, 100..300 at IC = 10 mA, and VBE(sat) 0.65..0.85 V at IC = 10 mA. 2N5088: hFE 500 and VBE 0.601 V at IC = 1 mA, VCE = 5 V; the sheet gives hFE 350 min at IC = 1 mA, 300..900 at IC = 0.1 mA, and VBE(on) 0.8 V max at IC = 10 mA. Capacitances: 2N3904 Cobo 4.0 pF max at VCB = 5 V and Cibo 8.0 pF max at VEB = 0.5 V, so CJC = 4p and CJE = 8p; 2N5088 Ccb 4.0 pF max at VCB = 5 V and Ceb 10 pF max at VEB = 0.5 V, so CJC = 4p and CJE = 10p. Measured in ssp at 27 C: VBE = 0.655 V gives IC = 1.001 mA and hFE = 200.0 for Q2N3904; VBE = 0.601 V gives IC = 1.001 mA and hFE = 500.0 for Q2N5088
 * author: 4esv
 * license: MIT
 
 * The sheets tabulate the small-signal region with hFE and VBE(on) only, so each model carries only
-* IS (the base-emitter fit) and BF (the hFE fit). No Early voltage, no leakage currents, no
-* capacitances: the sheets state none of those at 1 mA, and a number that is not on the sheet is not
-* in the model.
+* IS (the base-emitter fit), BF (the hFE fit), and CJC and CJE (the sheet capacitances). No Early
+* voltage and no leakage currents: the sheets state none of those at 1 mA, and a number that is not
+* on the sheet is not in the model. The sheet capacitances are maxima at one bias (5 V and 0.5 V), so
+* CJC and CJE are placed at those values and carry no grading coefficient.
 
 * IS is the saturation current that puts VBE at the fit point: VBE = Vt * ln(IC / IS).
-.model Q2N3904 NPN (IS=1e-14 BF=200)
-.model Q2N5088 NPN (IS=8e-14 BF=500)
+.model Q2N3904 NPN (IS=1e-14 BF=200 CJC=4p CJE=8p)
+.model Q2N5088 NPN (IS=8e-14 BF=500 CJC=4p CJE=10p)
