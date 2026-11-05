@@ -20,7 +20,7 @@ public class GalleryPageTests : BunitContext
         var page = Render<Gallery>();
 
         var names = page.FindAll("ul.gallery li .file").Select(e => e.TextContent.Trim()).Order(StringComparer.Ordinal);
-        var files = Directory.GetFiles(Library).Select(Path.GetFileName).Order(StringComparer.Ordinal);
+        var files = Directory.GetFiles(Library, "*.cir").Select(Path.GetFileName).Order(StringComparer.Ordinal);
         Assert.NotEmpty(files);
         Assert.Equal(files, names);
     }
@@ -56,7 +56,7 @@ public class GalleryPageTests : BunitContext
         var page = Render<Gallery>();
 
         var entries = page.FindAll("ul.gallery li");
-        Assert.Equal(Directory.GetFiles(Library).Length, entries.Count);
+        Assert.Equal(Directory.GetFiles(Library, "*.cir").Length, entries.Count);
         Assert.All(entries, e =>
         {
             var src = e.QuerySelector("figure.preview img")!.GetAttribute("src")!;
@@ -73,7 +73,7 @@ public class GalleryPageTests : BunitContext
 
         var page = Render<Home>();
 
-        Assert.Equal(Directory.GetFiles(Library).Length, page.FindAll("main.home ul.gallery li figure.preview img").Count);
+        Assert.Equal(Directory.GetFiles(Library, "*.cir").Length, page.FindAll("main.home ul.gallery li figure.preview img").Count);
         Assert.Single(page.FindAll("h1"));
     }
 

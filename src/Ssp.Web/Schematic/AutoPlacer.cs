@@ -46,7 +46,8 @@ public static class AutoPlacer
         var rails = all.Where(e => e.Kind == "rail").ToList();
         // NOTE: An edit can merge the pins of two rails onto one node. The first rail in element order wins the polarity.
         var railNets = rails.GroupBy(e => e.Nodes[0], Names).ToDictionary(g => g.Key, g => !g.First().Value.StartsWith('-'), Names);
-        var parts = Order(all.Where(e => e.Kind != "rail").ToList(), directives, railNets);
+        var ordered = Order(all.Where(e => e.Kind != "rail").ToList(), directives, railNets);
+        var parts = ordered.Select(o => o.Element).ToList();
         var references = circuit.Circuit.Select(c => c.Name.Split('.')[0]).ToHashSet(Names);
 
         var onNet = new Dictionary<string, List<int>>(Names);
@@ -63,16 +64,23 @@ public static class AutoPlacer
         var placements = new List<PartPlacement>();
         var railAt = new Dictionary<string, Point>(Names);
         var kept = (keep?.Parts ?? []).GroupBy(p => p.Reference, Names).ToDictionary(g => g.Key, g => g.First(), Names);
+        // The left edge of the leftmost part placed so far. No part goes left of it, so the input stays on the left.
+        var left = double.PositiveInfinity;
 
         void Put(SchematicElement e, PartPlacement placement)
         {
             placements.Add(placement);
             sheet.Add(e, placement, railNets);
+            left = Math.Min(left, SchematicRenderer.Outline(e, placement).Min.X);
             foreach (var pin in SchematicRenderer.Pins(e, placement).Where(p => !p.Hidden && railNets.ContainsKey(p.Net)))
             {
                 railAt.TryAdd(pin.Net, pin.At);
             }
         }
+
+        // The left edge that a part keeps clear of: the left edge of the leftmost part, so the input stays on the left. The part
+        // that ends the drawing keeps clear of every part, so the output is on the right.
+        double Fence(bool last) => last ? sheet.Right : left;
 
         // NOTE: The kept parts go on the sheet first, so each new part keeps clear of all of them.
         var fresh = new List<int>();
@@ -88,7 +96,7 @@ public static class AutoPlacer
             var e = parts[index];
             var reference = Reference(e, references);
             var (rotation, flip) = Orientation(e, reference, index, onNet, railNets);
-            Put(e, Fit(sheet, e, new PartPlacement(reference, 0, 0, rotation, flip), railNets));
+            Put(e, Fit(sheet, e, new PartPlacement(reference, 0, 0, rotation, flip), railNets, Fence(ordered[index].Ends)));
         }
 
         // A rail element sits on the first pin of its net, so the pin has no second symbol.
@@ -123,7 +131,10 @@ public static class AutoPlacer
         references.Contains(e.Reference) || e.Members.Count == 0 ? e.Reference : e.Members.Order(Names).First();
 
     // The parts in the order of the signal path. A part with two pins goes before a part with more, so the divider is at the origin and the transistor is to its right.
-    static List<SchematicElement> Order(List<SchematicElement> parts, Directives directives, Dictionary<string, bool> railNets)
+    // The parts in the order of the signal path, each with its column: the count of parts between it and the input. The signal
+    // goes from the input at the left to the output at the right, so a part of a later column is drawn right of the earlier ones.
+    // The parts on the output net go last, and the one that ends the drawing goes last of all and to the right.
+    static List<Ordered> Order(List<SchematicElement> parts, Directives directives, Dictionary<string, bool> railNets)
     {
         var onNet = new Dictionary<string, List<SchematicElement>>(Names);
         foreach (var e in parts)
@@ -174,13 +185,25 @@ public static class AutoPlacer
         var rest = Next();
         foreach (var e in parts) columns.TryAdd(e.Reference, rest);
 
-        return parts
-            .OrderBy(e => columns[e.Reference])
+        bool Leaves(SchematicElement e) => output is not null && e.Nodes.Any(n => Names.Equals(n, output));
+        // The load on the output net ends the drawing: it has no other signal net.
+        bool Ends(SchematicElement e) => Leaves(e) && e.Nodes.All(n => IsGround(n) || railNets.ContainsKey(n) || Names.Equals(n, output));
+
+        var sorted = parts
+            .OrderBy(e => Leaves(e) ? 1 : 0)
+            .ThenBy(e => columns[e.Reference])
             .ThenBy(e => e.Nodes.Count > 2 ? 1 : 0)
             .ThenBy(e => e.Reference, Names)
             .ThenBy(e => e.Reference, StringComparer.Ordinal)
             .ToList();
+        var end = sorted.LastOrDefault(Ends) ?? sorted.LastOrDefault(Leaves);
+        if (end is not null) sorted = [.. sorted.Where(e => e.Reference != end.Reference), end];
+
+        return sorted.Select(e => new Ordered(e, columns[e.Reference], e == end)).ToList();
     }
+
+    // A part in the order it is placed: its column, and whether it ends the drawing at the right.
+    readonly record struct Ordered(SchematicElement Element, int Column, bool Ends);
 
     // The orientation that puts supply pins up, ground pins down, the pins on the nets of earlier parts left and the others right.
     // The first orientation with the best score wins, so a symmetric part keeps its drawing.
@@ -216,12 +239,14 @@ public static class AutoPlacer
     // The position of the part that is near a pin of a placed net, with no overlap and a clear route from each placed net.
     // It tries each pin that is on a placed net as the anchor, and keeps the cheapest: the move from the anchor plus the routes.
     // The first try wants every route to have one bend at most. The second try takes any route.
-    static PartPlacement Fit(Sheet sheet, SchematicElement e, PartPlacement oriented, Dictionary<string, bool> railNets)
+    static PartPlacement Fit(Sheet sheet, SchematicElement e, PartPlacement oriented, Dictionary<string, bool> railNets, double fence)
     {
         var pins = SchematicRenderer.Pins(e, oriented).Where(p => !p.Hidden).ToList();
         var wired = pins.Where(p => !IsGround(p.Net) && !railNets.ContainsKey(p.Net) && sheet.Anchor.ContainsKey(p.Net))
             .OrderBy(p => p.At.X).ThenBy(p => p.At.Y).ToList();
         if (!sheet.Placed || wired.Count == 0) return oriented with { X = sheet.Placed ? sheet.Right + 4 * Grid : 0, Y = 0 };
+
+        var localLeft = SchematicRenderer.Outline(e, oriented).Min.X;
 
         var vertical = oriented.Rotation is 90 or 270;
         var offsets = Offsets.OrderBy(o => vertical ? 3 * Math.Abs(o.X) + Math.Abs(o.Y) : Math.Abs(o.X) + 3 * Math.Abs(o.Y))
@@ -238,7 +263,8 @@ public static class AutoPlacer
                 foreach (var offset in offsets)
                 {
                     var placement = oriented with { X = at.X - pin.At.X + offset.X, Y = at.Y - pin.At.Y + offset.Y };
-                    if (sheet.Overlaps(e, placement, railNets)) continue;
+                    // NOTE: A part of a later column starts right of the columns before it, so the signal keeps going to the right.
+                    if (placement.X + localLeft < fence || sheet.Overlaps(e, placement, railNets)) continue;
                     clear ??= placement;
                     if (sheet.RouteCost(e, placement, railNets, simple) is not { } routes) continue;
                     var cost = Math.Abs(offset.X) + Math.Abs(offset.Y) + routes;
@@ -357,8 +383,13 @@ public static class AutoPlacer
             var (body, symbols) = Boxes(e, p, railNets);
             // NOTE: Two pins of different nets at one point look like one node.
             var touching = SchematicRenderer.Pins(e, p).Any(pin => !pin.Hidden && everyPin.Any(q => q.At == pin.At && !Names.Equals(q.Net, pin.Net)));
-            return touching || room.Any(r => r.Overlaps(body) || symbols.Any(r.Overlaps));
+            // NOTE: Parts keep one grid apart, so a wire has room to leave a pin that sits between two of them.
+            return touching || room.Any(r => Near(r, body) || symbols.Any(s => Near(r, s)));
         }
+
+        // True if the two boxes are closer than one grid, so no wire can pass between them.
+        static bool Near(Box a, Box b) =>
+            a.X0 - Grid < b.X1 && b.X0 - Grid < a.X1 && a.Y0 - Grid < b.Y1 && b.Y0 - Grid < a.Y1;
 
         /// <summary>The total cost of the routes from the placed nets to the pins of the part, or null if a route is blocked. A simple route has one bend at most.</summary>
         public double? RouteCost(SchematicElement e, PartPlacement p, Dictionary<string, bool> railNets, bool simple)

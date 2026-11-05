@@ -1,0 +1,185 @@
+# Hand layout of tone-baxandall-active-tl072.cir (#417): the signal goes left to right, the supply is at the top and ground at the bottom.
+
+[[part]]
+ref = "C1"
+x = 190.0
+y = 100.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C2"
+x = 310.0
+y = 100.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "CIN"
+x = 20.0
+y = 180.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "COUT"
+x = 660.0
+y = 210.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "CT1"
+x = 100.0
+y = 320.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "CT2"
+x = 380.0
+y = 320.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R1"
+x = 100.0
+y = 40.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R2"
+x = 400.0
+y = 40.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R3"
+x = 290.0
+y = 100.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RL"
+x = 760.0
+y = 210.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RV1_1"
+x = 240.0
+y = 40.0
+rotation = 0
+flip = true
+
+[[part]]
+ref = "RV2_1"
+x = 300.0
+y = 320.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "V1"
+x = -40.0
+y = 180.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "VCC"
+x = 540.0
+y = 180.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "VEE"
+x = 540.0
+y = 240.0
+rotation = 0
+flip = true
+
+[[part]]
+ref = "X1"
+x = 500.0
+y = 210.0
+rotation = 0
+flip = false
+
+[[wire]]
+net = "in"
+points = [[-40.0, 180.0], [20.0, 180.0]]
+
+[[wire]]
+net = "a"
+points = [[100.0, 40.0], [80.0, 40.0], [80.0, 180.0]]
+
+[[wire]]
+net = "a"
+points = [[80.0, 180.0], [80.0, 320.0], [100.0, 320.0]]
+
+[[wire]]
+net = "b1"
+points = [[160.0, 40.0], [240.0, 40.0]]
+
+[[wire]]
+net = "b1"
+points = [[190.0, 40.0], [190.0, 100.0]]
+
+[[wire]]
+net = "w1"
+points = [[270.0, 70.0], [270.0, 100.0]]
+
+[[wire]]
+net = "w1"
+points = [[250.0, 100.0], [290.0, 100.0]]
+
+[[wire]]
+net = "w1"
+points = [[290.0, 100.0], [310.0, 100.0]]
+
+[[wire]]
+net = "b2"
+points = [[300.0, 40.0], [400.0, 40.0]]
+
+[[wire]]
+net = "b2"
+points = [[370.0, 40.0], [370.0, 100.0]]
+
+[[wire]]
+net = "n"
+points = [[290.0, 160.0], [290.0, 200.0], [500.0, 200.0]]
+
+[[wire]]
+net = "n"
+points = [[330.0, 290.0], [330.0, 200.0]]
+
+[[wire]]
+net = "t1"
+points = [[160.0, 320.0], [300.0, 320.0]]
+
+[[wire]]
+net = "t2"
+points = [[360.0, 320.0], [380.0, 320.0]]
+
+[[wire]]
+net = "o"
+points = [[460.0, 40.0], [600.0, 40.0], [600.0, 210.0]]
+
+[[wire]]
+net = "o"
+points = [[580.0, 210.0], [660.0, 210.0]]
+
+[[wire]]
+net = "o"
+points = [[440.0, 320.0], [620.0, 320.0], [620.0, 210.0]]
+
+[[wire]]
+net = "out"
+points = [[720.0, 210.0], [760.0, 210.0]]

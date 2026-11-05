@@ -18,6 +18,31 @@ namespace Ssp.Web.Schematic;
 /// </summary>
 public sealed record SchematicElement(string Reference, string? Kind, IReadOnlyList<string> Nodes, string Value, IReadOnlyList<string> Members);
 
+/// <summary>A rectangle in schematic units. Boxes that only touch do not overlap.</summary>
+public readonly record struct SchematicBox(double X0, double Y0, double X1, double Y1)
+{
+    public bool Overlaps(SchematicBox other) => X0 < other.X1 && other.X0 < X1 && Y0 < other.Y1 && other.Y0 < Y1;
+}
+
+/// <summary>A part as drawn, with the box of its symbol.</summary>
+public sealed record DrawnPart(string Reference, string? Kind, SchematicBox Box);
+
+/// <summary>A piece of text as drawn, with the box of the text.</summary>
+public sealed record DrawnText(string Text, SchematicBox Box);
+
+/// <summary>A pin of a drawn part: its net and where it is drawn.</summary>
+public sealed record DrawnPin(string Reference, string Net, Point At);
+
+/// <summary>A schematic as drawn: the SVG, the box of each part, the box of each piece of text, and where each pin is.</summary>
+public sealed record SchematicDrawing(string Svg, IReadOnlyList<DrawnPart> Parts, IReadOnlyList<DrawnText> Text, IReadOnlyList<DrawnPin> Pins)
+{
+    /// <summary>The wires as drawn.</summary>
+    public IReadOnlyList<WireRoute> Wires { get; init; } = [];
+
+    /// <summary>The box of each ground or supply symbol that the drawing puts at a pin.</summary>
+    public IReadOnlyList<SchematicBox> Marks { get; init; } = [];
+}
+
 /// <summary>Draws a circuit as an SVG schematic from its layout.</summary>
 public static class SchematicRenderer
 {
@@ -44,12 +69,21 @@ public static class SchematicRenderer
     /// else by the first placed member. An element that the layout does not place is not drawn. The output is the same
     /// for the same input.
     /// </summary>
-    public static string ToSvg(LoadedCircuit circuit, LayoutDoc layout, PartMap parts)
+    public static string ToSvg(LoadedCircuit circuit, LayoutDoc layout, PartMap parts) => Draw(circuit, layout, parts).Svg;
+
+    /// <summary>
+    /// The drawing of a circuit, with the box of each part and of each piece of text. The parts are drawn first and the
+    /// text last, and a piece of text that would sit on a part or on a piece of text before it moves aside.
+    /// </summary>
+    public static SchematicDrawing Draw(LoadedCircuit circuit, LayoutDoc layout, PartMap parts)
     {
         var placements = layout.Parts.ToDictionary(p => p.Reference, Names);
         var bounds = new Bounds();
         var body = new StringBuilder();
-        var labels = new StringBuilder();
+        var ink = new Ink();
+        var drawn = new List<DrawnPart>();
+        var pinned = new List<DrawnPin>();
+        var wanted = new List<Wanted>();
         var elements = Elements(circuit, parts);
         // NOTE: #316: the X line gives the connected nodes, so the pin names of an instance come from its .subckt
         // definition. An instance with no symbol draws a box that names them.
@@ -58,9 +92,9 @@ public static class SchematicRenderer
         // NOTE: An edit can merge the pins of two rails onto one node. The first rail in element order wins the lookup.
         var rails = elements.Where(e => e.Kind == "rail").GroupBy(e => e.Nodes[0], Names).ToDictionary(g => g.Key, g => g.First().Value, Names);
         var named = new List<(string Net, Point At)>();
+        var marks = new List<SchematicBox>();
         var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
             .Select(p => (p.X, p.Y)).ToHashSet();
-        var placed = new List<(double X0, double Y0, double X1, double Y1)>();
 
         foreach (var e in elements)
         {
@@ -69,7 +103,7 @@ public static class SchematicRenderer
             if (p is null) continue;
             var symbol = Fits(Symbols.Find(e.Kind), e.Nodes.Count);
             var (inner, box) = symbol is null ? Fallback(e.Nodes.Count) : Drawing(symbol);
-            if (symbol is null) PinNames(labels, bounds, p, e.Nodes.Count, declared.GetValueOrDefault(e.Reference) ?? []);
+            if (symbol is null) PinNames(wanted, p, e.Nodes.Count, declared.GetValueOrDefault(e.Reference) ?? []);
 
             body.Append("<g data-ref=\"").Append(Escape(e.Reference)).Append("\" transform=\"").Append(Transform(p)).Append("\">")
                 .Append(inner).Append(symbol is not null && levers.TryGetValue(e.Reference, out var at) ? Lever(symbol.Kind, at) : "").Append("</g>\n");
@@ -82,23 +116,27 @@ public static class SchematicRenderer
                 {
                     if (symbol?.Pins[i].Hidden == true) continue;
                     var (x, y) = Place(p, pins[i].X, pins[i].Y);
-                    if (Named(rails, e.Nodes[i])) named.Add((e.Nodes[i], new Point(Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0)));
+                    var pinAt = new Point(Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0);
+                    pinned.Add(new DrawnPin(e.Reference, e.Nodes[i], pinAt));
+                    if (Named(rails, e.Nodes[i])) named.Add((e.Nodes[i], pinAt));
                     // NOTE: A ground net or a supply net has a symbol at each pin, not a wire. A rail element on the pin is that symbol.
                     if (IsGround(e.Nodes[i]))
                     {
-                        PinSymbol(body, bounds, "ground", false, x, y);
+                        marks.Add(PinSymbol(body, bounds, "ground", false, x, y));
                     }
                     else if (rails.TryGetValue(e.Nodes[i], out var volts) && !railPins.Contains((Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0)))
                     {
                         var down = volts.StartsWith('-');
-                        PinSymbol(body, bounds, "rail", down, x, y);
-                        Label(labels, bounds, x, down ? y + SymbolLength + LabelGap + FontSize : y - SymbolLength - LabelGap, volts);
+                        marks.Add(PinSymbol(body, bounds, "rail", down, x, y));
+                        var top = down ? y + SymbolLength + LabelGap + FontSize : y - SymbolLength - LabelGap;
+                        wanted.Add(new Wanted(new ElementLabel(volts, x, top), null, null, down ? (0, FontSize) : (0, -FontSize)));
                     }
                 }
             }
 
             bounds.Add(part);
-            foreach (var label in Labels(e, p)) PlaceLabel(labels, bounds, placed, label, part);
+            drawn.Add(new DrawnPart(e.Reference, e.Kind, new SchematicBox(part.MinX, part.MinY, part.MaxX, part.MaxY)));
+            foreach (var label in Labels(e, p)) wanted.Add(new Wanted(label, null, null, Step(label, part)));
         }
 
         foreach (var w in layout.Wires)
@@ -108,8 +146,63 @@ public static class SchematicRenderer
                 .Append(string.Join(' ', w.Points.Select(pt => $"{N(pt.X)},{N(pt.Y)}"))).Append("\"/>\n");
         }
 
-        NetNames(labels, bounds, layout, named);
-        return Document(bounds, body, labels);
+        wanted.AddRange(NetNames(layout, named));
+        PlaceText(ink, bounds, drawn.Select(d => d.Box).Concat(marks), layout.Wires, wanted);
+        return new SchematicDrawing(Document(bounds, body, ink), drawn, ink.Boxes, pinned) { Wires = layout.Wires, Marks = marks };
+    }
+
+    // A piece of text to draw, and the way it moves to keep clear of a part or of the text before it.
+    readonly record struct Wanted(ElementLabel Label, string? Class, string? Net, (double X, double Y) Step);
+
+    // A label above its part moves up, a label below it moves down, and a label beside it moves right.
+    static (double X, double Y) Step(ElementLabel label, Bounds part) =>
+        label.Y <= part.MinY ? (0, -FontSize) : label.Y >= part.MaxY ? (0, FontSize) : (FontSize, 0);
+
+    static SchematicBox Extent(ElementLabel label)
+    {
+        var (x0, y0, x1, y1) = label.Extent;
+        return new SchematicBox(x0, y0, x1, y1);
+    }
+
+    // Draws each piece of text at its place, or moved by its own step until it clears every part, ground and supply symbol,
+    // wire and the text before it.
+    static void PlaceText(Ink ink, Bounds bounds, IEnumerable<SchematicBox> solid, IReadOnlyList<WireRoute> wires, List<Wanted> wanted)
+    {
+        var taken = solid.ToList();
+        var segments = wires.SelectMany(w => w.Points.Zip(w.Points.Skip(1))).ToList();
+        bool Clear(SchematicBox box) => !taken.Any(b => b.Overlaps(box)) && !segments.Any(s => Crosses(s.First, s.Second, box));
+        foreach (var w in wanted)
+        {
+            var at = w.Label;
+            for (var i = 0; i < 64 && !Clear(Extent(at)); i++) at = at with { X = at.X + w.Step.X, Y = at.Y + w.Step.Y };
+            taken.Add(Extent(at));
+            ink.Text(bounds, at.X, at.Y, at.Text, at.Start, at.End, w.Class, w.Net);
+        }
+    }
+
+    // The text of a drawing: each <text> element, and the box of the text.
+    sealed class Ink
+    {
+        readonly StringBuilder svg = new();
+
+        public List<DrawnText> Boxes { get; } = [];
+
+        public void Text(Bounds bounds, double x, double y, string text, bool start = false, bool end = false, string? className = null, string? net = null)
+        {
+            var width = text.Length * FontSize * 0.6;
+            var (x0, x1) = start ? (x, x + width) : end ? (x - width, x) : (x - width / 2, x + width / 2);
+            bounds.Add((x0, y - FontSize));
+            bounds.Add((x1, y));
+            Boxes.Add(new DrawnText(text, new SchematicBox(x0, y - FontSize, x1, y)));
+            svg.Append("<text");
+            if (className is not null) svg.Append(" class=\"").Append(className).Append('"');
+            if (net is not null) svg.Append(" data-net=\"").Append(Escape(net)).Append('"');
+            svg.Append(" x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"')
+                .Append(start ? " text-anchor=\"start\"" : end ? " text-anchor=\"end\"" : "")
+                .Append('>').Append(Escape(text)).Append("</text>\n");
+        }
+
+        public override string ToString() => svg.ToString();
     }
 
     // NOTE: A name typed on a net is in capitals, like +9V or VREF (SchematicEdits.NameNet). The nodes of a netlist such as
@@ -119,8 +212,9 @@ public static class SchematicRenderer
 
     // A name flag on each drawn piece of a named net: the wires that touch, and the pins on them. A pin with no wire is a piece.
     // The flag is above the middle of the longest horizontal segment of the piece, else right of its longest segment.
-    static void NetNames(StringBuilder labels, Bounds bounds, LayoutDoc layout, List<(string Net, Point At)> pins)
+    static List<Wanted> NetNames(LayoutDoc layout, List<(string Net, Point At)> pins)
     {
+        var wanted = new List<Wanted>();
         foreach (var net in pins.Select(p => p.Net).Distinct(Names).Order(StringComparer.Ordinal))
         {
             var wires = layout.Wires.Where(w => Names.Equals(w.Net, net) && w.Points.Count > 1).ToList();
@@ -138,23 +232,25 @@ public static class SchematicRenderer
                 var (a, b) = piece.SelectMany(i => wires[i].Points.Zip(wires[i].Points.Skip(1)))
                     .OrderByDescending(s => s.First.Y == s.Second.Y).ThenByDescending(s => Math.Abs(s.First.X - s.Second.X) + Math.Abs(s.First.Y - s.Second.Y)).First();
                 var (mx, my) = ((a.X + b.X) / 2, (a.Y + b.Y) / 2);
-                if (a.Y == b.Y) NetName(labels, bounds, net, mx, my - LabelGap, start: false);
-                else NetName(labels, bounds, net, mx + LabelGap, my + FontSize / 2, start: true);
+                wanted.Add(a.Y == b.Y
+                    ? new Wanted(new ElementLabel(net, mx, my - LabelGap), "net-name", net, (0, -FontSize))
+                    : new Wanted(new ElementLabel(net, mx + LabelGap, my + FontSize / 2, Start: true), "net-name", net, (FontSize, 0)));
             }
             foreach (var (_, at) in pins.Where(p => Names.Equals(p.Net, net) && !wires.Any(w => Touches(w, p.At))).DistinctBy(p => p.At))
             {
-                NetName(labels, bounds, net, at.X + LabelGap, at.Y - LabelGap, start: true);
+                wanted.Add(new Wanted(new ElementLabel(net, at.X + LabelGap, at.Y - LabelGap, Start: true), "net-name", net, (FontSize, 0)));
             }
         }
+        return wanted;
     }
 
-    static void NetName(StringBuilder labels, Bounds bounds, string net, double x, double y, bool start)
+    // True if the orthogonal segment goes through the inside of the box. A segment along an edge does not.
+    static bool Crosses(Point a, Point b, SchematicBox box)
     {
-        var width = net.Length * FontSize * 0.6;
-        bounds.Add((start ? x : x - width / 2, y - FontSize));
-        bounds.Add((start ? x + width : x + width / 2, y));
-        labels.Append("<text class=\"net-name\" data-net=\"").Append(Escape(net)).Append("\" x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"')
-            .Append(start ? " text-anchor=\"start\"" : "").Append('>').Append(Escape(net)).Append("</text>\n");
+        var (x0, x1, y0, y1) = (Math.Min(a.X, b.X), Math.Max(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.Y, b.Y));
+        var across = x0 == x1 ? box.X0 < x0 && x0 < box.X1 : box.X0 < x1 && x0 < box.X1;
+        var down = y0 == y1 ? box.Y0 < y0 && y0 < box.Y1 : box.Y0 < y1 && y0 < box.Y1;
+        return across && down;
     }
 
     // True if the point is on a segment of the wire.
@@ -172,7 +268,7 @@ public static class SchematicRenderer
         var body = new StringBuilder()
             .Append("<g data-kind=\"").Append(Escape(kind)).Append("\" transform=\"").Append(Transform(placement)).Append("\">")
             .Append(inner).Append("</g>\n");
-        return Document(bounds, body, new StringBuilder());
+        return Document(bounds, body, new Ink());
     }
 
     /// <summary>The drawing of a kind without its outer svg element, in symbol units.</summary>
@@ -443,62 +539,29 @@ public static class SchematicRenderer
     // its lead, at the edge of the box: a pin on the left is named to the left of the box and a pin on the right to
     // the right of it. The box is 20 wide, so two names on one row do not fit inside it. A pin the definition does
     // not name stays blank.
-    static void PinNames(StringBuilder labels, Bounds bounds, PartPlacement placement, int pins, IReadOnlyList<string> names)
+    static void PinNames(List<Wanted> wanted, PartPlacement placement, int pins, IReadOnlyList<string> names)
     {
         var local = LocalPins(null, pins);
         for (var i = 0; i < local.Count && i < names.Count; i++)
         {
             var left = local[i].X == 0;
             var (x, y) = Place(placement, left ? 20 - LabelGap : 40 + LabelGap, local[i].Y - LabelGap);
-            Label(labels, bounds, x, y, names[i], start: !left, end: left, className: "pin-name");
+            wanted.Add(new Wanted(new ElementLabel(names[i], x, y, Start: !left, End: left), "pin-name", null, (0, -FontSize)));
         }
-    }
-
-    // Places one part label. A label above its part shifts up and a label below it shifts down, one text height at a
-    // time, until the text clears every label already placed. A label beside its part shifts right. The same input gives
-    // the same output.
-    static void PlaceLabel(StringBuilder labels, Bounds bounds, List<(double X0, double Y0, double X1, double Y1)> placed, ElementLabel label, Bounds part)
-    {
-        var above = label.Y <= part.MinY;
-        var below = label.Y >= part.MaxY;
-        var (dx, dy) = above ? (0.0, -FontSize) : below ? (0.0, FontSize) : (FontSize, 0.0);
-        var at = label;
-        for (var i = 0; i < 12; i++)
-        {
-            var extent = at.Extent;
-            if (placed.All(b => !Overlaps(b, extent)))
-            {
-                placed.Add(extent);
-                Label(labels, bounds, at.X, at.Y, at.Text, at.Start, at.End);
-                return;
-            }
-            at = at with { X = at.X + dx, Y = at.Y + dy };
-        }
-        placed.Add(at.Extent);
-        Label(labels, bounds, at.X, at.Y, at.Text, at.Start, at.End);
-    }
-
-    static bool Overlaps((double X0, double Y0, double X1, double Y1) a, (double X0, double Y0, double X1, double Y1) b) =>
-        a.X0 < b.X1 && b.X0 < a.X1 && a.Y0 < b.Y1 && b.Y0 < a.Y1;
-
-    static void Label(StringBuilder labels, Bounds bounds, double x, double y, string text, bool start = false, bool end = false, string? className = null)
-    {
-        bounds.Add((x - (end ? text.Length * FontSize * 0.6 : 0), y - FontSize));
-        bounds.Add((x + (start ? text.Length * FontSize * 0.6 : 0), y));
-        labels.Append("<text").Append(className is null ? "" : $" class=\"{className}\"").Append(" x=\"").Append(N(x)).Append("\" y=\"").Append(N(y)).Append('"').Append(start ? " text-anchor=\"start\"" : end ? " text-anchor=\"end\"" : "").Append('>').Append(Escape(text)).Append("</text>\n");
     }
 
     // A ground symbol hangs below a pin. A rail symbol stands above it, or hangs below it when down.
-    static void PinSymbol(StringBuilder body, Bounds bounds, string kind, bool down, double x, double y)
+    static SchematicBox PinSymbol(StringBuilder body, Bounds bounds, string kind, bool down, double x, double y)
     {
         var (inner, box) = Drawing(Symbols.For(kind));
         body.Append("<g transform=\"translate(").Append(N(x)).Append(' ').Append(N(y)).Append(')').Append(down ? " scale(1 -1)" : "").Append("\">").Append(inner).Append("</g>\n");
         var (y0, y1) = (down ? y - box.Y - box.H : y + box.Y, down ? y - box.Y : y + box.Y + box.H);
         bounds.Add((x + box.X, y0));
         bounds.Add((x + box.X + box.W, y1));
+        return new SchematicBox(x + box.X, y0, x + box.X + box.W, y1);
     }
 
-    static string Document(Bounds bounds, StringBuilder body, StringBuilder labels)
+    static string Document(Bounds bounds, StringBuilder body, Ink ink)
     {
         var (minX, minY, width, height) = bounds.Empty
             ? (0.0, 0.0, 0.0, 0.0)
@@ -510,7 +573,7 @@ public static class SchematicRenderer
             .Append("\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\">\n")
             .Append(body)
             .Append("<g fill=\"currentColor\" stroke=\"none\" font-family=\"sans-serif\" font-size=\"10\" text-anchor=\"middle\">\n")
-            .Append(labels)
+            .Append(ink.ToString())
             .Append("</g>\n</svg>\n")
             .ToString();
     }

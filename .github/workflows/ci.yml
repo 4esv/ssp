@@ -33,7 +33,7 @@ jobs:
         name: Run each library circuit
         run: |
           set -euo pipefail
-          for f in circuits/library/*; do
+          for f in circuits/library/*.cir; do
             echo "::group::ssp run $f"
             dotnet run -c Release --no-build --project src/Ssp.Cli -- run "$f"
             echo "::endgroup::"

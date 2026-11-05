@@ -42,7 +42,8 @@ public class SchematicEditsStaleLayoutTests : BunitContext
         ("node", _) => "a",
         ("name", _) => "sig",
         (_, var t) when t == typeof(Point) => new Point(100, 100),
-        (_, var t) when t == typeof(Spot) => new Spot(new Point(100, 100)),
+        // NOTE: The spot is on a wire of the layout, so the edit finds a net.
+        (_, var t) when t == typeof(Spot) => new Spot(layout.Wires[0].Points[0]),
         (_, var t) when t == typeof(PinRef) => new PinRef("R1", 0),
         (_, var t) when t == typeof(Direction) => Direction.Right,
         (_, var t) when t == typeof(bool) => true,

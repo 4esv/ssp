@@ -44,6 +44,24 @@ public class EditorStarterTests : BunitContext
         Assert.Equal(shared.ReplaceLineEndings("\n"), box.ReplaceLineEndings("\n"));
     }
 
+    // #417: the gallery opens a library circuit by its netlist. The editor draws it from the hand layout of the library, not
+    // from a fresh placement.
+    [Fact]
+    public void ALibraryCircuitOpensWithItsHandLayout()
+    {
+        var circuit = Ssp.Web.Library.CircuitLibrary.All.First(c => c.Layout is not null);
+        var hand = Ssp.Core.Layout.Layout.Parse(circuit.Layout!);
+
+        var page = Open(ShareCodec.Encode(circuit.Netlist));
+
+        var drawn = page.FindAll("svg polyline[data-net]").Select(p => p.GetAttribute("points")).ToHashSet();
+        foreach (var wire in hand.Wires)
+        {
+            var points = string.Join(' ', wire.Points.Select(p => FormattableString.Invariant($"{p.X},{p.Y}")));
+            Assert.Contains(points, drawn);
+        }
+    }
+
     [Fact]
     public void RunOnTheStarterGivesAResult()
     {

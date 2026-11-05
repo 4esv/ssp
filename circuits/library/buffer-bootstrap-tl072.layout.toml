@@ -1,0 +1,103 @@
+# Hand layout of buffer-bootstrap-tl072.cir (#417): the signal goes left to right, the supply is at the top and ground at the bottom.
+
+[[part]]
+ref = "CB"
+x = 240.0
+y = 320.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "CIN"
+x = 100.0
+y = 210.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "COUT"
+x = 440.0
+y = 200.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RB1"
+x = 200.0
+y = 210.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RB2"
+x = 200.0
+y = 320.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RL"
+x = 540.0
+y = 200.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "V1"
+x = 40.0
+y = 210.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "VCC"
+x = 340.0
+y = 170.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "VEE"
+x = 340.0
+y = 230.0
+rotation = 0
+flip = true
+
+[[part]]
+ref = "X1"
+x = 300.0
+y = 200.0
+rotation = 0
+flip = false
+
+[[wire]]
+net = "in"
+points = [[40.0, 210.0], [100.0, 210.0]]
+
+[[wire]]
+net = "a"
+points = [[160.0, 210.0], [200.0, 210.0]]
+
+[[wire]]
+net = "a"
+points = [[200.0, 210.0], [300.0, 210.0]]
+
+[[wire]]
+net = "b"
+points = [[200.0, 270.0], [200.0, 320.0], [240.0, 320.0]]
+
+[[wire]]
+net = "o"
+points = [[380.0, 200.0], [440.0, 200.0]]
+
+[[wire]]
+net = "o"
+points = [[400.0, 200.0], [400.0, 100.0], [280.0, 100.0], [280.0, 190.0], [300.0, 190.0]]
+
+[[wire]]
+net = "o"
+points = [[420.0, 200.0], [420.0, 320.0], [300.0, 320.0]]
+
+[[wire]]
+net = "out"
+points = [[500.0, 200.0], [540.0, 200.0]]

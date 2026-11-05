@@ -18,7 +18,7 @@ public class GalleryPreviewFileTests
     public void CommittedPreviewEqualsAFreshRender(string fileName)
     {
         var circuit = CircuitLibrary.All.Single(c => c.FileName == fileName);
-        var svg = SchematicView.Svg(circuit.Netlist);
+        var svg = SchematicView.Svg(circuit.Netlist, circuit.Layout);
         Assert.False(string.IsNullOrWhiteSpace(svg));
         var fresh = svg.Replace("\r\n", "\n");
         var path = Path.Combine(Directory, Path.ChangeExtension(fileName, ".svg"));

@@ -46,13 +46,13 @@ Write each model yourself from public datasheet values (clean-room rule).
 
 ## Circuit library
 
-The folder `circuits/library/` has circuits for all users. The gallery page in the web app lists each file in it.
+The folder `circuits/library/` has circuits for all users. The gallery page in the web app lists each `.cir` file in it.
 
 To add a circuit:
 
 1. Add only an original circuit or a circuit with a permissive license, for example MIT.
 2. Do not copy a circuit from a third party or from a commercial tool.
-3. Put one netlist in one `.cir` file. Do not put other files in the folder.
+3. Put one netlist in one `.cir` file. The only other file allowed is its hand layout, `<name>.layout.toml` (see [docs/file-format.md](docs/file-format.md)). The gallery and the editor draw the circuit from it. Without it, the parts are placed by the auto-placer.
 4. Put a `* ssp:title` line at the top. The gallery shows this title.
 5. Put a `* source:` line and a `* license:` line in the header comment.
 6. Do not write the name of a commercial product or company in the file.
