@@ -75,7 +75,8 @@ public class LibraryDiagramTests
     {
         var laid = CircuitLibrary.All.First(c => c.Layout is not null);
         Assert.Equal(laid.Layout, CircuitLibrary.LayoutOf(laid.Netlist));
-        Assert.Equal(laid.Layout, CircuitLibrary.LayoutOf(laid.Netlist.Replace("\n", "\r\n")));
+        Assert.Equal(laid.Layout, CircuitLibrary.LayoutOf(laid.Netlist.ReplaceLineEndings("\r\n")));
+        Assert.Equal(laid.Layout, CircuitLibrary.LayoutOf(laid.Netlist.ReplaceLineEndings("\n") + "  \n"));
         Assert.Null(CircuitLibrary.LayoutOf(laid.Netlist + "R99 a 0 1k\n"));
         Assert.All(CircuitLibrary.All, c => Assert.EndsWith(".cir", c.FileName));
     }

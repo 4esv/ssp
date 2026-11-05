@@ -42,7 +42,11 @@ public static class CircuitLibrary
     public static string? LayoutOf(string netlist) =>
         All.FirstOrDefault(c => c.Layout is not null && Same(c.Netlist, netlist))?.Layout;
 
-    static bool Same(string a, string b) => a.Replace("\r\n", "\n") == b.Replace("\r\n", "\n");
+    // NOTE: A Windows checkout, the embedded file and a share link can differ in line endings and in trailing spaces.
+    static bool Same(string a, string b) => Normal(a) == Normal(b);
+
+    static string Normal(string text) =>
+        string.Join('\n', text.ReplaceLineEndings("\n").Split('\n').Select(l => l.TrimEnd())).TrimEnd();
 
     static List<LibraryBlock> LoadBlocks() => typeof(CircuitLibrary).Assembly.GetManifestResourceNames()
         .Where(n => n.StartsWith(BlockPrefix, StringComparison.Ordinal) && n.EndsWith(".cir", StringComparison.Ordinal))
