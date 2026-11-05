@@ -1,8 +1,6 @@
 # Models
 
-This folder contains the device models. This file (`models/README.md`) documents them.
-
-Each model is written from datasheet values (clean-room rule).
+This folder holds the device models. Each model is written from datasheet values (clean-room rule).
 
 ## Provenance header
 
@@ -19,7 +17,7 @@ A model file without this header fails review.
 
 ## Model files
 
-The table lists every shipped model file. The name is the value after `.model` or `.subckt`.
+The name is the value after `.model` or `.subckt`.
 
 | File | What it is | Model or subcircuit | Pin order | Source |
 | --- | --- | --- | --- | --- |
@@ -36,28 +34,17 @@ The table lists every shipped model file. The name is the value after `.model` o
 
 ### Subcircuit pins
 
-The operational amplifier subcircuits use this pin order:
+The op-amp subcircuits use the pins `inp inn out vcc vee`: the non-inverting input, the inverting input, the
+output, the positive supply rail and the negative supply rail.
 
-1. `inp` — the non-inverting input.
-2. `inn` — the inverting input.
-3. `out` — the output.
-4. `vcc` — the positive supply rail.
-5. `vee` — the negative supply rail.
-
-The transformer uses this pin order:
-
-1. `p1 p2` — the primary winding.
-2. `s1 s2` — the secondary winding.
-
-The vactrol uses this pin order:
-
-1. `a k` — the LED anode and cathode.
-2. `p1 p2` — the photoresistor (LDR) terminals.
+The transformer uses `p1 p2` for the primary winding and `s1 s2` for the secondary winding.
+The vactrol uses `a k` for the LED anode and cathode, and `p1 p2` for the photoresistor terminals.
 
 The transformer and the vactrol also take parameters:
 
 - `transformer`: `n` (the turns ratio Ns/Np), `lp` (the primary inductance), `k` (the coupling).
-- `vactrol`: `tau` (the lag time constant), `rdark` (the dark resistance), `gain` (the conductance per mA of LED current).
+- `vactrol`: `tau` (the lag time constant), `rdark` (the dark resistance), `gain` (the conductance per mA of
+  LED current).
 
 The defaults are in the `.subckt` line.
 
@@ -70,19 +57,10 @@ Download one model into the same folder as your netlist:
 curl -fsSLO https://raw.githubusercontent.com/4esv/ssp/main/models/opamp-tl072.cir
 ```
 
-Write this line in your netlist:
-
-```spice
-.include opamp-tl072.cir
-```
-
-This line loads the model from the same folder as the netlist.
-
 ## Use a model
 
-Write `.include <path>` in your netlist. A relative path is relative to the directory of the netlist file. It is not relative to the directory where you run `ssp run`. Quotes around the path are optional. An absolute path also works.
-
-This netlist uses the `TL072` subcircuit:
+Write `.include <path>` in your netlist. A relative path is relative to the directory of the netlist file,
+not to the directory where you run `ssp run`. Quotes around the path are optional. An absolute path also works.
 
 ```spice
 * ssp:title TL072 unity-gain buffer
@@ -103,13 +81,13 @@ Save the netlist as `buffer.cir` in the repository root, then run it from any di
 ssp run <repository>/buffer.cir
 ```
 
-The `.include` line loads `models/opamp-tl072.cir`. The `X1` line calls the `TL072` subcircuit with the pins `inp inn out vcc vee`. The output follows the input (unity gain).
+The `.include` line loads `models/opamp-tl072.cir`. The `X1` line calls the `TL072` subcircuit with the pins
+`inp inn out vcc vee`. The output follows the input (unity gain).
 
 ## Parts table
 
-`models/parts.toml` holds the parts table. Each row has these fields: `id`, `kind`, `model`, `symbol`, `footprint`, `buy_url`, `provenance`.
-
-The table lists every id.
+`models/parts.toml` holds the parts table. Each row has these fields: `id`, `kind`, `model`, `symbol`,
+`footprint`, `buy_url`, `provenance`.
 
 | id | kind | model | footprint |
 | --- | --- | --- | --- |
@@ -132,7 +110,8 @@ The table lists every id.
 
 ### The `ssp:part` directive
 
-Write `* ssp:part <ref> <id>` to map a netlist reference to a part id. The directive sets the symbol, the footprint, and the buy link for that reference.
+Write `* ssp:part <ref> <id>` to map a netlist reference to a part id. The directive sets the symbol, the
+footprint and the buy link for that reference.
 
 ```spice
 * ssp:part D1 1N4148
@@ -143,17 +122,17 @@ R1 b 0 1k
 .END
 ```
 
-Here `D1` uses the `1N4148` part row and the `DGEN` model. The part row gives the footprint and the buy link. The model gives the simulation.
+Here `D1` uses the `1N4148` part row and the `DGEN` model. The part row gives the footprint and the buy link.
+The model gives the simulation. The schematic uses the symbol of the part id.
 
-The schematic uses the symbol of the part id. The parts list shows the footprint and the buy link.
-
-A `<ref>` that is not in the netlist gives a warning. An `<id>` that is not in `models/parts.toml` gives an error. The editor and `ssp run` both report these problems.
-
+A `<ref>` that is not in the netlist gives a warning. An `<id>` that is not in `models/parts.toml` gives an
+error. The editor and `ssp run` both report these problems.
 Without the directive, the loader matches the part by kind and model name.
 
 ## Editor palette
 
-The editor palette offers kinds, not part ids. The kinds are: resistor, capacitor, electrolytic, inductor, diode, zener, schottky, led, npn, pnp, njf, pjf, pot, switch-1, switch-2, switch-3, battery, source, jack-in, jack-out.
+The editor palette offers kinds, not part ids: resistor, capacitor, electrolytic, inductor, diode, zener,
+schottky, led, npn, pnp, njf, pjf, pot, switch-1, switch-2, switch-3, battery, source, jack-in, jack-out.
 
 A semiconductor kind places a default model. These ids match a palette kind's default model:
 
@@ -165,32 +144,30 @@ A semiconductor kind places a default model. These ids match a palette kind's de
 | njf | `JN` | `JFET-N` |
 | pjf | `JP` | `JFET-P` |
 
-The other ids are not on the palette: `1N4148`, `1N914`, `2N3904`, `2N5088`, `TL072`, `TRANSFORMER`, `VACTROL`, `LED-YELLOW`, `LED-GREEN`, `LED-BLUE`, `LED-WHITE`. The diode kind places a generic `DGEN` model, which has no part id, and the npn kind places a generic `QNPN` model, which has no part id.
-
-## What is not bundled
-
-Common pedal parts are not bundled. For example: `BC109`. The `1N4148` and `1N914` parts use the `1N4148` model in `models/diodes-si.lib`.
+The other ids are not on the palette: `1N4148`, `1N914`, `2N3904`, `2N5088`, `TL072`, `TRANSFORMER`, `VACTROL`,
+`LED-YELLOW`, `LED-GREEN`, `LED-BLUE`, `LED-WHITE`. The diode kind places a generic `DGEN` model and the npn kind
+a generic `QNPN` model. Neither has a part id.
 
 ## Supply your own model
 
-Write the model in your netlist. Or add a `.lib` file and `.include` it. Write the values from the datasheet (clean-room rule).
+The `1N4148` and `1N914` parts use the `1N4148` model in `models/diodes-si.lib`. Other pedal parts, for
+example `BC109`, are not bundled.
 
-This example adds a generic NPN transistor model to a netlist:
+Write the model in your netlist, or add a `.lib` file and `.include` it. Write the values from the datasheet
+(clean-room rule). Change the name and the values for your part. Do not copy model text from a manufacturer
+file or from another simulation tool.
 
 ```spice
 .model QNPN NPN (IS=1e-14 BF=200)
 Q1 c b 0 QNPN
 ```
 
-Change the name and the values for your part. Do not copy model text from a manufacturer file or from another simulation tool.
-
-To ship a model in this repository, add the provenance header to the file. See the rule above.
+To ship a model in this repository, add the provenance header to the file.
 
 ## Cabinet impulse response
 
-`models/ir/cab-1x12.wav` is a synthetic cabinet impulse response. It is not a measurement of a real cabinet. See `models/ir/README.md` for the format and the license.
-
-Use it with `ssp render`:
+`models/ir/cab-1x12.wav` is a synthetic cabinet impulse response. It is not a measurement of a real cabinet.
+See `models/ir/README.md` for the format and the license. Use it with `ssp render`:
 
 ```sh
 ssp render file.cir --in a.wav --out b.wav --ir models/ir/cab-1x12.wav
