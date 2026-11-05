@@ -237,10 +237,10 @@
                         <title>Open end</title>
                     </circle>
                 }
-                @foreach (var (node, at, text) in VoltageLabels())
+                @foreach (var label in VoltageLabels())
                 {
                     <g>
-                        <text class="@(Stale ? "net-voltage stale" : "net-voltage")" data-node="@node" x="@N(at.X + 6)" y="@N(at.Y - 8)" font-size="10">@text</text>
+                        <text class="@(Stale ? "net-voltage stale" : "net-voltage")" data-node="@label.Node" x="@N(label.X)" y="@N(label.Y)" font-size="10">@label.Text</text>
                     </g>
                 }
                 @foreach (var jack in jacks)
@@ -332,9 +332,9 @@
     sealed record PinView(PinRef Ref, string Node, Point Position);
     // NOTE: One label for each net, on its first pin. It is in the pin layer, so it moves nothing.
     // Ground is 0 V and has no label. A net the last run did not know has none either.
-    IEnumerable<(string Node, Point At, string Text)> VoltageLabels() =>
-        NodeVoltages is null ? [] : pins.Where(p => p.Node != "0" && NodeVoltages.ContainsKey(p.Node))
-            .GroupBy(p => p.Node).Select(g => (g.Key, g.First().Position, Eng.Format(NodeVoltages[g.Key], "V")));
+    // A label is clear of the part labels and the parts (#446), and a voltage under 1 uV reads 0 V.
+    IReadOnlyList<VoltageLabel> VoltageLabels() =>
+        NodeVoltages is null || drawing is null ? [] : SchematicRenderer.VoltageLabels(drawing, pins.Select(p => (p.Node, p.Position)), NodeVoltages);
 
     sealed record JackView(Point At, string Label);
 
@@ -421,6 +421,7 @@
     bool hasErrors;
     IReadOnlyList<Diagnostic> errors = [];
     string? svg;
+    SchematicDrawing? drawing;
     string viewBox = "";
     List<PinView> pins = [];
     List<JackView> jacks = [];
@@ -577,6 +578,7 @@
         (menuOpen, connecting) = (false, false);
         var wasBlank = svg is null;
         svg = null;
+        drawing = null;
         pins = [];
         jacks = [];
         outlines = [];
@@ -604,7 +606,8 @@
         shape = given is null ? next : null;
         if (!circuit.Circuit.OfType<SpiceComponent>().Any()) return;
 
-        svg = SchematicRenderer.ToSvg(circuit, layout, parts);
+        drawing = SchematicRenderer.Draw(circuit, layout, parts);
+        svg = drawing.Svg;
         if (wasBlank) view = null;
         viewBox = ViewBox.Match(svg).Groups[1].Value;
         var v = viewBox.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(t => double.Parse(t, CultureInfo.InvariantCulture)).ToArray();
@@ -1970,7 +1973,7 @@
     }
 
     string NodeText(string node) =>
-        "node " + node + (NodeVoltages is not null && NodeVoltages.TryGetValue(node, out var volts) ? " " + Eng.Format(volts, "V") : "");
+        "node " + node + (NodeVoltages is not null && NodeVoltages.TryGetValue(node, out var volts) ? " " + Eng.NodeVolts(volts) : "");
 
     IEnumerable<string> NodesOf(string reference) => pins.Where(p => p.Ref.Reference == reference).Select(p => p.Node).Distinct();
 

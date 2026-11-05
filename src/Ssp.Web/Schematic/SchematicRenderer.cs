@@ -33,6 +33,9 @@ public sealed record DrawnPart(string Reference, string? Kind, SchematicBox Box)
 /// </summary>
 public sealed record DrawnText(string Text, SchematicBox Box, SchematicBox? Owner = null);
 
+/// <summary>A node voltage drawn on the schematic: its node, its text, where the text starts and its box.</summary>
+public sealed record VoltageLabel(string Node, string Text, double X, double Y, SchematicBox Box);
+
 /// <summary>A pin of a drawn part: its net and where it is drawn.</summary>
 public sealed record DrawnPin(string Reference, string Net, Point At);
 
@@ -249,6 +252,45 @@ public static class SchematicRenderer
         }
         return wanted;
     }
+
+    /// <summary>
+    /// The node-voltage labels of a run, one for each net that has a voltage, beside the first anchor of the net. Ground has
+    /// none. A label tries the places around its anchor in turn and takes the first that is clear of every part, ref and value
+    /// label, ground and supply symbol and earlier voltage label, and of the wires if one place is (#446). If none is clear it
+    /// stays at the first place.
+    /// </summary>
+    public static IReadOnlyList<VoltageLabel> VoltageLabels(SchematicDrawing drawing, IEnumerable<(string Net, Point At)> anchors, IReadOnlyDictionary<string, double> volts)
+    {
+        var taken = drawing.Parts.Select(p => p.Box).Concat(drawing.Text.Select(t => t.Box)).Concat(drawing.Marks).ToList();
+        var segments = drawing.Wires.SelectMany(w => w.Points.Zip(w.Points.Skip(1))).ToList();
+        var found = new List<VoltageLabel>();
+        foreach (var g in anchors.Where(a => a.Net != "0" && volts.ContainsKey(a.Net)).GroupBy(a => a.Net))
+        {
+            var at = g.First().At;
+            var text = Ssp.Web.Components.Eng.NodeVolts(volts[g.Key]);
+            var width = text.Length * VoltageFont * 0.6;
+            VoltageLabel Make((double X, double Y) o)
+            {
+                var x = at.X + o.X;
+                var y = at.Y + o.Y;
+                return new VoltageLabel(g.Key, text, x, y, new SchematicBox(x, y - VoltageFont, x + width, y));
+            }
+            // NOTE: Right and above is the first place. Then the other three corners, then further out, one font a step.
+            var candidates = new List<(double X, double Y)>();
+            for (var ring = 0; ring < 6; ring++)
+            {
+                var (dx, dy) = (6 + ring * 8, 8 + ring * 10);
+                candidates.AddRange([(dx, -dy + 2), (dx, dy + 4), (-dx - width, -dy + 2), (-dx - width, dy + 4), (dx, 4), (-dx - width, 4)]);
+            }
+            bool Free(VoltageLabel l, bool wires) => !taken.Any(b => b.Overlaps(l.Box)) && (!wires || !segments.Any(s => Crosses(s.First, s.Second, l.Box)));
+            var label = candidates.Select(Make).FirstOrDefault(l => Free(l, true)) ?? candidates.Select(Make).FirstOrDefault(l => Free(l, false)) ?? Make(candidates[0]);
+            taken.Add(label.Box);
+            found.Add(label);
+        }
+        return found;
+    }
+
+    const double VoltageFont = 10;
 
     // True if the orthogonal segment goes through the inside of the box. A segment along an edge does not.
     static bool Crosses(Point a, Point b, SchematicBox box)
