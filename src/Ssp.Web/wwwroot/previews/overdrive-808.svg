@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 16 525 1268" fill="none" stroke="currentColor" stroke-width="2">
+<g data-ref="C1" transform="translate(90 100)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g data-ref="C2" transform="translate(350 130)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g data-ref="C3" transform="translate(90 390) rotate(-90)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g data-ref="C4" transform="translate(230 345) rotate(-180)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g data-ref="C5" transform="translate(100 790) rotate(-270)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g transform="translate(100 850)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="C6" transform="translate(20 950)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g data-ref="C7" transform="translate(180 1030)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g data-ref="C8" transform="translate(190 760) rotate(-180)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g transform="translate(130 760)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="C9" transform="translate(360 1170)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g data-ref="D1" transform="translate(230 400) rotate(-180)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
+<g data-ref="D2" transform="translate(170 455)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
+<g data-ref="Q1" transform="translate(280 100)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
+<g data-ref="Q2" transform="translate(220 1140)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
+<g transform="translate(260 1110)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="R1" transform="translate(80 100) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(80 160)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="R10" transform="translate(380 660) rotate(-180)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R11" transform="translate(250 760) rotate(-180)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R12" transform="translate(170 1140) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(170 1200)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="R13" transform="translate(290 1170) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(290 1230) scale(1 -1)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="R14" transform="translate(300 1170)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R15" transform="translate(80 950)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R16" transform="translate(440 1170) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(440 1230)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="R2" transform="translate(150 100)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R3" transform="translate(220 100) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(220 160)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="R4" transform="translate(320 130) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R5" transform="translate(430 130) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(430 190)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="R6" transform="translate(90 450) rotate(-90)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(90 450)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="R7" transform="translate(140 290)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R8" transform="translate(20 790)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="R9" transform="translate(190 790) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(190 850)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="RV1" transform="translate(260 290) rotate(-180) scale(1 -1)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
+<g data-ref="RV2" transform="translate(280 730) rotate(-270) scale(1 -1)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
+<g data-ref="RV3" transform="translate(150 950) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
+<g transform="translate(150 1010)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="V1" transform="translate(10 100) rotate(-270)"><path d="M0 0H16M44 0H60M22 0Q26 -10 30 0T38 0"/><circle cx="30" cy="0" r="14"/></g>
+<g transform="translate(10 160)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="VCC" transform="translate(320 70)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="VEE" transform="translate(320 190) scale(1 -1)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="X1" transform="translate(150 560)"><path d="M0 -10H20M0 10H20M60 0H80M20 -30V30L60 0Z M24 -10H30 M24 10H30M27 7V13M40 -15V-30M40 15V30"/></g>
+<g transform="translate(190 530)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g transform="translate(190 590) scale(1 -1)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="X2" transform="translate(340 780)"><path d="M0 -10H20M0 10H20M60 0H80M20 -30V30L60 0Z M24 -10H30 M24 10H30M27 7V13M40 -15V-30M40 15V30"/></g>
+<g transform="translate(380 750)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g transform="translate(380 810) scale(1 -1)"><path d="M0 0V-20M-10 -20H10"/></g>
+<polyline data-net="in" points="10,100 80,100"/>
+<polyline data-net="in" points="80,100 90,100"/>
+<polyline data-net="q1b" points="210,100 220,100"/>
+<polyline data-net="q1b" points="220,100 280,100"/>
+<polyline data-net="e1" points="320,130 350,130"/>
+<polyline data-net="c2" points="410,130 430,130"/>
+<polyline data-net="c2" points="430,130 480,130 480,240 40,240 40,570 150,570"/>
+<polyline data-net="cf" points="130,290 130,550 150,550"/>
+<polyline data-net="cf" points="130,290 140,290"/>
+<polyline data-net="cf" points="130,330 90,330"/>
+<polyline data-net="cf" points="130,345 170,345"/>
+<polyline data-net="cf" points="130,400 170,400"/>
+<polyline data-net="cf" points="130,455 170,455"/>
+<polyline data-net="co" points="230,560 270,560 270,640 20,640 20,790"/>
+<polyline data-net="co" points="270,260 270,560"/>
+<polyline data-net="co" points="230,260 270,260"/>
+<polyline data-net="co" points="260,290 270,290"/>
+<polyline data-net="co" points="230,345 270,345"/>
+<polyline data-net="co" points="230,400 270,400"/>
+<polyline data-net="co" points="230,455 270,455"/>
+<polyline data-net="tp" points="80,790 100,790"/>
+<polyline data-net="tp" points="100,790 190,790"/>
+<polyline data-net="tp" points="190,790 280,790"/>
+<polyline data-net="tp" points="280,790 340,790"/>
+<polyline data-net="tn" points="280,730 320,730"/>
+<polyline data-net="tn" points="320,660 320,770 340,770"/>
+<polyline data-net="to" points="380,660 440,660 440,780 440,900 20,900 20,950"/>
+<polyline data-net="to" points="420,780 440,780"/>
+<polyline data-net="lv" points="140,950 150,950"/>
+<polyline data-net="lw" points="180,980 180,1030"/>
+<polyline data-net="q2b" points="240,1030 240,1065 170,1065 170,1140 220,1140"/>
+<polyline data-net="e2" points="260,1170 290,1170"/>
+<polyline data-net="e2" points="290,1170 300,1170"/>
+<polyline data-net="out" points="420,1170 440,1170"/>
+<g fill="currentColor" stroke="none" font-family="sans-serif" font-size="10" text-anchor="middle">
+<text x="120" y="84">C1</text>
+<text x="120" y="126">20n</text>
+<text x="380" y="112">C2</text>
+<text x="380" y="158">1u</text>
+<text x="106" y="358" text-anchor="start">C3</text>
+<text x="106" y="370" text-anchor="start">47n</text>
+<text x="200" y="329">C4</text>
+<text x="200" y="371">51p</text>
+<text x="116" y="818" text-anchor="start">C5</text>
+<text x="116" y="830" text-anchor="start">220n</text>
+<text x="50" y="932">C6</text>
+<text x="50" y="978">1u</text>
+<text x="210" y="1014">C7</text>
+<text x="210" y="1056">100n</text>
+<text x="160" y="744">C8</text>
+<text x="160" y="786">220n</text>
+<text x="390" y="1152">C9</text>
+<text x="390" y="1198">10u</text>
+<text x="200" y="384">D1</text>
+<text x="200" y="426">1N914</text>
+<text x="200" y="439">D2</text>
+<text x="200" y="481">1N914</text>
+<text x="306" y="66" text-anchor="end">Q1</text>
+<text x="306" y="144" text-anchor="end">Q2N3904</text>
+<text x="260" y="1086">+4.5V</text>
+<text x="246" y="1106" text-anchor="end">Q2</text>
+<text x="256" y="1184" text-anchor="end">Q2N3904</text>
+<text x="92" y="128" text-anchor="start">R1</text>
+<text x="92" y="140" text-anchor="start">1M</text>
+<text x="350" y="648">R10</text>
+<text x="350" y="682">1k</text>
+<text x="220" y="748">R11</text>
+<text x="220" y="782">220</text>
+<text x="182" y="1168" text-anchor="start">R12</text>
+<text x="182" y="1180" text-anchor="start">510k</text>
+<text x="290" y="1264">-4.5V</text>
+<text x="302" y="1198" text-anchor="start">R13</text>
+<text x="302" y="1210" text-anchor="start">10k</text>
+<text x="330" y="1158">R14</text>
+<text x="330" y="1192">100</text>
+<text x="110" y="938">R15</text>
+<text x="110" y="972">1k</text>
+<text x="452" y="1198" text-anchor="start">R16</text>
+<text x="452" y="1210" text-anchor="start">10k</text>
+<text x="180" y="88">R2</text>
+<text x="180" y="122">1k</text>
+<text x="232" y="128" text-anchor="start">R3</text>
+<text x="232" y="140" text-anchor="start">510k</text>
+<text x="332" y="158" text-anchor="start">R4</text>
+<text x="332" y="170" text-anchor="start">10k</text>
+<text x="442" y="158" text-anchor="start">R5</text>
+<text x="442" y="170" text-anchor="start">10k</text>
+<text x="102" y="418" text-anchor="start">R6</text>
+<text x="102" y="430" text-anchor="start">4.7k</text>
+<text x="170" y="278">R7</text>
+<text x="170" y="312">51k</text>
+<text x="50" y="778">R8</text>
+<text x="50" y="812">1k</text>
+<text x="202" y="818" text-anchor="start">R9</text>
+<text x="202" y="830" text-anchor="start">10k</text>
+<text x="226" y="256" text-anchor="end">RV1</text>
+<text x="230" y="312">500k</text>
+<text x="292" y="758" text-anchor="start">RV2</text>
+<text x="292" y="770" text-anchor="start">20k</text>
+<text x="184" y="978" text-anchor="start">RV3</text>
+<text x="184" y="990" text-anchor="start">100k</text>
+<text x="29" y="128" text-anchor="start">V1</text>
+<text x="29" y="140" text-anchor="start">AC 1V</text>
+<text x="320" y="46">+4.5V</text>
+<text x="320" y="224">-4.5V</text>
+<text x="190" y="506">+4.5V</text>
+<text x="190" y="624">-4.5V</text>
+<text x="176" y="526" text-anchor="end">X1</text>
+<text x="176" y="604" text-anchor="end">JRC4558</text>
+<text x="380" y="726">+4.5V</text>
+<text x="380" y="844">-4.5V</text>
+<text x="366" y="746" text-anchor="end">X2</text>
+<text x="366" y="824" text-anchor="end">JRC4558</text>
+</g>
+</svg>

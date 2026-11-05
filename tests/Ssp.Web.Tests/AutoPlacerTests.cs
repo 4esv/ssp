@@ -295,4 +295,19 @@ public class AutoPlacerTests
         Assert.DoesNotContain(sheet.Layout.Parts, p => p.Reference.Contains('.'));
         Golden.Assert("schematic-buffer-bootstrap-tl072.svg", svg);
     }
+
+    // #421 (monkey seed 29): a netlist left with a supply rail and no other part placed the rail at -Infinity, so the
+    // editor drew an SVG with viewBox "-Infinity -Infinity NaN NaN".
+    [Theory]
+    [InlineData("VCC vcc 0 DC 9\n.END\n")]
+    [InlineData("VCC vcc 0 DC 4.5\nVEE vee 0 DC -4.5\n.END\n")]
+    public void ANetlistWithOnlyRailsPlacesThemAtFiniteCoordinates(string netlist)
+    {
+        var circuit = NetlistLoader.Load(netlist);
+        var layout = AutoPlacer.Place(circuit, circuit.Directives, PartMap.Resolve(circuit, Table));
+        Assert.All(layout.Parts, p => Assert.True(double.IsFinite(p.X) && double.IsFinite(p.Y), $"{p.Reference} at {p.X},{p.Y}"));
+        var svg = SchematicRenderer.ToSvg(circuit, layout, PartMap.Resolve(circuit, Table));
+        Assert.DoesNotContain("Infinity", svg);
+        Assert.DoesNotContain("NaN", svg);
+    }
 }

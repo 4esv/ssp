@@ -37,7 +37,7 @@
 <text x="59" y="250" text-anchor="start">AC 1V</text>
 <text x="340" y="146">+4.5V</text>
 <text x="340" y="264">-4.5V</text>
-<text x="336" y="136" text-anchor="end">X1</text>
-<text x="336" y="274" text-anchor="end">TL072</text>
+<text x="326" y="166" text-anchor="end">X1</text>
+<text x="326" y="244" text-anchor="end">TL072</text>
 </g>
 </svg>

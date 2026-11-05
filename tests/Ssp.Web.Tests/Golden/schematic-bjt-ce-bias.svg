@@ -13,8 +13,8 @@
 <polyline data-net="c" points="120,170 120,120"/>
 <polyline data-net="e" points="120,230 120,260"/>
 <g fill="currentColor" stroke="none" font-family="sans-serif" font-size="10" text-anchor="middle">
-<text x="100" y="166">Q1</text>
-<text x="100" y="244">QGEN</text>
+<text x="116" y="166" text-anchor="end">Q1</text>
+<text x="116" y="244" text-anchor="end">QGEN</text>
 <text x="42" y="168" text-anchor="start">R1</text>
 <text x="42" y="180" text-anchor="start">10k</text>
 <text x="42" y="238" text-anchor="start">R2</text>

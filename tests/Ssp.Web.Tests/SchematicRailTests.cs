@@ -53,4 +53,19 @@ public class SchematicRailTests
         var svg = SchematicRenderer.ToSvg(after, change.Layout, Map(after));
         Assert.Contains("data-ref=\"VEE1\"", svg);
     }
+
+    // NOTE: Monkey seed 29 (#421): a box select deleted every part and left three supplies, and the drawing had an infinite view box.
+    [Fact]
+    public void A_schematic_of_supplies_only_has_a_finite_view_box()
+    {
+        const string Netlist = "* schematic\nVCC1 n1 0 DC 4.5\nVCC2 n3 0 DC 4.5\nVEE2 n4 0 DC -4.5\n.END\n";
+        var circuit = NetlistLoader.Load(Netlist);
+        var layout = AutoPlacer.Place(circuit, circuit.Directives);
+
+        var svg = SchematicRenderer.ToSvg(circuit, layout, Map(circuit));
+
+        Assert.DoesNotContain("Infinity", svg);
+        Assert.DoesNotContain("NaN", svg);
+    }
+
 }
