@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
     <meta charset="utf-8" />
@@ -35,13 +35,14 @@
     </script>
     <base href="/" />
     <link rel="preload" id="webassembly" />
+    <link rel="stylesheet" href="substrate/css/substrate.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="css/print.css" media="print" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <script type="importmap"></script>
 </head>
 
-<body>
+<body class="substrate">
     <!-- NOTE: The first paint (#425). Blazor replaces this markup with the Home page, which holds the same
          text and classes, so a crawler that runs no JavaScript reads the landing text and the page does not
          flash a different layout while the app loads. -->

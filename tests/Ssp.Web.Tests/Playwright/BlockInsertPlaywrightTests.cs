@@ -98,25 +98,27 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
     [PlaywrightFact]
     public Task AStageDroppedOnAWireOfTheFuzzStarterSitsInSeriesAndRuns() => WireCore().WaitAsync(Limit);
 
-    // A spot on a wire that a tap there hits, in client pixels, and the wire index: the point at a third, a half or two thirds
-    // of a segment that is farthest from any wire corner, end or junction. A drop within one grid of a junction joins the
-    // junction instead of cutting the wire (#421: the middle of the longest fuzz wire is exactly one grid from a junction, so
-    // the scale of the drawing decided which).
+    // A spot on the longest wire segment that a tap there hits, in client pixels, and the wire index. The spot is the
+    // point of the segment farthest from any wire corner or end: a junction within one grid of the tap takes the drop
+    // (SchematicEdits.Drop), and the middle of a segment can sit exactly one grid from one, where a sub-pixel shift of
+    // the page decides (#416).
     const string WireSpot = """
         () => {
-            const lines = [...document.querySelectorAll('.schematic-pins polyline.wire-hit')];
-            const corners = lines.flatMap(p => [...Array(p.points.numberOfItems).keys()].map(i => p.points.getItem(i)));
+            const hits = [...document.querySelectorAll('.schematic-pins polyline.wire-hit')];
+            const corners = hits.flatMap((p) => [...Array(p.points.numberOfItems).keys()].map((i) => p.points.getItem(i)));
+            const clear = (x, y) => Math.min(...corners.map((c) => Math.hypot(c.x - x, c.y - y)));
             const found = [];
-            for (const p of lines) {
+            for (const p of hits) {
                 const m = p.getScreenCTM();
                 for (let i = 1; i < p.points.numberOfItems; i++) {
                     const a = p.points.getItem(i - 1), b = p.points.getItem(i);
-                    for (const t of [1 / 3, 1 / 2, 2 / 3]) {
-                        const u = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-                        const room = Math.min(...corners.map(c => Math.hypot(c.x - u.x, c.y - u.y)));
-                        const s = new DOMPoint(u.x, u.y).matrixTransform(m);
-                        if (document.elementFromPoint(s.x, s.y) === p) found.push([room, s.x, s.y, +p.dataset.wire]);
+                    let best = null;
+                    for (let t = 0.2; t <= 0.8; t += 0.05) {
+                        const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+                        if (!best || clear(x, y) > best[2]) best = [x, y, clear(x, y)];
                     }
+                    const s = new DOMPoint(best[0], best[1]).matrixTransform(m);
+                    if (document.elementFromPoint(s.x, s.y) === p) found.push([Math.hypot(b.x - a.x, b.y - a.y), s.x, s.y, +p.dataset.wire]);
                 }
             }
             found.sort((x, y) => y[0] - x[0]);
