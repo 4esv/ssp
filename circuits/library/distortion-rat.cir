@@ -1,13 +1,16 @@
 * ssp:title Op-amp hard-clip distortion (RAT)
-* Values: the ProCo RAT schematic as commonly published, and the public circuit analysis at electrosmash.com/proco-rat. The LM308 sits in a non-inverting stage; RV1 (100k Distortion, wiper = output, one end open) is the feedback, two gain legs (560 + 4.7u, 47 + 2.2u) from the inverting input to ground set Rg.
-* Sound: gain 1 + RV1 / Rg reaches about 64 dB at 1 kHz, and the gain legs lift the treble more than the bass. The slow LM308 (30 pF) rounds the edges. Two 1N914 to ground clip at about +-0.7 V, hard and buzzy.
-* RV2 (100k Filter) with 3.3n is a low-pass after the clippers (482 Hz corner at 1). A 2N5088 emitter follower buffers it; RV3 (100k Volume) sets the level.
+* Values: the ProCo RAT schematic as commonly published, and the public circuit analysis at electrosmash.com/proco-rat.
+* Input: CIN 22n, RB 1M to the bias (signal ground here), then RIN 1k and CRF 1n to ground, a radio-frequency filter, into the LM308 + input.
+* Gain: a non-inverting stage. RV1 (100k log Distortion, wiper = output, one end open) with CFB 100p across it is the feedback. Two gain legs (560 + 4.7u, 47 + 2.2u) from the inverting input to ground set Rg. Gain 1 + RV1 / Rg is 62.7 dB at 1 kHz with Distortion at 1 (simulated; peak 64.2 dB near 800 Hz). The gain legs lift the treble more than the bass, and CFB with RV1 rolls the gain off above about 16 kHz.
+* Clip: CC 4.7u and RC 1k from the op-amp output, then two 1N914 to ground. They clip at about +-0.7 V, hard and buzzy. The slow LM308 (30 pF) rounds the edges.
+* Filter: RF 1.5k in series with RV2 (100k linear Filter, as a variable resistor) into CF 3.3n to ground, a low-pass with its corner from 32 kHz (Filter at 0) to 475 Hz (Filter at 1). At 5 kHz, Filter at 1 is 20.3 dB below Filter at 0 (simulated).
+* Output: CB 22n and RBB 1M into the buffer, then RV3 (100k log Volume). The published RAT has a 2N5458 JFET source follower here. This circuit uses a 2N5088 emitter follower, because models/jfets.lib has only a generic JFET with no datasheet provenance. The base current through RBB puts the base at -1.83 V and the emitter at -2.43 V (simulated), which leaves room for the +-0.7 V signal.
 * Supply: the 9 V rail is modelled as VCC = +4.5 V and VEE = -4.5 V around signal ground, because the LM308 model finds no operating point on 0 V to 9 V.
 * ssp:input in
 * ssp:output out
-* ssp:knob RV1 linear 0.5
+* ssp:knob RV1 log 0.5
 * ssp:knob RV2 linear 0.5
-* ssp:knob RV3 linear 0.5
+* ssp:knob RV3 log 0.5
 * provenance: LM108/LM208/LM308 operational amplifiers datasheet TL/H/7758, National Semiconductor, December 1994 (read from a third-party mirror; no current TI copy was reachable); gain, swing and input resistance read from the datasheet. GBW and slew rate are UNVERIFIED: the datasheet text states no value, and they are taken from the 30 pF compensation case (the 30 pF itself is inside the model: the .subckt has no pin 1 to pin 8)
 * fit: open-loop gain 300 V/mV, output swing +-14 V at RL = 10 kOhm (1 V rail drop), input resistance 40 MOhm (all p2); GBW 1 MHz and slew rate 0.3 V/us with 30 pF are UNVERIFIED; output resistance 100 Ohm is a typical value, not a sheet figure
 * provenance: 1N4148 small signal fast switching diode datasheet, document 81857, Rev. 1.6 (07-Nov-2024), Vishay Semiconductors, https://www.vishay.com/docs/81857/1n4148.pdf; the sheet states the 1N914 is electrically equivalent, so the RAT's 1N914 uses this model
@@ -36,21 +39,29 @@ Bout out 0 I={50*(sqrt((V(out)-V(vcc)+1)*(V(out)-V(vcc)+1)+0.000001)-sqrt((V(out
 V1 in 0 DC 0 AC 1
 VCC vcc 0 DC 4.5
 VEE vee 0 DC -4.5
-CIN in a 22n
-RB a 0 1Meg
+CIN in a1 22n
+RB a1 0 1Meg
+RIN a1 a 1k
+CRF a 0 1n
 X1 a fb o vcc vee LM308
 RV1_1 nc o 50k
 RV1_2 o fb 50k
+CFB o fb 100p
 RG1 fb g1 560
 CG1 g1 0 4.7u
 RG2 fb g2 47
 CG2 g2 0 2.2u
-D1 o 0 1N4148
-D2 0 o 1N4148
-RV2_1 c w 50k
-RV2_2 w o 50k
-CF c 0 3.3n
-Q1 vcc w e Q2N5088
+CC o k 4.7u
+RC k d 1k
+D1 d 0 1N4148
+D2 0 d 1N4148
+RF d f1 1.5k
+RV2_1 nf f 50k
+RV2_2 f f1 50k
+CF f 0 3.3n
+CB f b 22n
+RBB b 0 1Meg
+Q1 vcc b e Q2N5088
 RE e vee 2.2k
 RV3_1 e v 50k
 RV3_2 v 0 50k

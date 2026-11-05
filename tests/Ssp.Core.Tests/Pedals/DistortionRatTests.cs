@@ -17,7 +17,7 @@ public class DistortionRatTests
         var text = Text;
         foreach (var (name, pos) in new[] { ("RV1", distortion), ("RV2", filter), ("RV3", volume) })
         {
-            text = Regex.Replace(text, $@"ssp:knob {name} linear \S+", $"ssp:knob {name} linear {pos.ToString(CultureInfo.InvariantCulture)}");
+            text = Regex.Replace(text, $@"(ssp:knob {name} \S+) \S+", $"$1 {pos.ToString(CultureInfo.InvariantCulture)}");
         }
         var circuit = NetlistLoader.Load(text);
         Assert.Empty(Pot.Apply(circuit));

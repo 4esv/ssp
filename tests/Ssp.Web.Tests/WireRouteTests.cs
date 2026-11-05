@@ -92,13 +92,15 @@ public partial class WireRouteTests(ITestOutputHelper output)
         Assert.True(parts == 0, $"{file}: {parts} part crossings. {string.Join("; ", notes)}");
     }
 
-    // NOTE: Before #175 the five circuits had 7 wire crossings. Two remain, each an op-amp feedback that has no way round. The RAT (#421) adds one on its automatic layout; the editor draws it from a hand layout.
+    // NOTE: Before #175 the five circuits had 7 wire crossings. Two remain, each an op-amp feedback that has no way round. The RAT (#421)
+    // adds two on its automatic layout: its feedback is a pot and a 100p, and its - input has two gain legs. The editor draws the
+    // RAT from its hand layout, which has no crossing.
     [Fact]
-    public void TheGalleryHasThreeWireCrossingsAtMost()
+    public void TheGalleryHasFourWireCrossingsAtMost()
     {
         var total = 0;
         foreach (var path in Directory.GetFiles(Path.Combine(RepoPaths.Root, "circuits", "library"), "*.cir")) total += Count(File.ReadAllText(path)).Wires;
-        Assert.True(total <= 3, $"The gallery has {total} wire crossings.");
+        Assert.True(total <= 4, $"The gallery has {total} wire crossings.");
     }
 
     const string Two = """
