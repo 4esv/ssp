@@ -3,495 +3,568 @@
 [[part]]
 ref = "C1"
 x = 110.0
-y = 130.0
+y = 190.0
 rotation = 0
+flip = false
+
+[[part]]
+ref = "C2"
+x = 270.0
+y = 58.0
+rotation = 180
 flip = false
 
 [[part]]
 ref = "C3"
 x = 30.0
-y = 515.0
+y = 610.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "C4"
 x = 170.0
-y = 545.0
+y = 640.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "C5"
 x = 390.0
-y = 413.0
+y = 508.0
 rotation = 180
+flip = false
+
+[[part]]
+ref = "C6"
+x = 390.0
+y = 490.0
+rotation = 90
 flip = false
 
 [[part]]
 ref = "C7"
 x = 30.0
-y = 900.0
+y = 1090.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "C8"
 x = 250.0
-y = 768.0
+y = 958.0
 rotation = 180
+flip = false
+
+[[part]]
+ref = "C9"
+x = 250.0
+y = 940.0
+rotation = 90
 flip = false
 
 [[part]]
 ref = "C10"
 x = 30.0
-y = 1030.0
+y = 1270.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "C11"
 x = 108.0
-y = 1120.0
+y = 1360.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "C12"
 x = 220.0
-y = 1090.0
+y = 1330.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "C13"
 x = 330.0
-y = 1250.0
+y = 1490.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "D1"
 x = 330.0
-y = 361.0
+y = 418.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "D2"
 x = 390.0
-y = 309.0
+y = 366.0
 rotation = 180
 flip = false
 
 [[part]]
 ref = "D3"
 x = 190.0
-y = 716.0
+y = 868.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "D4"
 x = 250.0
-y = 664.0
+y = 816.0
 rotation = 180
 flip = false
 
 [[part]]
 ref = "Q1"
 x = 230.0
-y = 130.0
+y = 190.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "Q2"
 x = 350.0
-y = 545.0
+y = 640.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "Q3"
 x = 210.0
-y = 900.0
+y = 1090.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "Q4"
 x = 330.0
-y = 1090.0
+y = 1330.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "R1"
 x = 50.0
-y = 130.0
+y = 190.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "RV1_1"
 x = 110.0
-y = 515.0
+y = 610.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R2"
 x = 180.0
-y = 130.0
+y = 190.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "RV2_1"
 x = 150.0
-y = 1060.0
+y = 1300.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R3"
 x = 290.0
-y = 40.0
+y = 100.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "RV3_1"
 x = 410.0
-y = 1250.0
+y = 1490.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R4"
 x = 270.0
-y = 50.0
+y = 110.0
 rotation = 180
 flip = false
 
 [[part]]
 ref = "R5"
 x = 270.0
-y = 160.0
+y = 220.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R7"
 x = 230.0
-y = 545.0
+y = 640.0
 rotation = 0
+flip = false
+
+[[part]]
+ref = "R8"
+x = 310.0
+y = 640.0
+rotation = 270
 flip = false
 
 [[part]]
 ref = "R9"
 x = 410.0
-y = 455.0
+y = 550.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R10"
 x = 390.0
-y = 465.0
+y = 560.0
 rotation = 180
+flip = false
+
+[[part]]
+ref = "R11"
+x = 390.0
+y = 670.0
+rotation = 270
 flip = false
 
 [[part]]
 ref = "R12"
 x = 90.0
-y = 900.0
+y = 1090.0
 rotation = 0
+flip = false
+
+[[part]]
+ref = "R13"
+x = 170.0
+y = 1090.0
+rotation = 270
 flip = false
 
 [[part]]
 ref = "R14"
 x = 270.0
-y = 810.0
+y = 1000.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R15"
 x = 250.0
-y = 820.0
+y = 1010.0
 rotation = 180
+flip = false
+
+[[part]]
+ref = "R16"
+x = 250.0
+y = 1120.0
+rotation = 270
 flip = false
 
 [[part]]
 ref = "R17"
 x = 100.0
-y = 1030.0
+y = 1270.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R18"
 x = 30.0
-y = 1120.0
+y = 1360.0
 rotation = 0
 flip = false
 
 [[part]]
 ref = "R19"
 x = 290.0
-y = 1030.0
+y = 1270.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R20"
 x = 290.0
-y = 1090.0
+y = 1330.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R21"
 x = 370.0
-y = 1000.0
+y = 1240.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "R22"
 x = 370.0
-y = 1120.0
+y = 1360.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "V1"
 x = 30.0
-y = 130.0
+y = 190.0
 rotation = 270
 flip = false
 
 [[part]]
 ref = "V2"
 x = 290.0
-y = 40.0
+y = 100.0
 rotation = 0
 flip = false
 
 [[wire]]
 net = "in"
-points = [[30.0, 130.0], [50.0, 130.0]]
+points = [[30.0, 190.0], [50.0, 190.0]]
 
 [[wire]]
 net = "b1"
-points = [[170.0, 130.0], [180.0, 130.0]]
+points = [[170.0, 190.0], [180.0, 190.0]]
 
 [[wire]]
 net = "b1"
-points = [[180.0, 130.0], [230.0, 130.0]]
+points = [[180.0, 190.0], [230.0, 190.0]]
 
 [[wire]]
 net = "c1"
-points = [[270.0, 100.0], [270.0, 50.0]]
-
-[[wire]]
-net = "b1"
-points = [[210.0, 50.0], [210.0, 130.0]]
+points = [[270.0, 160.0], [270.0, 110.0]]
 
 [[wire]]
 net = "c1"
-points = [[270.0, 100.0], [290.0, 100.0]]
+points = [[270.0, 110.0], [270.0, 58.0]]
+
+[[wire]]
+net = "b1"
+points = [[210.0, 110.0], [210.0, 58.0]]
+
+[[wire]]
+net = "b1"
+points = [[210.0, 110.0], [210.0, 190.0]]
+
+[[wire]]
+net = "c1"
+points = [[270.0, 160.0], [290.0, 160.0]]
 
 [[wire]]
 net = "s1"
-points = [[90.0, 515.0], [110.0, 515.0]]
+points = [[90.0, 610.0], [110.0, 610.0]]
 
 [[wire]]
 net = "w1"
-points = [[140.0, 545.0], [170.0, 545.0]]
+points = [[140.0, 640.0], [170.0, 640.0]]
 
 [[wire]]
 net = "b2"
-points = [[290.0, 545.0], [350.0, 545.0]]
-
-[[wire]]
-net = "c2"
-points = [[390.0, 515.0], [410.0, 515.0]]
-
-[[wire]]
-net = "c2"
-points = [[390.0, 515.0], [390.0, 465.0]]
-
-[[wire]]
-net = "c2"
-points = [[390.0, 465.0], [390.0, 413.0]]
-
-[[wire]]
-net = "c2"
-points = [[390.0, 413.0], [390.0, 361.0]]
-
-[[wire]]
-net = "c2"
-points = [[390.0, 361.0], [390.0, 309.0]]
+points = [[290.0, 640.0], [310.0, 640.0]]
 
 [[wire]]
 net = "b2"
-points = [[330.0, 545.0], [330.0, 465.0]]
+points = [[310.0, 640.0], [350.0, 640.0]]
+
+[[wire]]
+net = "c2"
+points = [[390.0, 610.0], [410.0, 610.0]]
+
+[[wire]]
+net = "c2"
+points = [[390.0, 610.0], [390.0, 560.0]]
+
+[[wire]]
+net = "c2"
+points = [[390.0, 560.0], [390.0, 508.0]]
+
+[[wire]]
+net = "c2"
+points = [[390.0, 508.0], [390.0, 490.0]]
+
+[[wire]]
+net = "d2"
+points = [[390.0, 430.0], [390.0, 418.0]]
+
+[[wire]]
+net = "d2"
+points = [[390.0, 418.0], [390.0, 366.0]]
 
 [[wire]]
 net = "b2"
-points = [[330.0, 465.0], [330.0, 413.0]]
+points = [[330.0, 640.0], [330.0, 560.0]]
 
 [[wire]]
 net = "b2"
-points = [[330.0, 413.0], [330.0, 361.0]]
+points = [[330.0, 560.0], [330.0, 508.0]]
 
 [[wire]]
 net = "b2"
-points = [[330.0, 361.0], [330.0, 309.0]]
+points = [[330.0, 508.0], [330.0, 418.0]]
+
+[[wire]]
+net = "b2"
+points = [[330.0, 418.0], [330.0, 366.0]]
 
 [[wire]]
 net = "c1"
-points = [[320.0, 100.0], [320.0, 260.0]]
+points = [[320.0, 160.0], [320.0, 320.0]]
 
 [[wire]]
 net = "c1"
-points = [[320.0, 260.0], [30.0, 260.0]]
+points = [[320.0, 320.0], [30.0, 320.0]]
 
 [[wire]]
 net = "c1"
-points = [[30.0, 260.0], [30.0, 515.0]]
+points = [[30.0, 320.0], [30.0, 610.0]]
 
 [[wire]]
 net = "c1"
-points = [[290.0, 100.0], [320.0, 100.0]]
+points = [[290.0, 160.0], [320.0, 160.0]]
 
 [[wire]]
 net = "c2"
-points = [[410.0, 515.0], [440.0, 515.0]]
+points = [[410.0, 610.0], [440.0, 610.0]]
 
 [[wire]]
 net = "c2"
-points = [[440.0, 515.0], [440.0, 615.0]]
+points = [[440.0, 610.0], [440.0, 770.0]]
 
 [[wire]]
 net = "c2"
-points = [[440.0, 615.0], [30.0, 615.0]]
+points = [[440.0, 770.0], [30.0, 770.0]]
 
 [[wire]]
 net = "c2"
-points = [[30.0, 615.0], [30.0, 900.0]]
+points = [[30.0, 770.0], [30.0, 1090.0]]
 
 [[wire]]
 net = "b3"
-points = [[150.0, 900.0], [210.0, 900.0]]
-
-[[wire]]
-net = "c3"
-points = [[250.0, 870.0], [270.0, 870.0]]
-
-[[wire]]
-net = "c3"
-points = [[250.0, 870.0], [250.0, 820.0]]
-
-[[wire]]
-net = "c3"
-points = [[250.0, 820.0], [250.0, 768.0]]
-
-[[wire]]
-net = "c3"
-points = [[250.0, 768.0], [250.0, 716.0]]
-
-[[wire]]
-net = "c3"
-points = [[250.0, 716.0], [250.0, 664.0]]
+points = [[150.0, 1090.0], [170.0, 1090.0]]
 
 [[wire]]
 net = "b3"
-points = [[190.0, 900.0], [190.0, 820.0]]
+points = [[170.0, 1090.0], [210.0, 1090.0]]
+
+[[wire]]
+net = "c3"
+points = [[250.0, 1060.0], [270.0, 1060.0]]
+
+[[wire]]
+net = "c3"
+points = [[250.0, 1060.0], [250.0, 1010.0]]
+
+[[wire]]
+net = "c3"
+points = [[250.0, 1010.0], [250.0, 958.0]]
+
+[[wire]]
+net = "c3"
+points = [[250.0, 958.0], [250.0, 940.0]]
+
+[[wire]]
+net = "d3"
+points = [[250.0, 880.0], [250.0, 868.0]]
+
+[[wire]]
+net = "d3"
+points = [[250.0, 868.0], [250.0, 816.0]]
 
 [[wire]]
 net = "b3"
-points = [[190.0, 820.0], [190.0, 768.0]]
+points = [[190.0, 1090.0], [190.0, 1010.0]]
 
 [[wire]]
 net = "b3"
-points = [[190.0, 768.0], [190.0, 716.0]]
+points = [[190.0, 1010.0], [190.0, 958.0]]
 
 [[wire]]
 net = "b3"
-points = [[190.0, 716.0], [190.0, 664.0]]
+points = [[190.0, 958.0], [190.0, 868.0]]
+
+[[wire]]
+net = "b3"
+points = [[190.0, 868.0], [190.0, 816.0]]
 
 [[wire]]
 net = "c3"
-points = [[270.0, 870.0], [300.0, 870.0]]
+points = [[270.0, 1060.0], [300.0, 1060.0]]
 
 [[wire]]
 net = "c3"
-points = [[300.0, 870.0], [300.0, 970.0]]
+points = [[300.0, 1060.0], [300.0, 1220.0]]
 
 [[wire]]
 net = "c3"
-points = [[300.0, 970.0], [30.0, 970.0]]
+points = [[300.0, 1220.0], [30.0, 1220.0]]
 
 [[wire]]
 net = "c3"
-points = [[30.0, 970.0], [30.0, 1030.0]]
+points = [[30.0, 1220.0], [30.0, 1270.0]]
 
 [[wire]]
 net = "c3"
-points = [[30.0, 1030.0], [30.0, 1120.0]]
+points = [[30.0, 1270.0], [30.0, 1360.0]]
 
 [[wire]]
 net = "h"
-points = [[90.0, 1030.0], [100.0, 1030.0]]
+points = [[90.0, 1270.0], [100.0, 1270.0]]
 
 [[wire]]
 net = "h"
-points = [[100.0, 1030.0], [150.0, 1030.0]]
+points = [[100.0, 1270.0], [150.0, 1270.0]]
 
 [[wire]]
 net = "h"
-points = [[150.0, 1030.0], [150.0, 1060.0]]
+points = [[150.0, 1270.0], [150.0, 1300.0]]
 
 [[wire]]
 net = "l"
-points = [[90.0, 1120.0], [108.0, 1120.0]]
+points = [[90.0, 1360.0], [108.0, 1360.0]]
 
 [[wire]]
 net = "l"
-points = [[108.0, 1120.0], [150.0, 1120.0]]
+points = [[108.0, 1360.0], [150.0, 1360.0]]
 
 [[wire]]
 net = "w2"
-points = [[180.0, 1090.0], [220.0, 1090.0]]
+points = [[180.0, 1330.0], [220.0, 1330.0]]
 
 [[wire]]
 net = "b4"
-points = [[280.0, 1090.0], [290.0, 1090.0]]
+points = [[280.0, 1330.0], [290.0, 1330.0]]
 
 [[wire]]
 net = "b4"
-points = [[290.0, 1090.0], [330.0, 1090.0]]
+points = [[290.0, 1330.0], [330.0, 1330.0]]
 
 [[wire]]
 net = "c4"
-points = [[370.0, 1060.0], [420.0, 1060.0]]
+points = [[370.0, 1300.0], [420.0, 1300.0]]
 
 [[wire]]
 net = "c4"
-points = [[420.0, 1060.0], [420.0, 1220.0]]
+points = [[420.0, 1300.0], [420.0, 1460.0]]
 
 [[wire]]
 net = "c4"
-points = [[420.0, 1220.0], [330.0, 1220.0]]
+points = [[420.0, 1460.0], [330.0, 1460.0]]
 
 [[wire]]
 net = "c4"
-points = [[330.0, 1220.0], [330.0, 1250.0]]
+points = [[330.0, 1460.0], [330.0, 1490.0]]
 
 [[wire]]
 net = "v1"
-points = [[390.0, 1250.0], [410.0, 1250.0]]
+points = [[390.0, 1490.0], [410.0, 1490.0]]
