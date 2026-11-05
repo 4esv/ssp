@@ -69,8 +69,7 @@ public class TouchTargetsPlaywrightTests
 
         // NOTE: #396: the landing page.
         await page.GotoAsync(baseUrl);
-        // NOTE: The static first paint has the same links (#425), and Blazor swaps them for its own, so the test waits for
-        // the gallery, which only the app draws, before it measures a link.
+        // NOTE: index.html paints the same nav before Blazor starts (#425), so wait for the gallery, which only Blazor renders.
         await page.Locator("ul.gallery a").First.WaitForAsync(new() { Timeout = 60_000 });
         foreach (var link in await page.Locator("nav.home-links a, ul.gallery a").AllAsync()) await Measure("Link " + await link.InnerTextAsync(), link);
 
