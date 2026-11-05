@@ -23,26 +23,15 @@ ssp reads directives from comment lines in the netlist. Other SPICE tools ignore
 Rules:
 
 - A directive line starts with `* ssp:` at the start of the line. Leading white space is allowed.
-- `<pos>` is a number. For `knob`, it is the fraction of the turn, from 0 (0%) to 1 (100%). For `switch`, it is a whole number, the throw that is closed.
-- `<taper>` of a `knob` is `linear`, `log` or `revlog`. At the half-way position, the share below the wiper is 50% for `linear`, 10% for `log` and 90% for `revlog`.
-- An unknown directive, or a directive with the wrong arguments, gives a diagnostic with severity warning. The line is ignored.
-- If a directive is given more than once, the last `title`, `input` or `output` is used. Every `knob`, `switch` and `part` is kept.
-
-## Compatibility
-
-The file format follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from version 1.0.0.
-
-| File | A breaking change | An additive change |
-|---|---|---|
-| Netlist (`.cir`) | A valid netlist now gives an error. ssp drops an element or reads a value differently. | A new directive, a new part or a new model. |
-| Layout (`.layout.toml`) | A valid layout now gives an error. A position moves without a reason. | A new key with a default. |
-
-- A breaking change raises the major version of the tool.
-- A corrected simulation value is a fix, not a break. The release notes name it.
-
-## Include
-
-A relative `.include` path resolves against the directory of the netlist file, and the path may be quoted or not.
+- `<pos>` is a number. For `knob`, it is the fraction of the turn, from 0 (0%) to 1 (100%). For `switch`, it is
+  a whole number, the throw that is closed.
+- `<taper>` of a `knob` is `linear`, `log` or `revlog`. At the half-way position, the share below the wiper is
+  50% for `linear`, 10% for `log` and 90% for `revlog`.
+- An unknown directive, or a directive with the wrong arguments, gives a diagnostic with severity warning.
+  The line is ignored.
+- If a directive is given more than once, the last `title`, `input` or `output` is used. Every `knob`, `switch`
+  and `part` is kept.
+- A relative `.include` path resolves against the directory of the netlist file. The path may be quoted or not.
 
 ## Example
 
@@ -56,9 +45,20 @@ C1 out 0 10n
 .end
 ```
 
+## Compatibility
+
+The file format follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from version 1.0.0.
+A breaking change raises the major version of the tool. A corrected simulation value is a fix, not a break,
+and the release notes name it.
+
+| File | A breaking change | An additive change |
+|---|---|---|
+| Netlist (`.cir`) | A valid netlist now gives an error. ssp drops an element or reads a value differently. | A new directive, a new part or a new model. |
+| Layout (`.layout.toml`) | A valid layout now gives an error. A position moves without a reason. | A new key with a default. |
+
 ## Layout file
 
-The layout file holds the schematic position of each reference and the points of each wire. It is TOML.
+It is TOML. It holds the schematic position of each reference and the points of each wire.
 
 ```toml
 [[part]]
@@ -84,15 +84,18 @@ points = [[40.0, 0.0], [80.0, 0.0]]
 
 Rules:
 
-- A file that is not valid TOML, or that has a missing or wrongly typed key, is an error. `Layout.Read` throws `InvalidDataException`.
-- `Layout.Validate` checks the layout against the netlist. Each of these gives a diagnostic with severity error: a reference that is not in the netlist, a reference that is placed more than once, a rotation that is not a multiple of 90, a net that is not in the netlist, a wire with fewer than two points.
-- References and nets match without regard to case.
-- A reference with no `part` entry is allowed.
+- A file that is not valid TOML, or that has a missing or wrongly typed key, is an error.
+  `Layout.Read` throws `InvalidDataException`.
+- `Layout.Validate` checks the layout against the netlist. Each of these gives a diagnostic with severity
+  error: a reference that is not in the netlist, a reference that is placed more than once, a rotation that is
+  not a multiple of 90, a net that is not in the netlist, a wire with fewer than two points.
+- References and nets match without regard to case. A reference with no `part` entry is allowed.
 - `Layout.Write` gives the same text for the same layout.
 
 ## LTspice import
 
-`AscImporter.ToNetlist` makes a netlist from the text of an LTspice `.asc` file. `AscImporter.Import` gives the same netlist and the diagnostics.
+`AscImporter.ToNetlist` makes a netlist from the text of an LTspice `.asc` file.
+`AscImporter.Import` gives the same netlist and the diagnostics.
 
 | `.asc` line | Result |
 |---|---|
@@ -105,23 +108,27 @@ Rules:
 
 Rules:
 
-- The symbols are `res`, `cap`, `ind`, `diode`, `npn`, `pnp`, `njf` and `opamp`. Any other symbol gives a diagnostic with severity error that names the symbol. The symbol is not imported.
-- The orientation is `R0`, `R90`, `R180`, `R270`, `M0`, `M90`, `M180` or `M270`. Any other orientation gives a diagnostic with severity error.
-- A symbol with no `InstName` gives a diagnostic with severity error.
+- The symbols are `res`, `cap`, `ind`, `diode`, `npn`, `pnp`, `njf` and `opamp`. Any other symbol gives a
+  diagnostic with severity error that names the symbol. The symbol is not imported.
+- The orientation is `R0`, `R90`, `R180`, `R270`, `M0`, `M90`, `M180` or `M270`. Any other orientation gives a
+  diagnostic with severity error. A symbol with no `InstName` also gives one.
 - A wire end, a pin or a flag on a wire connects to that wire, also between the ends of the wire.
-- Flags with the same name are one net. A net with no flag gets the name `N001`, `N002` and so on, in the order of the pins.
+- Flags with the same name are one net. A net with no flag gets the name `N001`, `N002` and so on, in the
+  order of the pins. Other lines, such as `WINDOW`, `SHEET` and `TEXT` comments, are ignored.
 - The netlist has the elements in file order, then the directives, then `.end`.
-- Other lines, such as `WINDOW`, `SHEET` and `TEXT` comments, are ignored.
 
 ### Layout import
 
-`AscImporter.ToLayout` makes a layout from the text of an LTspice `.asc` file. Write it with `Layout.Write` to get the layout file.
+`AscImporter.ToLayout` makes a layout from the text of an LTspice `.asc` file. Write it with `Layout.Write`
+to get the layout file.
 
-- Each symbol that the netlist import includes gets one `part` entry with the same reference. Other symbols get no entry.
-- The layout has no wires.
-- `x` and `y` are in LTspice units. They are the LTspice position of the ssp symbol origin: the first pin for `res`, `cap`, `ind`, `diode`, `npn`, `pnp` and `njf`, and the point between the two inputs for `opamp`.
+- Each symbol that the netlist import includes gets one `part` entry with the same reference. Other symbols
+  get no entry. The layout has no wires.
+- `x` and `y` are in LTspice units. They are the LTspice position of the ssp symbol origin: the first pin for
+  `res`, `cap`, `ind`, `diode`, `npn`, `pnp` and `njf`, and the point between the two inputs for `opamp`.
 - LTspice turns clockwise and the layout turns counter-clockwise. An `M` orientation sets `flip = true`.
-- The LTspice `res`, `cap`, `ind` and `diode` symbols are vertical at `R0`. The ssp symbols are horizontal at rotation 0. Thus these symbols get 270 degrees more rotation:
+- The LTspice `res`, `cap`, `ind` and `diode` symbols are vertical at `R0`, and the ssp symbols are horizontal
+  at rotation 0. Thus these symbols get 270 degrees more rotation:
 
 | Orientation | `res`, `cap`, `ind`, `diode` | `npn`, `pnp`, `njf`, `opamp` |
 |---|---|---|
