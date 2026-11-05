@@ -1,22 +1,14 @@
 # CLI reference
 
-The `ssp` command has four commands: `run`, `sweep`, `render` and `mcp`.
+`ssp` has four commands: `run`, `sweep`, `render` and `mcp`.
 `ssp --help` lists them. `ssp --version` prints the version of ssp and of each library that it uses.
-
-The examples on this page run from the root of the repository.
+The examples run from the root of the repository.
 
 ## Install
 
 See [Install](index.md#install).
-On a Homebrew .NET, `ssp` can fail. The error starts with:
-
-```text
-You must install or update .NET to run this application.
-```
-
-It also says `Framework: 'Microsoft.NETCore.App', version '10.0.0'`.
-The system can find an old .NET in another folder first.
-Set `DOTNET_ROOT` and run it again:
+If .NET comes from Homebrew, `ssp` can fail with "You must install or update .NET to run this application".
+The system then found an old .NET in another folder first. Set `DOTNET_ROOT` and run it again:
 
 ```sh
 export DOTNET_ROOT="$(brew --prefix dotnet)/libexec"
@@ -29,7 +21,8 @@ export DOTNET_ROOT="$(brew --prefix dotnet)/libexec"
 | 0 | The command finished. For `run` and `sweep`, no diagnostic has the severity error. |
 | 1 | An error. A file is missing, an option is wrong, a value is not a number, a diagnostic has the severity error, or a render fails. |
 
-An error prints one line on standard error. The only exception is a circuit with errors: `run` and `sweep` print the report, and `render` prints the message of each error.
+An error prints one line on standard error. The exception is a circuit with errors: `run` and `sweep` print
+the report, and `render` prints the message of each error.
 
 ## Number syntax
 
@@ -54,13 +47,16 @@ An error prints one line on standard error. The only exception is a circuit with
 | `f` | 1e-15 |
 | `mil` | 25.4e-6 |
 
-A unit word after the number and the suffix is valid. The unit words are `ohm`, `f`, `h`, `v`, `a`, `s`, and `hz`. The netlist reader accepts the same words. Example: `10kohm` is 10000, and `47nF` is 47e-9.
+A unit word after the number and the suffix is valid: `ohm`, `f`, `h`, `v`, `a`, `s` and `hz`. The netlist
+reader accepts the same words. Thus `10kohm` is 10000, and `47nF` is 47e-9.
 
-Other letters after the number are not valid. `--set R1=10x` and `--set R1=abc` give an error. In a netlist, letters that are not a unit give a warning, and the run goes on. The warning names the line, the part, and the number that ssp used. Example: `C1 out 0 10x` gives the warning `C1 has the value 10x. ssp reads it as 10000000. The letters 'x' are not a unit.` (The netlist reader reads `x` as meg.)
+Other letters after the number are not valid. `--set R1=10x` and `--set R1=abc` give an error. In a netlist,
+letters that are not a unit give a warning and the run goes on, for example
+`C1 has the value 10x. ssp reads it as 10000000. The letters 'x' are not a unit.`
 
-A `--set` changes the value of a resistor, a capacitor, an inductor, or the DC value of a voltage or current source.
-Any other part gives the error "Part X does not support a value override."
-A reference that is not in the circuit gives "Unknown part reference X."
+A `--set` changes a resistor, a capacitor, an inductor, or the DC value of a voltage or current source.
+Any other part gives the error "Part X does not support a value override." A reference that is not in the
+circuit gives "Unknown part reference X."
 
 ## ssp run
 
@@ -74,13 +70,14 @@ ssp run <file> [--json] [--set REF=VALUE]...
 | `--json` | Print the result as JSON. See [JSON output](#json-output). |
 | `--set REF=VALUE` | Set a part value before the run. Use it again for more parts. |
 
-`run` makes three small-signal analyses:
+`run` makes three small-signal analyses around the operating point:
 
 - **Operating point.** The DC voltage of each node, the current of each voltage source, and the power of each device.
-- **Frequency response.** The gain and phase of each node, from 10 Hz to 100 kHz, 10 points for each decade. The report shows one point for each decade.
+- **Frequency response.** The gain and phase of each node, from 10 Hz to 100 kHz, 10 points for each decade.
+  The report shows one point for each decade.
 - **Impedance.** The input and output impedance, over the same range.
 
-Each analysis is linear around the operating point. The signal is small, so a clipper or a fuzz does not clip.
+Each analysis is linear, and the signal is small, so a clipper does not clip.
 To hear or measure clipping, use [`ssp render`](#ssp-render).
 
 ```sh
@@ -118,9 +115,8 @@ ssp sweep <file> --set REF=VALUE,VALUE,... [--json]
 | `--set REF=VALUE,VALUE,...` | Required. The part and a list of values. Use one `--set`. |
 | `--json` | Print the series as JSON. |
 
-`sweep` runs the same analyses as `run` once for each value.
-The text output has one report for each value, headed by a line such as `R1 = 4k7`.
-The command exits with 1 if a run has a diagnostic with the severity error.
+`sweep` runs the analyses of `run` once for each value. The text output has one report for each value,
+headed by a line such as `R1 = 4k7`. The command exits with 1 if a run has a diagnostic with the severity error.
 
 ```sh
 ssp sweep circuits/fixtures/rc-lowpass.cir --set R1=1k,4k7,10k
@@ -140,25 +136,22 @@ ssp render <file> --in <in.wav> --out <out.wav> [--oversample N] [--ir <ir.wav>]
 | `--oversample N` | The number of solver steps for each sample. The default is 1. The value must be 1 or more. A higher value is slower and follows fast edges more closely. |
 | `--ir <ir.wav>` | An impulse response, for example a speaker cabinet. The output is convolved with its first channel. It must have the same sample rate as the input. |
 
-`render` is a transient analysis. It feeds the samples of the input to the `ssp:input` node. A netlist with no `ssp:input` line gives an error. It records the voltage of the `ssp:output` node (or `out`).
-The nonlinear parts work, so a clipper clips.
-Each channel of the input is rendered on its own.
-The output is a 24-bit WAV file with the sample rate and the length of the input.
-`render` runs the same checks as `run`. A circuit with an error prints the errors and exits with 1.
+`render` is a transient analysis. It feeds the samples of the input to the `ssp:input` node and records the
+voltage of the `ssp:output` node (or `out`). A netlist with no `ssp:input` line gives an error.
+The nonlinear parts work, so a clipper clips. Each channel is rendered on its own. The output is a 24-bit WAV
+file with the sample rate and the length of the input. `render` runs the same checks as `run`.
 
 ```sh
 ssp render circuits/library/fuzz-transistor-diode.cir --in src/Ssp.Web/Audio/riff.wav --out fuzz.wav
 ssp render circuits/library/fuzz-transistor-diode.cir --in src/Ssp.Web/Audio/riff.wav --out fuzz-cab.wav --ir models/ir/cab-1x12.wav
 ```
 
-Use a sample WAV from the repository, or use your own 16-bit or 24-bit WAV file.
-This command downloads a sample clip into the current folder:
+The folder `src/Ssp.Web/Audio` has sample clips. `models/ir/cab-1x12.wav` is a cabinet impulse response.
+Use a 16-bit or 24-bit WAV file of your own. This command downloads a sample clip into the current folder:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/4esv/ssp/main/src/Ssp.Web/Audio/riff.wav
 ```
-
-The folder `src/Ssp.Web/Audio` has the sample clips. The file `models/ir/cab-1x12.wav` is a cabinet impulse response.
 
 ## ssp mcp
 
@@ -166,10 +159,10 @@ The folder `src/Ssp.Web/Audio` has the sample clips. The file `models/ir/cab-1x1
 ssp mcp
 ```
 
-`mcp` serves ssp to an agent over the Model Context Protocol. It reads requests on standard input and writes replies on standard output. No other transport exists.
-It prints nothing else, so do not run it by hand. An MCP client starts it.
+`mcp` serves ssp to an agent over the Model Context Protocol. It reads requests on standard input and writes
+replies on standard output. No other transport exists. An MCP client starts it; do not run it by hand.
 
-The server has four tools:
+The four tools match the four commands:
 
 | Tool | Arguments | Same as |
 |---|---|---|
@@ -178,7 +171,7 @@ The server has four tools:
 | `sweep` | `file`, `set` (`REF=V1,V2,...`) | `ssp sweep --json` |
 | `render` | `file`, `input`, `output`, `oversample` (optional), `ir` (optional) | `ssp render` |
 
-To register the server, add it to the MCP configuration of the client. Most clients use this form:
+To register the server, add it to the MCP configuration of the client:
 
 ```json
 {
@@ -188,8 +181,7 @@ To register the server, add it to the MCP configuration of the client. Most clie
 }
 ```
 
-The client must find `ssp` on its `PATH`, and `DOTNET_ROOT` must be set if .NET comes from Homebrew.
-The file name of the configuration depends on the client. See its documentation.
+The client must find `ssp` on its `PATH`. `DOTNET_ROOT` must be set if .NET comes from Homebrew.
 
 ## JSON output
 
@@ -206,8 +198,8 @@ The file name of the configuration depends on the client. See its documentation.
 
 A value that is not finite is `null`.
 
-`ssp sweep --json` prints `{ "part": "R1", "series": [...] }`.
-Each item of `series` has `value` (the text that you gave), `number` (the value in SI units) and `result` (a run result as above).
+`ssp sweep --json` prints `{ "part": "R1", "series": [...] }`. Each item of `series` has `value` (the text
+that you gave), `number` (the value in SI units) and `result` (a run result as above).
 
 ```sh
 ssp run circuits/fixtures/rc-lowpass.cir --json
@@ -218,7 +210,7 @@ ssp sweep circuits/fixtures/rc-lowpass.cir --set R1=1k,4k7 --json
 
 | Message | Cause and fix |
 |---|---|
-| You must install or update .NET to run this application. | .NET is from Homebrew, and the system found an old .NET in another folder first. Set `DOTNET_ROOT` as shown at the top of this page. |
+| You must install or update .NET to run this application. | .NET is from Homebrew, and the system found an old .NET in another folder first. Set `DOTNET_ROOT` as shown above. |
 | File X does not exist. | The path is wrong. |
 | Override 'X' must have the form REF=VALUE. | Write `--set R1=4k7`. |
 | Override 'X' has a value that is not a SPICE number. | See [Number syntax](#number-syntax). |

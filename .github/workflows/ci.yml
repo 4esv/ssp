@@ -68,13 +68,14 @@ jobs:
 
   kicad:
     name: kicad
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - run: |
-          sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases
+          # NOTE: the Launchpad API behind add-apt-repository fails now and then; try three times.
+          for i in 1 2 3; do sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases && break; sleep 20; done
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends kicad
 

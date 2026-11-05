@@ -330,7 +330,7 @@ The 154 s of the issue comment came from the Try button. The app worker takes 36
 ## Untrimmed web build (#231)
 
 The web app is published with `PublishTrimmed` set to `false`.
-Measured on 2026-10-04 in Chromium with Playwright, through `scripts/playwright.sh`-style serving of the published `wwwroot` (python `http.server`). The runs are one after the other, never at the same time. The two builds differ only in `PublishTrimmed`.
+Measured in Chromium with Playwright, through `scripts/playwright.sh`-style serving of the published `wwwroot` (python `http.server`). The runs are one after the other, never at the same time. The two builds differ only in `PublishTrimmed`.
 
 | Item | Trimmed | Untrimmed |
 |---|---|---|
@@ -369,7 +369,6 @@ Run it with `scripts/playwright.sh`. The test log shows the times at detailed ve
 | Machine | Apple M3 Pro, macOS |
 | Browser | Chromium, headless (Playwright) |
 | Build | Release, not AOT |
-| Date | 2026-10-04 |
 
 | Build | Edit gap | Solve gap | Edit to result |
 |---|---|---|---|
@@ -406,7 +405,6 @@ Run it with `scripts/playwright.sh`. The test log shows the times at detailed ve
 | Machine | Apple M3 Pro, macOS |
 | Browser | Chromium, headless (Playwright) |
 | Build | Release, not AOT |
-| Date | 2026-10-05 |
 
 | Build | Longest frame | p95 frame | Median frame |
 |---|---|---|---|
