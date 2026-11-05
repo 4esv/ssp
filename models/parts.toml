@@ -117,3 +117,30 @@ symbol = "pjf"
 footprint = "TO-92"
 buy_url = "https://www.mouser.com/c/?q={id}"
 provenance = "models/jfets.lib, generic P-channel JFET, typical values"
+
+[[part]]
+id = "2N3904"
+kind = "npn"
+model = "Q2N3904"
+symbol = "npn"
+footprint = "TO-92"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "2N3904 datasheet, onsemi, models/bjts.lib"
+
+[[part]]
+id = "2N5088"
+kind = "npn"
+model = "Q2N5088"
+symbol = "npn"
+footprint = "TO-92"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "2N5088 datasheet, onsemi, models/bjts.lib"
+
+[[part]]
+id = "1N914"
+kind = "diode"
+model = "1N4148"
+symbol = "diode"
+footprint = "DO-35"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "1N914 datasheet, onsemi, uses the 1N4148 diode model"

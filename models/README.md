@@ -23,6 +23,7 @@ The table lists every shipped model file. The name is the value after `.model` o
 
 | File | What it is | Model or subcircuit | Pin order | Source |
 | --- | --- | --- | --- | --- |
+| `models/bjts.lib` | Two silicon NPN small-signal transistors, the 2N3904 and the 2N5088. | `Q2N3904`, `Q2N5088` | — | 2N3904 datasheet, onsemi; 2N5088 datasheet, onsemi. |
 | `models/diodes.lib` | A 5.1 V Zener diode and a small-signal Schottky diode. | `DZ_5V1`, `DSCHOTTKY` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/jfets.lib` | An N-channel and a P-channel small-signal JFET. | `JN`, `JP` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/led.lib` | Five 5 mm LED colors. | `LED_RED`, `LED_YELLOW`, `LED_GREEN`, `LED_BLUE`, `LED_WHITE` | — | Generic values. No single datasheet. Values are UNVERIFIED. Nearest published family: Kingbright 5 mm LEDs. |
@@ -112,6 +113,9 @@ The table lists every id.
 | id | kind | model | footprint |
 | --- | --- | --- | --- |
 | `1N4148` | diode | `1N4148` | DO-35 |
+| `1N914` | diode | `1N4148` | DO-35 |
+| `2N3904` | npn | `Q2N3904` | TO-92 |
+| `2N5088` | npn | `Q2N5088` | TO-92 |
 | `TL072` | opamp | `TL072` | DIP-8 |
 | `LED-RED` | led | `LED_RED` | LED-5MM |
 | `LED-YELLOW` | led | `LED_YELLOW` | LED-5MM |
@@ -160,11 +164,11 @@ A semiconductor kind places a default model. These ids match a palette kind's de
 | njf | `JN` | `JFET-N` |
 | pjf | `JP` | `JFET-P` |
 
-The other ids are not on the palette: `1N4148`, `TL072`, `TRANSFORMER`, `VACTROL`, `LED-YELLOW`, `LED-GREEN`, `LED-BLUE`, `LED-WHITE`. The diode kind places a generic `DGEN` model, which has no part id.
+The other ids are not on the palette: `1N4148`, `1N914`, `2N3904`, `2N5088`, `TL072`, `TRANSFORMER`, `VACTROL`, `LED-YELLOW`, `LED-GREEN`, `LED-BLUE`, `LED-WHITE`. The diode kind places a generic `DGEN` model, which has no part id, and the npn kind places a generic `QNPN` model, which has no part id.
 
 ## What is not bundled
 
-Common pedal parts are not bundled. For example: `1N914`, `2N3904`, `2N5088`, `BC109`. The parts table lists `1N4148` (a footprint and a buy link) but ships no `1N4148` model.
+Common pedal parts are not bundled. For example: `BC109`. The parts table lists `1N4148` and `1N914` (a footprint and a buy link) but ships no `1N4148` model, so the `1N914` row uses the `1N4148` model name.
 
 ## Supply your own model
 
