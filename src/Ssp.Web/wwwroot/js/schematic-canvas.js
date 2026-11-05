@@ -13,5 +13,6 @@ document.addEventListener("keydown", e => {
 // The pane box in client pixels: left, top, width, height. The box is the padding box, which is where the stage is positioned.
 export function paneBox(pane) {
     const rect = pane.getBoundingClientRect();
-    return [rect.left + pane.clientLeft, rect.top + pane.clientTop, pane.clientWidth, pane.clientHeight];
+    // NOTE: The fifth number is 1 on a phone (the phone breakpoint of app.css), where Fit fits the width and the canvas pans down (#441).
+    return [rect.left + pane.clientLeft, rect.top + pane.clientTop, pane.clientWidth, pane.clientHeight, matchMedia("(max-width: 48rem)").matches ? 1 : 0];
 }
