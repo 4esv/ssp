@@ -346,6 +346,42 @@ public class LibraryDiagramTests
     }
 
     // NOTE: A drawn coordinate is rounded to two places, so an edge that two parts share is equal up to that.
+    /// <summary>
+    /// #439: the editor draws a dot on each pin that a tap can hit. A dot on a pin with no wire, ground symbol or supply
+    /// symbol is a loose end: the substrate node of a transistor, or a part that sits off its wires.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Circuits))]
+    public void NoPinOfTheEditorOverlayIsLoose(string file, bool partsTable)
+    {
+        var circuit = NetlistLoader.Load(Netlist(file));
+        var parts = PartMap.Resolve(circuit, Table);
+        var layout = Hand(file) is { } hand ? LayoutDoc.Parse(hand)
+            : partsTable ? AutoPlacer.Place(circuit, circuit.Directives, parts) : AutoPlacer.Place(circuit, circuit.Directives);
+        var drawing = SchematicRenderer.Draw(circuit, layout, parts);
+        var jacks = new[] { circuit.Directives.Input, circuit.Directives.Output }.OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var loose = new List<string>();
+        var overlay = SchematicRenderer.OverlayPins(circuit, layout, parts);
+        foreach (var pin in overlay)
+        {
+            // NOTE: Two pins of a net at one point join with no wire, and a supply symbol sits on its pin.
+            var joined = overlay.Any(o => o != pin && o.At == pin.At && string.Equals(o.Net, pin.Net, StringComparison.OrdinalIgnoreCase));
+            // NOTE: A pin that no other pin shares a net with is open on purpose, such as the unused end of a pot used as a variable resistor.
+            var alone = overlay.All(o => o == pin || !string.Equals(o.Net, pin.Net, StringComparison.OrdinalIgnoreCase));
+            var supply = drawing.Parts.Any(d => d.Kind == "rail" && d.Box.X0 - 1 <= pin.At.X && pin.At.X <= d.Box.X1 + 1 && d.Box.Y0 - 1 <= pin.At.Y && pin.At.Y <= d.Box.Y1 + 1);
+            var wired = drawing.Wires.Any(w => OnWire(w, pin.At));
+            var marked = drawing.Marks.Any(m => m.X0 - 1 <= pin.At.X && pin.At.X <= m.X1 + 1 && m.Y0 - 1 <= pin.At.Y && pin.At.Y <= m.Y1 + 1);
+            if (!(wired || marked || joined || alone || supply || jacks.Contains(pin.Net))) loose.Add($"pin {pin.Pin + 1} of {pin.Reference} (net {pin.Net}) at {pin.At.X},{pin.At.Y}");
+        }
+        Assert.True(loose.Count == 0, $"{Name(file, partsTable)}: no wire reaches {string.Join("; ", loose)}.");
+    }
+
+    static bool OnWire(WireRoute w, Point p) => w.Points.Zip(w.Points.Skip(1)).Any(s =>
+        Math.Abs((s.Second.X - s.First.X) * (p.Y - s.First.Y) - (s.Second.Y - s.First.Y) * (p.X - s.First.X)) < Tolerance
+        && p.X >= Math.Min(s.First.X, s.Second.X) - Tolerance && p.X <= Math.Max(s.First.X, s.Second.X) + Tolerance
+        && p.Y >= Math.Min(s.First.Y, s.Second.Y) - Tolerance && p.Y <= Math.Max(s.First.Y, s.Second.Y) + Tolerance);
+
     const double Tolerance = 0.01;
 
     static string Describe(SchematicDrawing drawing) =>

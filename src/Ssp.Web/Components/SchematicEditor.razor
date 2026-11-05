@@ -620,16 +620,14 @@
             var row = parts.Parts.GetValueOrDefault(c.Name);
             var (min, max) = SchematicRenderer.Outline(c, placement, row);
             outlines.Add(new PartView(c.Name, min, max));
-            var positions = SchematicRenderer.Pins(c, placement, row);
-            pins.AddRange(positions.Select((p, i) => new PinView(new PinRef(c.Name, i), c.Nodes[i], p)));
         }
+        pins.AddRange(SchematicRenderer.OverlayPins(circuit, layout, parts).Select(p => new PinView(new PinRef(p.Reference, p.Pin), p.Net, p.At)));
         var thrown = circuit.Directives.Switches.GroupBy(s => s.Part, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Position, StringComparer.OrdinalIgnoreCase);
         foreach (var e in levers)
         {
             if (!(placements.TryGetValue(e.Reference, out var placement) || placements.TryGetValue(e.Members[0], out placement))) continue;
             var (min, max) = SchematicRenderer.Outline(e, placement);
             outlines.Add(new PartView(e.Reference, min, max));
-            pins.AddRange(SchematicRenderer.Pins(e, placement).Select((p, i) => new PinView(new PinRef(e.Reference, i), p.Net, p.At)));
             var (sx, sy) = SchematicRenderer.Place(placement, 30, 0);
             switches.Add(new SwitchView(e.Reference, new Point(sx, sy), thrown.GetValueOrDefault(e.Reference), SchematicEdits.Throws(e.Kind!)));
         }
@@ -639,7 +637,6 @@
             if (!(placements.TryGetValue(pot.Reference, out var placement) || placements.TryGetValue(pot.Members[0], out placement))) continue;
             var (min, max) = SchematicRenderer.PotOutline(placement);
             outlines.Add(new PartView(pot.Reference, min, max));
-            pins.AddRange(SchematicRenderer.PotPins(placement).Select((p, i) => new PinView(new PinRef(pot.Reference, i), pot.Nodes[i], p)));
             if (!tuned.TryGetValue(pot.Reference, out var knob)) continue;
             // NOTE: The knob sits over the right half of the track, beside the wiper lead.
             var (kx, ky) = SchematicRenderer.Place(placement, 48, -20);

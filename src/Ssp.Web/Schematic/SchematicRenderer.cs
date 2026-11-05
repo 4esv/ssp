@@ -368,6 +368,47 @@ public static class SchematicRenderer
             .Select(p => Place(placement, p.X, p.Y)).Select(p => new Point(Math.Round(p.X, 2) + 0.0, Math.Round(p.Y, 2) + 0.0)).ToList();
     }
 
+    /// <summary>A pin that the editor lets a tap hit: its part, its pin index, its net and its schematic position.</summary>
+    public readonly record struct OverlayPin(string Reference, int Pin, string Net, Point At);
+
+    /// <summary>
+    /// The pins that the editor draws and lets a tap hit, for the parts that the layout places. A hidden pin, such as the
+    /// substrate of a transistor, is not one of them, because the schematic draws no lead on it (#439).
+    /// </summary>
+    public static IReadOnlyList<OverlayPin> OverlayPins(LoadedCircuit circuit, LayoutDoc layout, PartMap parts)
+    {
+        var placements = layout.Parts.ToDictionary(p => p.Reference, Names);
+        var elements = Elements(circuit, parts);
+        var levers = elements.Where(e => SchematicEdits.IsSwitch(e.Kind)).ToList();
+        var pots = elements.Where(e => e.Kind == "pot").ToList();
+        var inElement = levers.Concat(pots).SelectMany(e => e.Members).ToHashSet(Names);
+        // NOTE: A supply source is drawn as a supply symbol at its first pin. Its second pin has no drawing, so it is no pin (#439).
+        var rails = elements.Where(e => e.Kind == "rail").SelectMany(e => e.Members).ToHashSet(Names);
+        var found = new List<OverlayPin>();
+        foreach (var c in circuit.Circuit.OfType<IComponent>().OrderBy(c => c.Name, Names))
+        {
+            if (inElement.Contains(c.Name) || !placements.TryGetValue(c.Name, out var placement)) continue;
+            var row = parts.Parts.GetValueOrDefault(c.Name);
+            var symbol = Fits(Symbols.Find(Kind(c, row, null)), c.Nodes.Count);
+            var at = Pins(c, placement, row);
+            for (var i = 0; i < at.Count; i++)
+            {
+                if (symbol?.Pins[i].Hidden != true && !(i > 0 && rails.Contains(c.Name))) found.Add(new OverlayPin(c.Name, i, c.Nodes[i], at[i]));
+            }
+        }
+        foreach (var e in levers)
+        {
+            if (!(placements.TryGetValue(e.Reference, out var placement) || placements.TryGetValue(e.Members[0], out placement))) continue;
+            found.AddRange(Pins(e, placement).Select((p, i) => new OverlayPin(e.Reference, i, p.Net, p.At)));
+        }
+        foreach (var pot in pots)
+        {
+            if (!(placements.TryGetValue(pot.Reference, out var placement) || placements.TryGetValue(pot.Members[0], out placement))) continue;
+            found.AddRange(PotPins(placement).Select((p, i) => new OverlayPin(pot.Reference, i, pot.Nodes[i], p)));
+        }
+        return found;
+    }
+
     /// <summary>A pin of a placed element: its net, its schematic position, and whether it is hidden (no lead, no ground symbol).</summary>
     public readonly record struct ElementPin(string Net, Point At, bool Hidden);
 
