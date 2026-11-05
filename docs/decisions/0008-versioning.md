@@ -18,7 +18,7 @@ push and is not released.
 ## Decision
 
 **1.0 is the day the text contracts freeze:** the netlist, the layout file, the CLI and the run-result
-schema. The editor is not part of the bar, because the owner puts the editor last
+schema. The editor is not part of the bar
 ([0006](0006-working-format.md)).
 
 - **One version covers the source tree.** The tag and the CLI package carry it. The web app prints the
@@ -26,7 +26,7 @@ schema. The editor is not part of the bar, because the owner puts the editor las
 - **Semantic Versioning.** A break in any contract raises the major version. A schema major raises the tool
   major in the same release. A corrected simulation value is a fix, not a break, and the release notes name it.
 - **One changelog section for each release**, written in the release pull request.
-- **The owner releases by hand**: bump `Version`, add the changelog section, run
+- **Releases are manual**: bump `Version`, add the changelog section, run
   `dotnet pack src/Ssp.Cli -c Release -o artifacts`, tag the merge commit `v<version>`, publish the GitHub
   release with the package, then run `scripts/check-release.sh <tag>`.
 

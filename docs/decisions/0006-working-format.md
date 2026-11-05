@@ -29,8 +29,7 @@ Option A does three things:
 
 Rejected: a structural document as the working format (option B).
 It touches the engine boundary, the fixtures, the layouts, the golden files, the share links and every
-export. The value is editor ergonomics, and the owner puts the editor last, so it comes back in a new record
-after the engine work.
+export. The value is editor ergonomics, which ranks below the engine work. A new record can reopen it.
 
 Rejected: a Verilog working format (option C). ssp has no Verilog parser, and the engine cannot read the result.
 
