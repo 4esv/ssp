@@ -1,0 +1,35 @@
+* ssp:title Two-transistor fuzz, silicon (Fuzz Face type)
+* source: the values are the Fuzz Face schematic as commonly published (R.G. Keen, "The Technology of the Fuzz Face", geofex.com), with 2N3904s for the silicon pair.
+* Two direct-coupled NPN stages. The 100k from the Q2 emitter to the Q1 base is DC feedback, so the pair sets its own bias.
+* The 1k Fuzz pot with the 20u on its wiper sets the AC gain of Q2. Turned up, both stages overdrive and clip the wave close to a square.
+* The output is the tap of the 470 + 8.2k collector load, an 18:1 divider, through the 10n into the 500k Volume. It clips harder on one side than the other.
+* The 470 below the Fuzz pot is not in the published circuit. It carries DC only (the 20u bypasses it) and moves Q2's collector from 2.7 V to 4.7 V, near the 4.5 V that a silicon build is set to.
+* ssp:input in
+* ssp:output out
+* ssp:knob RV1 linear 0.5
+* ssp:knob RV2 log 1
+* ssp:part Q1 2N3904
+* ssp:part Q2 2N3904
+* model: Q2N3904 from models/bjts.lib, which has its provenance
+* author: 4esv
+* license: MIT
+
+.model Q2N3904 NPN (IS=1e-14 BF=200 CJC=4p CJE=8p)
+
+V1 in 0 DC 0 AC 1
+VCC vcc 0 DC 9
+C1 b1 in 2.2u
+Q1 c1 b1 0 0 Q2N3904
+R2 vcc c1 33k
+R3 e2 b1 100k
+Q2 c2 c1 e2 0 Q2N3904
+R4 vcc n1 470
+R5 n1 c2 8.2k
+C3 n1 n2 10n
+RV2_1 n2 out 250k
+RV2_2 out 0 250k
+RV1_1 e2 fw 500
+RV1_2 fw g 500
+R6 g 0 470
+C4 fw 0 20u
+.END

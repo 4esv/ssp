@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
+using Ssp.Web.Library;
 using Ssp.Web.Schematic;
 using Xunit.Abstractions;
 using PartsApi = Ssp.Core.Parts.Parts;
@@ -29,7 +30,8 @@ public partial class WireRouteTests(ITestOutputHelper output)
     {
         var circuit = NetlistLoader.Load(netlist);
         var map = PartMap.Resolve(circuit, Table);
-        var layout = AutoPlacer.Place(circuit, circuit.Directives, map);
+        // NOTE: The gallery draws a library circuit from its hand layout when it has one (#430), so the count does too.
+        var layout = CircuitLibrary.LayoutOf(netlist) is { } hand ? Ssp.Core.Layout.Layout.Parse(hand) : AutoPlacer.Place(circuit, circuit.Directives, map);
         var svg = SchematicRenderer.ToSvg(circuit, layout, map);
 
         var segments = new List<Segment>();
