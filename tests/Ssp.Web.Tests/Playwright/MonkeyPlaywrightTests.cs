@@ -224,7 +224,10 @@ public class MonkeyPlaywrightTests(ITestOutputHelper output)
             {
                 case 0:
                 case 1:
-                    var kind = Pick(await page.EvaluateAsync<string[]>("() => [...document.querySelectorAll('.palette-item[data-kind]')].map(e => e.dataset.kind)"));
+                    var kinds = await page.EvaluateAsync<string[]>("() => [...document.querySelectorAll('.palette-item[data-kind]')].map(e => e.dataset.kind)");
+                    // NOTE: a phone panel can cover the palette, so it can be empty for a moment.
+                    if (kinds.Length == 0) return "palette (none)";
+                    var kind = Pick(kinds);
                     await Click($".palette-item[data-kind='{kind}']");
                     return "palette " + kind;
                 case 2:
