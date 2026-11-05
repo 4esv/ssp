@@ -7,8 +7,8 @@ using Ssp.Core.Parts;
 namespace Ssp.Core.Tests.Pedals;
 
 /// <summary>
-/// #419: the clean booster of the library. It is the one-transistor stage that builders know, so it gives about +20 dB at
-/// full volume, its collector sits between 4 V and 6 V, and the volume knob works from silence to full.
+/// #419: the clean booster of the library. It is the one-transistor stage that builders know, so it gives about +25.5 dB at
+/// full volume (simulated), its collector sits near 4 V (3.99 V simulated), and the volume knob works from silence to full.
 /// </summary>
 public class CleanBoostTests
 {
@@ -21,7 +21,7 @@ public class CleanBoostTests
     static LoadedCircuit At(double volume)
     {
         var text = Regex.Replace(Netlist, @"(?m)^\* ssp:knob RV1 \S+ .*$",
-            $"* ssp:knob RV1 linear {volume.ToString("R", CultureInfo.InvariantCulture)}");
+            $"* ssp:knob RV1 log {volume.ToString("R", CultureInfo.InvariantCulture)}");
         var circuit = NetlistLoader.Load(text);
         Assert.Empty(circuit.Diagnostics);
         Assert.Empty(Pot.Apply(circuit));
@@ -43,19 +43,19 @@ public class CleanBoostTests
     }
 
     [Fact]
-    public void GainAtOneKilohertzWithTheVolumeAtOneIsAboutTwentyDecibels()
+    public void GainAtOneKilohertzWithTheVolumeAtOneIsAboutTwentyFiveAndAHalfDecibels()
     {
         var db = Response(At(1));
 
-        Assert.InRange(db[OneKilohertz], 15.0, 25.0);
+        Assert.InRange(db[OneKilohertz], 23.5, 27.5);
     }
 
     [Fact]
-    public void TheCollectorSitsMidRail()
+    public void TheCollectorSitsNearFourVolts()
     {
         var op = Analyses.OperatingPoint(At(1));
 
-        Assert.InRange(op.NodeVoltages["c"], 4.0, 6.0);
+        Assert.InRange(op.NodeVoltages["c"], 3.5, 4.5);
     }
 
     [Theory]

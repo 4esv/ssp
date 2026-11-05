@@ -1,28 +1,26 @@
 * ssp:title Clean boost
-* source: the one-transistor boost of the LPB-1 type, drawn from the published circuit and its analysis:
-*   a 2N5088 common-emitter stage, a fixed bias divider, an unbypassed emitter resistor, and a 100k volume pot.
-* Why the values: Cin 100n against the 46k input resistance gives a 35 Hz corner, below the low E string.
-*   RC 10k and RE 820 give 10k / (820 + 26 mV / 0.41 mA) = 11 (21 dB) into no load, and 19.5 dB at 1 kHz with the pot
-*   at 1, where the 100k pot and RL 100k load the collector. The pot at the middle of its turn gives 12 dB.
-*   R1 470k and R2 56k put the base at 0.92 V, IC at 0.41 mA and the collector at 4.9 V, mid-rail for the most headroom.
-*   RE has no bypass capacitor, so the gain is set by the two resistors and not by hFE: the stage stays clean and its
-*   sound is the mild rounding of a single transistor, not clipping. Cout 1u into 100k is a 1.6 Hz corner.
+* source: the one-transistor boost of the LPB-1 type with its published values: Cin 0.1u, bias 430k and 43k, RC 10k,
+*   RE 390 with no bypass, Cout 0.1u, a 100k Volume pot with a log (audio) taper, into a 100k load, from 9 V.
+* The original used a different NPN; this one uses the 2N5088 from models/bjts.lib.
+* Simulated with Volume at 1: base 0.78 V, IC 0.50 mA, collector 3.99 V, gain 25.5 dB at 1 kHz.
+*   RE has no bypass capacitor, so the gain is set mostly by RC and RE and not by hFE: the stage stays clean and its
+*   sound is the mild rounding of a single transistor, not clipping.
 * ssp:input in
 * ssp:output out
 * ssp:part Q1 2N5088
 V1 in 0 DC 0 AC 1
 C1 in b 100n
-R1 vcc b 470k
-R2 b 0 56k
+R1 vcc b 430k
+R2 b 0 43k
 RC vcc c 10k
-RE e 0 820
+RE e 0 390
 Q1 c b e Q2N5088
-C2 c w 1u
+C2 c w 100n
 RV1_1 w out 50k
 RV1_2 out 0 50k
 RL out 0 100k
 VCC vcc 0 DC 9
-* ssp:knob RV1 linear 0.5
+* ssp:knob RV1 log 0.5
 * 2N5088 model from models/bjts.lib, fitted to onsemi 2N5088-D (hFE 500 and VBE 0.601 V at IC = 1 mA, CJC 4p, CJE 10p).
 * The library netlist carries the model inline: the web app runs a library circuit from its text and cannot load models/.
 .model Q2N5088 NPN (IS=8e-14 BF=500 CJC=4p CJE=10p)
