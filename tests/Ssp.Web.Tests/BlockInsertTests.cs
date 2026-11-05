@@ -22,6 +22,8 @@ public class BlockInsertTests : BunitContext
 
     static readonly string Fuzz = File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", "fuzz-drawn.cir"));
 
+    static readonly string Clipper = File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "fixtures", "clipper-bjt-si.cir"));
+
     static PartMap Map(string netlist) => PartMap.Resolve(NetlistLoader.Load(netlist), Table);
 
     static LayoutDoc Placed(string netlist)
@@ -256,22 +258,22 @@ public class BlockInsertTests : BunitContext
     [Fact]
     public void A_stage_dropped_on_a_junction_joins_that_net_with_its_output_free()
     {
-        var layout = Placed(Fuzz);
+        var layout = Placed(Clipper);
         var junction = SchematicEdits.Junctions(layout).First();
         var net = layout.Wires.First(w => w.Points.Contains(junction)).Net;
 
-        var drop = SchematicEdits.Drop(Fuzz, layout, Map(Fuzz), Stage("clip-shunt-led.cir"), junction);
+        var drop = SchematicEdits.Drop(Clipper, layout, Map(Clipper), Stage("clip-shunt-led.cir"), junction);
 
         Assert.Null(drop.Refused);
-        AssertValidAndClear(Fuzz, layout, drop.Change);
+        AssertValidAndClear(Clipper, layout, drop.Change);
         Assert.Contains("output is free", drop.Message);
-        var old = PinNodes(Fuzz);
+        var old = PinNodes(Clipper);
         var now = PinNodes(drop.Change.Netlist);
         Assert.All(old, p => Assert.Equal(p.Value, now[p.Key]));
         var c1 = drop.References.Single(r => r.StartsWith('C'));
         Assert.Equal(net, now[c1 + ".0"]);
         // NOTE: No old net joins another: only the stage's own nets a and out are new.
-        Assert.Equal(NetlistLoader.Load(Fuzz).NodeNames.Count() + 2, NetlistLoader.Load(drop.Change.Netlist).NodeNames.Count());
+        Assert.Equal(NetlistLoader.Load(Clipper).NodeNames.Count() + 2, NetlistLoader.Load(drop.Change.Netlist).NodeNames.Count());
     }
 
     [Fact]

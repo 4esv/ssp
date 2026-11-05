@@ -17,11 +17,14 @@
     [Parameter] public string Netlist { get; set; } = "";
 
     /// <summary>The schematic SVG for a netlist, or null when the netlist has errors or no components.</summary>
-    public static string? Svg(string netlist)
+    public static string? Svg(string netlist) => Drawing(netlist)?.Svg;
+
+    /// <summary>The drawing of a netlist, with the box of each part and of each piece of text, or null when it has no schematic.</summary>
+    public static SchematicDrawing? Drawing(string netlist)
     {
         var circuit = NetlistLoader.Load(netlist);
         if (!Drawable(circuit)) return null;
-        return SchematicRenderer.ToSvg(circuit, AutoPlacer.Place(circuit, circuit.Directives), PartMap.Resolve(circuit, Table));
+        return SchematicRenderer.Draw(circuit, AutoPlacer.Place(circuit, circuit.Directives), PartMap.Resolve(circuit, Table));
     }
 
     /// <summary>True when the circuit has no errors and has components, so it has a schematic.</summary>
