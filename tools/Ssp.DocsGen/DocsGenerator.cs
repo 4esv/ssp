@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
@@ -36,6 +37,10 @@ public static class DocsGenerator
         img { max-width: 100%; }
         """;
 
+    // A search engine shows about 70 to 160 characters. Take the first paragraphs until they fill it.
+    const int MinDescription = 70;
+    const int MaxDescription = 160;
+
     public static IReadOnlyList<DocPage> Generate(string repoRoot, string outDir)
     {
         repoRoot = Path.GetFullPath(repoRoot);
@@ -57,7 +62,7 @@ public static class DocsGenerator
             var body = p.Doc.ToHtml(pipeline);
             var path = Path.Combine(outDir, p.Output);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, Page(p.Title, p.Output, pages, body));
+            File.WriteAllText(path, Page(p.Title, DescriptionOf(p.Doc), p.Output, pages, body));
         }
         return pages;
     }
@@ -126,7 +131,36 @@ public static class DocsGenerator
         return string.Join('/', parts);
     }
 
-    static string Page(string title, string output, IReadOnlyList<DocPage> pages, string body)
+    /// <summary>The text a search engine shows under the title: the first top-level paragraphs, cut at a sentence or a word.</summary>
+    static string DescriptionOf(MarkdownDocument doc)
+    {
+        var sb = new StringBuilder();
+        foreach (var block in doc.Descendants<ParagraphBlock>().Where(p => p.Parent is MarkdownDocument))
+        {
+            if (block.Inline is null) continue;
+            foreach (var i in block.Inline.Descendants())
+            {
+                // NOTE: An autolink (<https://...>) has an Url and no text, so the Url is its text.
+                if (i is AutolinkInline autolink) sb.Append(autolink.Url);
+                else if (i is LinkInline { FirstChild: null } link) sb.Append(link.Url);
+                else if (i is LineBreakInline) sb.Append(' ');
+                else if (i is LiteralInline l) sb.Append(l.Content.ToString());
+                else if (i is CodeInline c) sb.Append(c.Content);
+            }
+            sb.Append(' ');
+            if (sb.Length >= MinDescription) break;
+        }
+        var text = Regex.Replace(sb.ToString(), "\\s+", " ").Trim();
+        if (text.Length <= MaxDescription) return text;
+        // NOTE: A whole sentence reads better than a word cut, so take the last one that fits.
+        var sentence = text.LastIndexOf(". ", MaxDescription - 1, StringComparison.Ordinal);
+        if (sentence >= MinDescription) return text[..(sentence + 1)];
+        var cut = text.LastIndexOf(' ', MaxDescription - 1);
+        if (cut <= 0) cut = MaxDescription - 1;
+        return text[..cut].TrimEnd(' ', ',', ';', ':') + "…";
+    }
+
+    static string Page(string title, string description, string output, IReadOnlyList<DocPage> pages, string body)
     {
         var up = string.Concat(Enumerable.Repeat("../", output.Count(c => c == '/')));
         var nav = new StringBuilder($"<a href=\"{up}../\">Home</a>");
@@ -139,6 +173,7 @@ public static class DocsGenerator
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>{WebUtility.HtmlEncode(title)}</title>
+            <meta name="description" content="{WebUtility.HtmlEncode(description)}">
             <link rel="stylesheet" href="{up}docs.css">
             </head>
             <body>

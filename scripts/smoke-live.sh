@@ -23,8 +23,8 @@ trap 'rm -f "$page"' EXIT
 code="$(curl -s -o "$page" -w '%{http_code}' --max-time 20 "$base/")"
 if [ "$code" != "200" ]; then
   bad "$base/" "status $code, expected 200"
-elif ! grep -q '<title>ssp</title>' "$page"; then
-  bad "$base/" "no <title>ssp</title>"
+elif ! grep -q '<title>ssp: design and simulate guitar pedal circuits</title>' "$page"; then
+  bad "$base/" "the title does not name the app"
 fi
 
 # SPA fallback routes.

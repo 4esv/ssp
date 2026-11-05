@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url><loc>https://ssp.aesv.io/</loc></url>
+    <url><loc>https://ssp.aesv.io/editor</loc></url>
+    <url><loc>https://ssp.aesv.io/gallery</loc></url>
+    <url><loc>https://ssp.aesv.io/docs/index.html</loc></url>
+    <url><loc>https://ssp.aesv.io/docs/web.html</loc></url>
+    <url><loc>https://ssp.aesv.io/docs/cli.html</loc></url>
+    <url><loc>https://ssp.aesv.io/docs/file-format.html</loc></url>
+    <url><loc>https://ssp.aesv.io/docs/models.html</loc></url>
+</urlset>

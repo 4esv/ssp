@@ -4,7 +4,35 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ssp</title>
+    <title>ssp: design and simulate guitar pedal circuits</title>
+    <meta name="description" content="ssp designs and simulates guitar pedal circuits in the browser: draw a schematic or write a netlist, press Run, and read gain, response and clipping." />
+    <link rel="canonical" href="https://ssp.aesv.io/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ssp" />
+    <meta property="og:title" content="ssp: design and simulate guitar pedal circuits" />
+    <meta property="og:description" content="ssp designs and simulates guitar pedal circuits in the browser: draw a schematic or write a netlist, press Run, and read gain, response and clipping." />
+    <meta property="og:url" content="https://ssp.aesv.io/" />
+    <meta property="og:image" content="https://ssp.aesv.io/icon-192.png" />
+    <meta property="og:image:alt" content="ssp" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="ssp: design and simulate guitar pedal circuits" />
+    <meta name="twitter:description" content="ssp designs and simulates guitar pedal circuits in the browser: draw a schematic or write a netlist, press Run, and read gain, response and clipping." />
+    <meta name="twitter:image" content="https://ssp.aesv.io/icon-192.png" />
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "ssp",
+            "url": "https://ssp.aesv.io/",
+            "description": "ssp designs and simulates guitar pedal circuits in the browser: draw a schematic or write a netlist, press Run, and read gain, response and clipping.",
+            "applicationCategory": "DesignApplication",
+            "operatingSystem": "Any",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "license": "https://github.com/4esv/ssp/blob/main/LICENSE",
+            "codeRepository": "https://github.com/4esv/ssp"
+        }
+    </script>
     <base href="/" />
     <link rel="preload" id="webassembly" />
     <link rel="stylesheet" href="css/app.css" />
@@ -14,7 +42,20 @@
 </head>
 
 <body>
-    <div id="app">Loading...</div>
+    <!-- NOTE: The first paint (#425). Blazor replaces this markup with the Home page, which holds the same
+         text and classes, so a crawler that runs no JavaScript reads the landing text and the page does not
+         flash a different layout while the app loads. -->
+    <div id="app">
+        <main class="home">
+            <h1>ssp</h1>
+            <p>ssp designs and simulates guitar pedal circuits in your browser. Draw a schematic or write a netlist, press Run, and read the gain, the frequency response and the clipping of the stage. It uses the SpiceSharp engine, the same engine as the command line tool, and it sends no circuit to a server.</p>
+            <nav class="home-links">
+                <a href="editor">Editor</a>
+                <a href="gallery">Gallery</a>
+                <a href="docs/index.html" target="_top">Docs</a>
+            </nav>
+        </main>
+    </div>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.
