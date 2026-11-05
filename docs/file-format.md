@@ -5,7 +5,7 @@ A circuit has two files:
 | File | Contents | Required |
 |---|---|---|
 | `<name>.cir` | A SPICE netlist. This file is the source of truth. | Yes |
-| `<name>.layout.toml` | Schematic positions for the parts in the netlist. | No |
+| `<name>.layout.toml` | Schematic positions for the parts in the netlist. A circuit in `circuits/library/` or `circuits/blocks/` can have one. The gallery and the editor then draw the circuit from it. | No |
 
 ## Directives
 

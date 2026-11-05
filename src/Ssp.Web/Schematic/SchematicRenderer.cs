@@ -34,7 +34,14 @@ public sealed record DrawnText(string Text, SchematicBox Box);
 public sealed record DrawnPin(string Reference, string Net, Point At);
 
 /// <summary>A schematic as drawn: the SVG, the box of each part, the box of each piece of text, and where each pin is.</summary>
-public sealed record SchematicDrawing(string Svg, IReadOnlyList<DrawnPart> Parts, IReadOnlyList<DrawnText> Text, IReadOnlyList<DrawnPin> Pins);
+public sealed record SchematicDrawing(string Svg, IReadOnlyList<DrawnPart> Parts, IReadOnlyList<DrawnText> Text, IReadOnlyList<DrawnPin> Pins)
+{
+    /// <summary>The wires as drawn.</summary>
+    public IReadOnlyList<WireRoute> Wires { get; init; } = [];
+
+    /// <summary>The box of each ground or supply symbol that the drawing puts at a pin.</summary>
+    public IReadOnlyList<SchematicBox> Marks { get; init; } = [];
+}
 
 /// <summary>Draws a circuit as an SVG schematic from its layout.</summary>
 public static class SchematicRenderer
@@ -85,6 +92,7 @@ public static class SchematicRenderer
         // NOTE: An edit can merge the pins of two rails onto one node. The first rail in element order wins the lookup.
         var rails = elements.Where(e => e.Kind == "rail").GroupBy(e => e.Nodes[0], Names).ToDictionary(g => g.Key, g => g.First().Value, Names);
         var named = new List<(string Net, Point At)>();
+        var marks = new List<SchematicBox>();
         var railPins = elements.Where(e => e.Kind == "rail").Select(e => placements.GetValueOrDefault(e.Reference)).OfType<PartPlacement>()
             .Select(p => (p.X, p.Y)).ToHashSet();
 
@@ -114,12 +122,12 @@ public static class SchematicRenderer
                     // NOTE: A ground net or a supply net has a symbol at each pin, not a wire. A rail element on the pin is that symbol.
                     if (IsGround(e.Nodes[i]))
                     {
-                        PinSymbol(body, bounds, "ground", false, x, y);
+                        marks.Add(PinSymbol(body, bounds, "ground", false, x, y));
                     }
                     else if (rails.TryGetValue(e.Nodes[i], out var volts) && !railPins.Contains((Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0)))
                     {
                         var down = volts.StartsWith('-');
-                        PinSymbol(body, bounds, "rail", down, x, y);
+                        marks.Add(PinSymbol(body, bounds, "rail", down, x, y));
                         var top = down ? y + SymbolLength + LabelGap + FontSize : y - SymbolLength - LabelGap;
                         wanted.Add(new Wanted(new ElementLabel(volts, x, top), null, null, down ? (0, FontSize) : (0, -FontSize)));
                     }
@@ -139,8 +147,8 @@ public static class SchematicRenderer
         }
 
         wanted.AddRange(NetNames(layout, named));
-        PlaceText(ink, bounds, drawn, wanted);
-        return new SchematicDrawing(Document(bounds, body, ink), drawn, ink.Boxes, pinned);
+        PlaceText(ink, bounds, drawn.Select(d => d.Box).Concat(marks), layout.Wires, wanted);
+        return new SchematicDrawing(Document(bounds, body, ink), drawn, ink.Boxes, pinned) { Wires = layout.Wires, Marks = marks };
     }
 
     // A piece of text to draw, and the way it moves to keep clear of a part or of the text before it.
@@ -156,14 +164,17 @@ public static class SchematicRenderer
         return new SchematicBox(x0, y0, x1, y1);
     }
 
-    // Draws each piece of text at its place, or moved by its own step until it clears every part and the text before it.
-    static void PlaceText(Ink ink, Bounds bounds, IReadOnlyList<DrawnPart> parts, List<Wanted> wanted)
+    // Draws each piece of text at its place, or moved by its own step until it clears every part, ground and supply symbol,
+    // wire and the text before it.
+    static void PlaceText(Ink ink, Bounds bounds, IEnumerable<SchematicBox> solid, IReadOnlyList<WireRoute> wires, List<Wanted> wanted)
     {
-        var taken = parts.Select(p => p.Box).ToList();
+        var taken = solid.ToList();
+        var segments = wires.SelectMany(w => w.Points.Zip(w.Points.Skip(1))).ToList();
+        bool Clear(SchematicBox box) => !taken.Any(b => b.Overlaps(box)) && !segments.Any(s => Crosses(s.First, s.Second, box));
         foreach (var w in wanted)
         {
             var at = w.Label;
-            for (var i = 0; i < 64 && taken.Any(b => b.Overlaps(Extent(at))); i++) at = at with { X = at.X + w.Step.X, Y = at.Y + w.Step.Y };
+            for (var i = 0; i < 64 && !Clear(Extent(at)); i++) at = at with { X = at.X + w.Step.X, Y = at.Y + w.Step.Y };
             taken.Add(Extent(at));
             ink.Text(bounds, at.X, at.Y, at.Text, at.Start, at.End, w.Class, w.Net);
         }
@@ -231,6 +242,15 @@ public static class SchematicRenderer
             }
         }
         return wanted;
+    }
+
+    // True if the orthogonal segment goes through the inside of the box. A segment along an edge does not.
+    static bool Crosses(Point a, Point b, SchematicBox box)
+    {
+        var (x0, x1, y0, y1) = (Math.Min(a.X, b.X), Math.Max(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.Y, b.Y));
+        var across = x0 == x1 ? box.X0 < x0 && x0 < box.X1 : box.X0 < x1 && x0 < box.X1;
+        var down = y0 == y1 ? box.Y0 < y0 && y0 < box.Y1 : box.Y0 < y1 && y0 < box.Y1;
+        return across && down;
     }
 
     // True if the point is on a segment of the wire.
@@ -531,13 +551,14 @@ public static class SchematicRenderer
     }
 
     // A ground symbol hangs below a pin. A rail symbol stands above it, or hangs below it when down.
-    static void PinSymbol(StringBuilder body, Bounds bounds, string kind, bool down, double x, double y)
+    static SchematicBox PinSymbol(StringBuilder body, Bounds bounds, string kind, bool down, double x, double y)
     {
         var (inner, box) = Drawing(Symbols.For(kind));
         body.Append("<g transform=\"translate(").Append(N(x)).Append(' ').Append(N(y)).Append(')').Append(down ? " scale(1 -1)" : "").Append("\">").Append(inner).Append("</g>\n");
         var (y0, y1) = (down ? y - box.Y - box.H : y + box.Y, down ? y - box.Y : y + box.Y + box.H);
         bounds.Add((x + box.X, y0));
         bounds.Add((x + box.X + box.W, y1));
+        return new SchematicBox(x + box.X, y0, x + box.X + box.W, y1);
     }
 
     static string Document(Bounds bounds, StringBuilder body, Ink ink)

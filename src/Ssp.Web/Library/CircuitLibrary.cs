@@ -3,8 +3,8 @@ using Ssp.Web.Projects;
 
 namespace Ssp.Web.Library;
 
-/// <summary>One circuit from <c>circuits/library/</c>.</summary>
-public sealed record LibraryCircuit(string FileName, string Title, string Netlist);
+/// <summary>One circuit from <c>circuits/library/</c>: the netlist and the text of its layout file, if it has one.</summary>
+public sealed record LibraryCircuit(string FileName, string Title, string Netlist, string? Layout = null);
 
 /// <summary>One ready-made stage from <c>circuits/blocks/</c>: the netlist and the text of its layout file, if it has one.</summary>
 public sealed record LibraryBlock(string FileName, string Title, string Netlist, string? Layout);
@@ -24,16 +24,25 @@ public static class CircuitLibrary
     {
         var assembly = typeof(CircuitLibrary).Assembly;
         return assembly.GetManifestResourceNames()
-            .Where(n => n.StartsWith(Prefix, StringComparison.Ordinal))
+            .Where(n => n.StartsWith(Prefix, StringComparison.Ordinal) && n.EndsWith(".cir", StringComparison.Ordinal))
             .Order(StringComparer.Ordinal)
             .Select(n =>
             {
                 var netlist = Read(n)!;
                 var fileName = n[Prefix.Length..];
-                return new LibraryCircuit(fileName, Title(netlist) ?? fileName, netlist);
+                return new LibraryCircuit(fileName, Title(netlist) ?? fileName, netlist, Read(n[..^".cir".Length] + ".layout.toml"));
             })
             .ToList();
     }
+
+    /// <summary>
+    /// The text of the layout file of the library circuit with this netlist, or null. The gallery opens a library circuit in
+    /// the editor by its netlist, so the editor finds the hand layout by the netlist.
+    /// </summary>
+    public static string? LayoutOf(string netlist) =>
+        All.FirstOrDefault(c => c.Layout is not null && Same(c.Netlist, netlist))?.Layout;
+
+    static bool Same(string a, string b) => a.Replace("\r\n", "\n") == b.Replace("\r\n", "\n");
 
     static List<LibraryBlock> LoadBlocks() => typeof(CircuitLibrary).Assembly.GetManifestResourceNames()
         .Where(n => n.StartsWith(BlockPrefix, StringComparison.Ordinal) && n.EndsWith(".cir", StringComparison.Ordinal))

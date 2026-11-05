@@ -1,0 +1,144 @@
+# Hand layout of clip-feedback-led-tl072.cir (#417): the signal goes left to right, the supply is at the top and ground at the bottom.
+
+[[part]]
+ref = "CG"
+x = 180.0
+y = 120.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "CIN"
+x = 100.0
+y = 210.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "COUT"
+x = 440.0
+y = 200.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "D1"
+x = 400.0
+y = 30.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "D2"
+x = 340.0
+y = -40.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RB"
+x = 200.0
+y = 210.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RF"
+x = 400.0
+y = 100.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "RG"
+x = 280.0
+y = 120.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "RL"
+x = 540.0
+y = 200.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "V1"
+x = 40.0
+y = 210.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "VCC"
+x = 340.0
+y = 170.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "VEE"
+x = 340.0
+y = 230.0
+rotation = 0
+flip = true
+
+[[part]]
+ref = "X1"
+x = 300.0
+y = 200.0
+rotation = 0
+flip = false
+
+[[wire]]
+net = "in"
+points = [[40.0, 210.0], [100.0, 210.0]]
+
+[[wire]]
+net = "a"
+points = [[160.0, 210.0], [200.0, 210.0]]
+
+[[wire]]
+net = "a"
+points = [[200.0, 210.0], [300.0, 210.0]]
+
+[[wire]]
+net = "fb"
+points = [[300.0, 190.0], [280.0, 190.0], [280.0, 120.0]]
+
+[[wire]]
+net = "fb"
+points = [[280.0, 120.0], [280.0, -40.0], [340.0, -40.0]]
+
+[[wire]]
+net = "fb"
+points = [[280.0, 100.0], [340.0, 100.0]]
+
+[[wire]]
+net = "fb"
+points = [[280.0, 30.0], [340.0, 30.0]]
+
+[[wire]]
+net = "g"
+points = [[220.0, 120.0], [180.0, 120.0]]
+
+[[wire]]
+net = "o"
+points = [[380.0, 200.0], [440.0, 200.0]]
+
+[[wire]]
+net = "o"
+points = [[400.0, 200.0], [400.0, 100.0]]
+
+[[wire]]
+net = "o"
+points = [[400.0, 100.0], [400.0, 30.0]]
+
+[[wire]]
+net = "o"
+points = [[400.0, 30.0], [400.0, -40.0]]
+
+[[wire]]
+net = "out"
+points = [[500.0, 200.0], [540.0, 200.0]]

@@ -1,0 +1,144 @@
+# Hand layout of fuzz-transistor-diode.cir (#417): the signal goes left to right, the supply is at the top and ground at the bottom.
+
+[[part]]
+ref = "C1"
+x = 80.0
+y = 140.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C2"
+x = 300.0
+y = 100.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C3"
+x = 320.0
+y = 200.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "D1"
+x = 400.0
+y = 140.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "D2"
+x = 460.0
+y = 200.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "Q1"
+x = 220.0
+y = 140.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R2"
+x = 260.0
+y = 80.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "R4"
+x = 260.0
+y = 200.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R5"
+x = 180.0
+y = 180.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R6"
+x = 160.0
+y = 100.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "RV1_1"
+x = 540.0
+y = 140.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "V1"
+x = 0.0
+y = 140.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "V2"
+x = 60.0
+y = 0.0
+rotation = 270
+flip = false
+
+[[wire]]
+net = "in"
+points = [[0.0, 140.0], [80.0, 140.0]]
+
+[[wire]]
+net = "n10"
+points = [[60.0, 0.0], [260.0, 0.0], [260.0, 20.0]]
+
+[[wire]]
+net = "n10"
+points = [[160.0, 0.0], [160.0, 40.0]]
+
+[[wire]]
+net = "n4"
+points = [[140.0, 140.0], [220.0, 140.0]]
+
+[[wire]]
+net = "n4"
+points = [[160.0, 100.0], [160.0, 140.0]]
+
+[[wire]]
+net = "n4"
+points = [[180.0, 140.0], [180.0, 180.0]]
+
+[[wire]]
+net = "n3"
+points = [[260.0, 80.0], [260.0, 110.0]]
+
+[[wire]]
+net = "n3"
+points = [[260.0, 100.0], [300.0, 100.0]]
+
+[[wire]]
+net = "n6"
+points = [[260.0, 170.0], [260.0, 200.0]]
+
+[[wire]]
+net = "n6"
+points = [[260.0, 190.0], [320.0, 190.0], [320.0, 200.0]]
+
+[[wire]]
+net = "n8"
+points = [[360.0, 100.0], [540.0, 100.0], [540.0, 140.0]]
+
+[[wire]]
+net = "n8"
+points = [[400.0, 100.0], [400.0, 140.0]]
+
+[[wire]]
+net = "n8"
+points = [[460.0, 100.0], [460.0, 140.0]]

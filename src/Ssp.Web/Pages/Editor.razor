@@ -5,6 +5,7 @@
 @using Ssp.Core.Netlist
 @using Ssp.Web.Docking
 @using Ssp.Web.Editing
+@using Ssp.Web.Library
 @using Ssp.Web.Projects
 @using Ssp.Web.Schematic
 @using Ssp.Web.Sharing
@@ -378,7 +379,11 @@
         try
         {
             netlist = drawn = ShareCodec.Decode(hash);
-            history.Reset(netlist, null);
+            // NOTE: #417: a library circuit from the gallery opens with its hand layout. The shape is known, so the first
+            // draw keeps the hand wires instead of routing them again.
+            schematicLayout = ReadLayout(CircuitLibrary.LayoutOf(netlist));
+            if (schematicLayout is not null) drawnShape = ShapeOf(loads.Load(drawn));
+            history.Reset(netlist, schematicLayout);
             if (DirectiveParser.Parse(netlist).Directives.Title is { Length: > 0 } title) project = project with { Name = title };
         }
         catch (FormatException e)
