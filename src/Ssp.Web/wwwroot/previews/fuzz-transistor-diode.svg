@@ -44,8 +44,8 @@
 <text x="310" y="176">DGEN</text>
 <text x="310" y="194">D2</text>
 <text x="310" y="236">DGEN</text>
-<text x="160" y="106">Q1</text>
-<text x="160" y="184">QNPN</text>
+<text x="176" y="106" text-anchor="end">Q1</text>
+<text x="176" y="184" text-anchor="end">QNPN</text>
 <text x="192" y="48" text-anchor="start">R2</text>
 <text x="192" y="60" text-anchor="start">2.2k</text>
 <text x="192" y="228" text-anchor="start">R4</text>

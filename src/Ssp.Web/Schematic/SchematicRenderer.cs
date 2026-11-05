@@ -419,7 +419,7 @@ public static class SchematicRenderer
         // NOTE: A pin at the top or bottom centre has a lead and a symbol. The label goes beside them.
         var pins = Pins(e, p).Where(x => !x.Hidden).Select(x => x.At).ToList();
         var center = (min.X + max.X) / 2;
-        double Beside(double edge) => pins.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - center) < 15).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
+        double Beside(double edge) => pins.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - center) <= 20).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
         var (top, bottom) = (Beside(min.Y), Beside(max.Y));
         labels.Add(new(e.Reference, double.IsNaN(top) ? center : top, min.Y - LabelGap, End: !double.IsNaN(top)));
         if (e.Value.Length > 0) labels.Add(new(e.Value, double.IsNaN(bottom) ? center : bottom, max.Y + LabelGap + FontSize, End: !double.IsNaN(bottom)));

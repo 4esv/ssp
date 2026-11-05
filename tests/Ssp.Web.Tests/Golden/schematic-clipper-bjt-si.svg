@@ -54,8 +54,8 @@
 <text x="286" y="240" text-anchor="start">DSI</text>
 <text x="276" y="138" text-anchor="start">D2</text>
 <text x="276" y="150" text-anchor="start">DSI</text>
-<text x="150" y="206">Q1</text>
-<text x="150" y="284">QNPN</text>
+<text x="166" y="206" text-anchor="end">Q1</text>
+<text x="166" y="284" text-anchor="end">QNPN</text>
 <text x="92" y="168" text-anchor="start">R1</text>
 <text x="92" y="180" text-anchor="start">100k</text>
 <text x="102" y="308" text-anchor="start">R2</text>
