@@ -690,9 +690,12 @@
             savedView = null;
             return view = kept;
         }
-        return view = b is { Length: >= 4 } && b[2] > 0
-            ? ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], Math.Max(b[3] - Band(b), b[3] / 2), Math.Min(FitMargin, b[3] / 8))
-            : ViewTransform.Identity;
+        if (b is not { Length: >= 4 } || b[2] <= 0) return view = ViewTransform.Identity;
+        var (paneHeight, margin) = (Math.Max(b[3] - Band(b), b[3] / 2), Math.Min(FitMargin, b[3] / 8));
+        // NOTE: #441: a phone fits the width, so a tall circuit opens at a readable size and the canvas pans down to its lower rows.
+        return view = b is { Length: >= 5 } && b[4] > 0
+            ? ViewTransform.FitWidth(box.X, box.Y, box.W, box.H, b[2], paneHeight, margin)
+            : ViewTransform.Fit(box.X, box.Y, box.W, box.H, b[2], paneHeight, margin);
     }
 
     // NOTE: The first render draws the stage hidden. This measures the pane and sets the view, so the canvas never shows a view that it then replaces.

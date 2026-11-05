@@ -94,4 +94,16 @@ public sealed record ViewTransform(double Zoom, double X, double Y)
         var zoom = double.IsFinite(fit) ? Math.Clamp(fit, MinZoom, maxZoom) : 1;
         return new ViewTransform(zoom, (paneWidth - width * zoom) / 2 - minX * zoom, (paneHeight - height * zoom) / 2 - minY * zoom);
     }
+
+    /// <summary>
+    /// The view for a phone: the zoom fits the width of a world box to the pane, as large as the margin allows and never past <paramref name="maxZoom"/>.
+    /// A box that is then taller than the pane starts at the top margin, and the canvas pans down to the rest. A box that fits is centred, as <see cref="Fit"/> does.
+    /// </summary>
+    public static ViewTransform FitWidth(double minX, double minY, double width, double height, double paneWidth, double paneHeight, double margin, double maxZoom = MaxFitZoom)
+    {
+        var fit = (paneWidth - 2 * margin) / Math.Max(width, 1e-9);
+        var zoom = double.IsFinite(fit) ? Math.Clamp(fit, MinZoom, maxZoom) : 1;
+        var y = height * zoom <= paneHeight - 2 * margin ? (paneHeight - height * zoom) / 2 : margin;
+        return new ViewTransform(zoom, (paneWidth - width * zoom) / 2 - minX * zoom, y - minY * zoom);
+    }
 }
