@@ -77,7 +77,7 @@ After the copy, the workflow runs `scripts/smoke-live.sh "$SSP_LIVE_URL"`. `SSP_
 When the variable is unset, the workflow skips the check and prints a notice. The check runs only when the deploy ran.
 The script uses curl. It checks these items and prints each failing URL:
 
-- `/` returns 200 and contains `<title>ssp</title>`.
+- `/` returns 200 and its `<title>` names the app.
 - `/editor` and `/gallery` return 200.
 - The first fingerprinted `_framework/dotnet.*.js` named in the page returns 200.
 - The `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers are present.

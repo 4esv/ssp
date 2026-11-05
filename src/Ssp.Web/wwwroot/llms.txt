@@ -1,0 +1,17 @@
+# ssp
+
+> ssp designs and simulates guitar pedal circuits in the browser. It draws a schematic or reads a netlist, runs the SpiceSharp engine, and reports the gain, the response and the clipping. It has no backend and sends no circuit to a server.
+
+## Web app
+
+- [ssp home](https://ssp.aesv.io/): The landing page and the starter circuits.
+- [ssp editor](https://ssp.aesv.io/editor): Draw a pedal circuit or write its netlist, then run it and read the results, the plots and the knobs.
+- [ssp gallery](https://ssp.aesv.io/gallery): Ready-made pedal circuits that open in the editor.
+
+## Documents
+
+- [Documents](https://ssp.aesv.io/docs/index.html): What ssp is, how to install it, and the formats it uses.
+- [Web app](https://ssp.aesv.io/docs/web.html): The editor, the panels, and every control.
+- [CLI](https://ssp.aesv.io/docs/cli.html): The `run`, `sweep`, `render` and `mcp` commands.
+- [File format](https://ssp.aesv.io/docs/file-format.html): The netlist, the layout file, and the directives in the netlist.
+- [Models](https://ssp.aesv.io/docs/models.html): The device models and the provenance header of each one.
