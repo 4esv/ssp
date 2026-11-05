@@ -98,16 +98,25 @@ public class BlockInsertPlaywrightTests(ITestOutputHelper output)
     [PlaywrightFact]
     public Task AStageDroppedOnAWireOfTheFuzzStarterSitsInSeriesAndRuns() => WireCore().WaitAsync(Limit);
 
-    // The middle of the longest wire segment that a tap there hits, in client pixels, and the wire index.
+    // A spot on a wire that a tap there hits, in client pixels, and the wire index: the point at a third, a half or two thirds
+    // of a segment that is farthest from any wire corner, end or junction. A drop within one grid of a junction joins the
+    // junction instead of cutting the wire (#421: the middle of the longest fuzz wire is exactly one grid from a junction, so
+    // the scale of the drawing decided which).
     const string WireSpot = """
         () => {
+            const lines = [...document.querySelectorAll('.schematic-pins polyline.wire-hit')];
+            const corners = lines.flatMap(p => [...Array(p.points.numberOfItems).keys()].map(i => p.points.getItem(i)));
             const found = [];
-            for (const p of document.querySelectorAll('.schematic-pins polyline.wire-hit')) {
+            for (const p of lines) {
                 const m = p.getScreenCTM();
                 for (let i = 1; i < p.points.numberOfItems; i++) {
                     const a = p.points.getItem(i - 1), b = p.points.getItem(i);
-                    const s = new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2).matrixTransform(m);
-                    if (document.elementFromPoint(s.x, s.y) === p) found.push([Math.hypot(b.x - a.x, b.y - a.y), s.x, s.y, +p.dataset.wire]);
+                    for (const t of [1 / 3, 1 / 2, 2 / 3]) {
+                        const u = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+                        const room = Math.min(...corners.map(c => Math.hypot(c.x - u.x, c.y - u.y)));
+                        const s = new DOMPoint(u.x, u.y).matrixTransform(m);
+                        if (document.elementFromPoint(s.x, s.y) === p) found.push([room, s.x, s.y, +p.dataset.wire]);
+                    }
                 }
             }
             found.sort((x, y) => y[0] - x[0]);
