@@ -30,8 +30,8 @@
 <text x="60" y="166">100n</text>
 <text x="265" y="94">C2</text>
 <text x="265" y="136">100n</text>
-<text x="180" y="106">Q1</text>
-<text x="180" y="184">2N5088</text>
+<text x="186" y="106" text-anchor="end">Q1</text>
+<text x="196" y="184" text-anchor="end">2N5088</text>
 <text x="105" y="16">+9V</text>
 <text x="117" y="68" text-anchor="start">R1</text>
 <text x="117" y="80" text-anchor="start">430k</text>
