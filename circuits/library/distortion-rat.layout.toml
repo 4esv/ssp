@@ -1,0 +1,209 @@
+# Hand layout of distortion-rat.cir (#421): two rows. Row 1: input, LM308 stage with the Distortion pot and gain legs, the clip diodes. Row 2: Filter, buffer, Volume, output.
+
+[[part]]
+ref = "V1"
+x = 30.0
+y = 200.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "CIN"
+x = 50.0
+y = 200.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RB"
+x = 150.0
+y = 200.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "X1"
+x = 230.0
+y = 190.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "VCC"
+x = 270.0
+y = 160.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "VEE"
+x = 270.0
+y = 220.0
+rotation = 0
+flip = true
+
+[[part]]
+ref = "RG1"
+x = 120.0
+y = 40.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "CG1"
+x = 120.0
+y = 100.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RG2"
+x = 190.0
+y = 40.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "CG2"
+x = 190.0
+y = 100.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RV1_1"
+x = 290.0
+y = 60.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "D1"
+x = 370.0
+y = 150.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "D2"
+x = 400.0
+y = 210.0
+rotation = 90
+flip = false
+
+[[part]]
+ref = "RV2_1"
+x = 150.0
+y = 330.0
+rotation = 180
+flip = false
+
+[[part]]
+ref = "CF"
+x = 175.0
+y = 330.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "Q1"
+x = 200.0
+y = 430.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RE"
+x = 240.0
+y = 460.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RV3_1"
+x = 300.0
+y = 460.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "COUT"
+x = 350.0
+y = 490.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "RL"
+x = 435.0
+y = 490.0
+rotation = 270
+flip = false
+
+[[wire]]
+net = "in"
+points = [[30.0, 200.0], [50.0, 200.0]]
+
+[[wire]]
+net = "a"
+points = [[110.0, 200.0], [150.0, 200.0]]
+
+[[wire]]
+net = "a"
+points = [[150.0, 200.0], [230.0, 200.0]]
+
+[[wire]]
+net = "fb"
+points = [[230.0, 60.0], [230.0, 180.0]]
+
+[[wire]]
+net = "fb"
+points = [[230.0, 60.0], [230.0, 40.0], [190.0, 40.0]]
+
+[[wire]]
+net = "fb"
+points = [[190.0, 40.0], [120.0, 40.0]]
+
+[[wire]]
+net = "o"
+points = [[260.0, 90.0], [260.0, 110.0], [330.0, 110.0], [330.0, 150.0]]
+
+[[wire]]
+net = "o"
+points = [[330.0, 150.0], [330.0, 190.0]]
+
+[[wire]]
+net = "o"
+points = [[310.0, 190.0], [330.0, 190.0]]
+
+[[wire]]
+net = "o"
+points = [[330.0, 150.0], [370.0, 150.0]]
+
+[[wire]]
+net = "o"
+points = [[370.0, 150.0], [400.0, 150.0]]
+
+[[wire]]
+net = "o"
+points = [[330.0, 190.0], [330.0, 300.0], [90.0, 300.0], [90.0, 330.0]]
+
+[[wire]]
+net = "w"
+points = [[120.0, 360.0], [120.0, 430.0], [200.0, 430.0]]
+
+[[wire]]
+net = "e"
+points = [[240.0, 460.0], [300.0, 460.0]]
+
+[[wire]]
+net = "v"
+points = [[330.0, 490.0], [350.0, 490.0]]
+
+[[wire]]
+net = "c"
+points = [[150.0, 330.0], [175.0, 330.0]]
+
+[[wire]]
+net = "out"
+points = [[410.0, 490.0], [435.0, 490.0]]
