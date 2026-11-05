@@ -1,0 +1,114 @@
+# Hand layout of clean-boost.cir (#419): the signal goes left to right, the 9 V rail is at the top of its parts and ground below them.
+
+[[part]]
+ref = "C1"
+x = 30.0
+y = 140.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "C2"
+x = 235.0
+y = 110.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "Q1"
+x = 160.0
+y = 140.0
+rotation = 0
+flip = false
+
+[[part]]
+ref = "R1"
+x = 105.0
+y = 40.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "R2"
+x = 125.0
+y = 180.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RC"
+x = 200.0
+y = 40.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RE"
+x = 200.0
+y = 200.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RL"
+x = 350.0
+y = 190.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "RV1_1"
+x = 320.0
+y = 110.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "V1"
+x = 0.0
+y = 140.0
+rotation = 270
+flip = false
+
+[[part]]
+ref = "VCC"
+x = 200.0
+y = 40.0
+rotation = 0
+flip = false
+
+[[wire]]
+net = "in"
+points = [[0.0, 140.0], [30.0, 140.0]]
+
+[[wire]]
+net = "b"
+points = [[90.0, 140.0], [160.0, 140.0]]
+
+[[wire]]
+net = "b"
+points = [[105.0, 100.0], [105.0, 140.0]]
+
+[[wire]]
+net = "b"
+points = [[125.0, 140.0], [125.0, 180.0]]
+
+[[wire]]
+net = "c"
+points = [[200.0, 100.0], [200.0, 110.0]]
+
+[[wire]]
+net = "c"
+points = [[200.0, 110.0], [235.0, 110.0]]
+
+[[wire]]
+net = "e"
+points = [[200.0, 170.0], [200.0, 200.0]]
+
+[[wire]]
+net = "w"
+points = [[295.0, 110.0], [320.0, 110.0]]
+
+[[wire]]
+net = "out"
+points = [[350.0, 140.0], [350.0, 190.0]]
