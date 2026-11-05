@@ -33,7 +33,7 @@ public class FuzzMuffTests
 
     // Sets one knob of the netlist, so a test reads a position and not the text of the file.
     static string Knob(string text, string part, string taper, double position) =>
-        Regex.Replace(text, $@"(?m)^\*\s*ssp:knob {part} \w+ [0-9.]+$",
+        Regex.Replace(text, $@"(?m)^\*\s*ssp:knob {part} \w+ [0-9.]+(?=\r?$)",
             $"* ssp:knob {part} {taper} {position.ToString("0.###", CultureInfo.InvariantCulture)}");
 
     static string Output(LoadedCircuit circuit) => circuit.Directives.Output ?? "out";
