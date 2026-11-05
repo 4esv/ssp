@@ -25,6 +25,7 @@ The name is the value after `.model` or `.subckt`.
 | `models/diodes-si.lib` | The 1N4148 silicon switching diode. The part id `1N914` uses it too. | `1N4148` | — | 1N4148 datasheet, Vishay (document 81857). |
 | `models/diodes.lib` | A 5.1 V Zener diode and a small-signal Schottky diode. | `DZ_5V1`, `DSCHOTTKY` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/jfets.lib` | An N-channel and a P-channel small-signal JFET. | `JN`, `JP` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
+| `models/jfet-2n5458.lib` | The 2N5458 N-channel JFET, mid-range values. | `J2N5458` | — | 2N5457/2N5458/2N5459 datasheet, onsemi. Values are UNVERIFIED. |
 | `models/led.lib` | Five 5 mm LED colors. | `LED_RED`, `LED_YELLOW`, `LED_GREEN`, `LED_BLUE`, `LED_WHITE` | — | Generic values. No single datasheet. Values are UNVERIFIED. Nearest published family: Kingbright 5 mm LEDs. |
 | `models/opamp-jrc4558.cir` | A dual operational amplifier. | `JRC4558` | `inp inn out vcc vee` | NJM4558 datasheet, Nisshinbo Micro Devices (JRC). |
 | `models/opamp-lm308.cir` | A single operational amplifier. | `LM308` | `inp inn out vcc vee` | LM108/LM208/LM308 datasheet, National Semiconductor. |
@@ -93,6 +94,7 @@ The `.include` line loads `models/opamp-tl072.cir`. The `X1` line calls the `TL0
 | --- | --- | --- | --- |
 | `1N4148` | diode | `1N4148` | DO-35 |
 | `1N914` | diode | `1N4148` | DO-35 |
+| `2N5458` | njf | `J2N5458` | TO-92 |
 | `2N3904` | npn | `Q2N3904` | TO-92 |
 | `2N5088` | npn | `Q2N5088` | TO-92 |
 | `TL072` | opamp | `TL072` | DIP-8 |
@@ -144,7 +146,7 @@ A semiconductor kind places a default model. These ids match a palette kind's de
 | njf | `JN` | `JFET-N` |
 | pjf | `JP` | `JFET-P` |
 
-The other ids are not on the palette: `1N4148`, `1N914`, `2N3904`, `2N5088`, `TL072`, `TRANSFORMER`, `VACTROL`,
+The other ids are not on the palette: `1N4148`, `1N914`, `2N3904`, `2N5088`, `2N5458`, `TL072`, `TRANSFORMER`, `VACTROL`,
 `LED-YELLOW`, `LED-GREEN`, `LED-BLUE`, `LED-WHITE`. The diode kind places a generic `DGEN` model and the npn kind
 a generic `QNPN` model. Neither has a part id.
 

@@ -164,7 +164,7 @@ rotation = 270
 flip = false
 
 [[part]]
-ref = "Q1"
+ref = "J1"
 x = 130.0
 y = 740.0
 rotation = 0

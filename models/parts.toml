@@ -137,6 +137,15 @@ buy_url = "https://www.mouser.com/c/?q={id}"
 provenance = "2N5088 datasheet, onsemi, models/bjts.lib"
 
 [[part]]
+id = "2N5458"
+kind = "njf"
+model = "J2N5458"
+symbol = "njf"
+footprint = "TO-92"
+buy_url = "https://www.mouser.com/c/?q={id}"
+provenance = "2N5457/2N5458/2N5459 datasheet, onsemi, models/jfet-2n5458.lib, mid-range values, UNVERIFIED"
+
+[[part]]
 id = "1N914"
 kind = "diode"
 model = "1N4148"

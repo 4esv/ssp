@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Ssp.Core.Analysis;
+using Ssp.Core.Diagnostics;
 using Ssp.Core.Netlist;
 using Ssp.Core.Parts;
 
@@ -54,5 +55,31 @@ public class DistortionRatTests
 
         Assert.All(levels, l => Assert.False(double.IsNaN(l)));
         Assert.True(levels.Max() - levels.Min() > 1.0, string.Join(", ", levels.Select(l => l.ToString("F1"))));
+    }
+
+    // #443: the published RAT has a 2.2M input bias and a 2N5458 JFET source follower.
+    [Fact]
+    public void InputBiasIs2M2AndTheBufferIsA2N5458SourceFollower()
+    {
+        var circuit = NetlistLoader.Load(Text);
+        Assert.True(circuit.Circuit.TryGetEntity("RB", out var rb));
+        Assert.Equal(2.2e6, ((SpiceSharp.Components.Resistor)rb!).Parameters.Resistance, 1);
+        Assert.True(circuit.Circuit.TryGetEntity("J1", out var j));
+        Assert.IsType<SpiceSharp.Components.JFET>(j);
+        Assert.False(circuit.Circuit.TryGetEntity("Q1", out _));
+        Assert.Contains("2N5458", Text);
+    }
+
+    [Fact]
+    public void TheSourceFollowerSitsInSaturationWithRoomForTheSignal()
+    {
+        var circuit = NetlistLoader.Load(Text);
+        var op = SolverFailure.OperatingPoint(circuit);
+        Assert.Null(op.Diagnostic?.Message);
+        var v = op.Value!.NodeVoltages;
+        var vds = 4.5 - v["e"];
+        var vgs = v["b"] - v["e"];
+        Assert.InRange(vgs, -3.5, -1.5);
+        Assert.True(vds > (vgs + 4.0) + 0.3, $"Vds {vds:F2} Vgs {vgs:F2}");
     }
 }
