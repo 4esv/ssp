@@ -1,0 +1,81 @@
+* ssp:title Sustain fuzz, four transistors
+* source: the four-transistor sustain fuzz as commonly published, with the values of a public circuit analysis of it: 39k/100k/470k/10k/100R input booster, 8.2k/470k/470p and a 1N914 pair in each clipper, 39k/10n and 22k/4n tone stack with a 100k pot, 390k/100k/12k/2.7k output stage. The values are from memory of that analysis and were not checked against it here (UNVERIFIED). No circuit file was copied from another simulator.
+* Why it sounds as it does: the booster lifts the guitar into two cascaded clippers. Each clipper is a high-gain stage with a 1N914 pair in its collector-to-base feedback, so the stage gain falls once the output swings 0.6 V, and the two in series give a hard, sustained clip.
+* The 470p caps roll off the highs before the diodes; the Sustain pot sets how hard the clippers are driven. The passive tone stack blends a low pass and a high pass, and their overlap scoops the mids near 1 kHz. The last stage makes up the loss of the stack.
+* Single 9 V supply (V2); no split supply is needed because every stage is a bipolar transistor stage.
+* ssp:input in
+* ssp:output w3
+* ssp:knob RV1 log 0.5
+* ssp:knob RV2 linear 0.5
+* ssp:knob RV3 log 1
+* ssp:part D1 1N914
+* ssp:part D2 1N914
+* ssp:part D3 1N914
+* ssp:part D4 1N914
+* author: 4esv
+* license: MIT
+
+* The 2N5088 and 1N4148 models are the ones in models/bjts.lib and models/diodes-si.lib, with their provenance there.
+* The 1N914 part rows use the 1N4148 model.
+.model Q2N5088 NPN (IS=8e-14 BF=500 CJC=4p CJE=10p)
+.model 1N4148 D(IS=6.5e-9 N=1.9 CJO=4p)
+
+V1 in 0 DC 0 AC 1 SINE(0 0.1 220)
+V2 vcc 0 DC 9
+
+* Input booster: 39k series, 100k base to ground, 470k collector-to-base bias, 100 ohm emitter.
+R1 in a1 39k
+C1 a1 b1 1u
+R2 b1 0 100k
+Q1 c1 b1 e1 0 Q2N5088
+R3 vcc c1 10k
+R4 c1 b1 470k
+R5 e1 0 100
+
+* Sustain: a 100k pot to ground after the coupling cap; the wiper feeds the first clipper.
+C3 c1 s1 100n
+RV1_1 s1 w1 50k
+RV1_2 w1 0 50k
+
+* First clipper: 8.2k into the base, 470k and the 1N914 pair from collector to base, 470p across them.
+C4 w1 n2 100n
+R7 n2 b2 8.2k
+Q2 c2 b2 0 0 Q2N5088
+R9 vcc c2 10k
+R10 c2 b2 470k
+C5 c2 b2 470p
+D1 b2 c2 1N4148
+D2 c2 b2 1N4148
+
+* Second clipper: the same stage with a 15k collector load.
+C7 c2 n3 100n
+R12 n3 b3 8.2k
+Q3 c3 b3 0 0 Q2N5088
+R14 vcc c3 15k
+R15 c3 b3 470k
+C8 c3 b3 470p
+D3 b3 c3 1N4148
+D4 c3 b3 1N4148
+
+* Passive tone stack: low pass 39k/10n, high pass 4n/22k, 100k Tone pot between them.
+C10 c3 h 4n
+R17 h 0 22k
+R18 c3 l 39k
+C11 l 0 10n
+RV2_1 h w2 50k
+RV2_2 w2 l 50k
+
+* Output recovery: 390k/100k bias divider, 12k collector, 2.7k emitter.
+C12 w2 b4 100n
+R19 vcc b4 390k
+R20 b4 0 100k
+Q4 c4 b4 e4 0 Q2N5088
+R21 vcc c4 12k
+R22 e4 0 2.7k
+
+* Volume: 100k pot after the output coupling cap.
+C13 c4 v1 100n
+RV3_1 v1 w3 50k
+RV3_2 w3 0 50k
+
+.END
