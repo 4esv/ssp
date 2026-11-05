@@ -27,8 +27,11 @@ public readonly record struct SchematicBox(double X0, double Y0, double X1, doub
 /// <summary>A part as drawn, with the box of its symbol.</summary>
 public sealed record DrawnPart(string Reference, string? Kind, SchematicBox Box);
 
-/// <summary>A piece of text as drawn, with the box of the text.</summary>
-public sealed record DrawnText(string Text, SchematicBox Box);
+/// <summary>
+/// A piece of text as drawn, with the box of the text. <paramref name="Owner"/> is the box of the part or the ground or
+/// supply symbol that the text labels, or null for a net name.
+/// </summary>
+public sealed record DrawnText(string Text, SchematicBox Box, SchematicBox? Owner = null);
 
 /// <summary>A pin of a drawn part: its net and where it is drawn.</summary>
 public sealed record DrawnPin(string Reference, string Net, Point At);
@@ -103,12 +106,13 @@ public static class SchematicRenderer
             if (p is null) continue;
             var symbol = Fits(Symbols.Find(e.Kind), e.Nodes.Count);
             var (inner, box) = symbol is null ? Fallback(e.Nodes.Count) : Drawing(symbol);
-            if (symbol is null) PinNames(wanted, p, e.Nodes.Count, declared.GetValueOrDefault(e.Reference) ?? []);
+            var part = Outline(p, box);
+            var own = new SchematicBox(part.MinX, part.MinY, part.MaxX, part.MaxY);
+            if (symbol is null) PinNames(wanted, p, e.Nodes.Count, declared.GetValueOrDefault(e.Reference) ?? [], own);
 
             body.Append("<g data-ref=\"").Append(Escape(e.Reference)).Append("\" transform=\"").Append(Transform(p)).Append("\">")
                 .Append(inner).Append(symbol is not null && levers.TryGetValue(e.Reference, out var at) ? Lever(symbol.Kind, at) : "").Append("</g>\n");
 
-            var part = Outline(p, box);
             if (e.Kind != "rail")
             {
                 var pins = LocalPins(symbol, e.Nodes.Count);
@@ -127,16 +131,17 @@ public static class SchematicRenderer
                     else if (rails.TryGetValue(e.Nodes[i], out var volts) && !railPins.Contains((Math.Round(x, 2) + 0.0, Math.Round(y, 2) + 0.0)))
                     {
                         var down = volts.StartsWith('-');
-                        marks.Add(PinSymbol(body, bounds, "rail", down, x, y));
+                        var mark = PinSymbol(body, bounds, "rail", down, x, y);
+                        marks.Add(mark);
                         var top = down ? y + SymbolLength + LabelGap + FontSize : y - SymbolLength - LabelGap;
-                        wanted.Add(new Wanted(new ElementLabel(volts, x, top), null, null, down ? (0, FontSize) : (0, -FontSize)));
+                        wanted.Add(new Wanted(new ElementLabel(volts, x, top), null, null, down ? (0, FontSize) : (0, -FontSize), mark));
                     }
                 }
             }
 
             bounds.Add(part);
-            drawn.Add(new DrawnPart(e.Reference, e.Kind, new SchematicBox(part.MinX, part.MinY, part.MaxX, part.MaxY)));
-            foreach (var label in Labels(e, p)) wanted.Add(new Wanted(label, null, null, Step(label, part)));
+            drawn.Add(new DrawnPart(e.Reference, e.Kind, own));
+            foreach (var label in Labels(e, p)) wanted.Add(new Wanted(label, null, null, Step(label, part), own));
         }
 
         foreach (var w in layout.Wires)
@@ -152,11 +157,12 @@ public static class SchematicRenderer
     }
 
     // A piece of text to draw, and the way it moves to keep clear of a part or of the text before it.
-    readonly record struct Wanted(ElementLabel Label, string? Class, string? Net, (double X, double Y) Step);
+    readonly record struct Wanted(ElementLabel Label, string? Class, string? Net, (double X, double Y) Step, SchematicBox? Owner = null);
 
-    // A label above its part moves up, a label below it moves down, and a label beside it moves right.
+    // A label beside a pin at the top or bottom (anchored at its end) moves left, away from the pin and its symbol, so it
+    // stays at the edge of its part (#421). Another label above its part moves up, below it moves down, beside it moves right.
     static (double X, double Y) Step(ElementLabel label, Bounds part) =>
-        label.Y <= part.MinY ? (0, -FontSize) : label.Y >= part.MaxY ? (0, FontSize) : (FontSize, 0);
+        label.End ? (-FontSize, 0) : label.Y <= part.MinY ? (0, -FontSize) : label.Y >= part.MaxY ? (0, FontSize) : (FontSize, 0);
 
     static SchematicBox Extent(ElementLabel label)
     {
@@ -176,7 +182,7 @@ public static class SchematicRenderer
             var at = w.Label;
             for (var i = 0; i < 64 && !Clear(Extent(at)); i++) at = at with { X = at.X + w.Step.X, Y = at.Y + w.Step.Y };
             taken.Add(Extent(at));
-            ink.Text(bounds, at.X, at.Y, at.Text, at.Start, at.End, w.Class, w.Net);
+            ink.Text(bounds, at.X, at.Y, at.Text, at.Start, at.End, w.Class, w.Net, w.Owner);
         }
     }
 
@@ -187,13 +193,13 @@ public static class SchematicRenderer
 
         public List<DrawnText> Boxes { get; } = [];
 
-        public void Text(Bounds bounds, double x, double y, string text, bool start = false, bool end = false, string? className = null, string? net = null)
+        public void Text(Bounds bounds, double x, double y, string text, bool start = false, bool end = false, string? className = null, string? net = null, SchematicBox? owner = null)
         {
             var width = text.Length * FontSize * 0.6;
             var (x0, x1) = start ? (x, x + width) : end ? (x - width, x) : (x - width / 2, x + width / 2);
             bounds.Add((x0, y - FontSize));
             bounds.Add((x1, y));
-            Boxes.Add(new DrawnText(text, new SchematicBox(x0, y - FontSize, x1, y)));
+            Boxes.Add(new DrawnText(text, new SchematicBox(x0, y - FontSize, x1, y), owner));
             svg.Append("<text");
             if (className is not null) svg.Append(" class=\"").Append(className).Append('"');
             if (net is not null) svg.Append(" data-net=\"").Append(Escape(net)).Append('"');
@@ -413,7 +419,7 @@ public static class SchematicRenderer
         // NOTE: A pin at the top or bottom centre has a lead and a symbol. The label goes beside them.
         var pins = Pins(e, p).Where(x => !x.Hidden).Select(x => x.At).ToList();
         var center = (min.X + max.X) / 2;
-        double Beside(double edge) => pins.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - center) < 15).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
+        double Beside(double edge) => pins.Where(x => Math.Abs(x.Y - edge) < 0.5 && Math.Abs(x.X - center) <= 20).Select(x => x.X - LabelGap).DefaultIfEmpty(double.NaN).First();
         var (top, bottom) = (Beside(min.Y), Beside(max.Y));
         labels.Add(new(e.Reference, double.IsNaN(top) ? center : top, min.Y - LabelGap, End: !double.IsNaN(top)));
         if (e.Value.Length > 0) labels.Add(new(e.Value, double.IsNaN(bottom) ? center : bottom, max.Y + LabelGap + FontSize, End: !double.IsNaN(bottom)));
@@ -539,14 +545,14 @@ public static class SchematicRenderer
     // its lead, at the edge of the box: a pin on the left is named to the left of the box and a pin on the right to
     // the right of it. The box is 20 wide, so two names on one row do not fit inside it. A pin the definition does
     // not name stays blank.
-    static void PinNames(List<Wanted> wanted, PartPlacement placement, int pins, IReadOnlyList<string> names)
+    static void PinNames(List<Wanted> wanted, PartPlacement placement, int pins, IReadOnlyList<string> names, SchematicBox owner)
     {
         var local = LocalPins(null, pins);
         for (var i = 0; i < local.Count && i < names.Count; i++)
         {
             var left = local[i].X == 0;
             var (x, y) = Place(placement, left ? 20 - LabelGap : 40 + LabelGap, local[i].Y - LabelGap);
-            wanted.Add(new Wanted(new ElementLabel(names[i], x, y, Start: !left, End: left), "pin-name", null, (0, -FontSize)));
+            wanted.Add(new Wanted(new ElementLabel(names[i], x, y, Start: !left, End: left), "pin-name", null, (0, -FontSize), owner));
         }
     }
 

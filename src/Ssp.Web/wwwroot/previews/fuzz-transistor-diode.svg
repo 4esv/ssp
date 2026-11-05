@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-35 -20 407 380" fill="none" stroke="currentColor" stroke-width="2">
 <g data-ref="C1" transform="translate(20 140)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
 <g data-ref="C2" transform="translate(200 100)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
-<g data-ref="C3" transform="translate(220 200) rotate(-270)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
-<g transform="translate(220 260)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="C3" transform="translate(220 250) rotate(-270)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g transform="translate(220 310)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="D1" transform="translate(260 150)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
 <g transform="translate(320 150)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="D2" transform="translate(320 210) rotate(-180)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
@@ -29,7 +29,7 @@
 <polyline data-net="n3" points="180,80 180,110"/>
 <polyline data-net="n3" points="180,100 200,100"/>
 <polyline data-net="n6" points="180,170 180,200"/>
-<polyline data-net="n6" points="180,190 220,190 220,200"/>
+<polyline data-net="n6" points="180,190 220,190 220,250"/>
 <polyline data-net="n8" points="260,100 260,150"/>
 <polyline data-net="n8" points="260,150 260,210"/>
 <polyline data-net="n8" points="260,210 260,240 300,240 300,260"/>
@@ -38,14 +38,14 @@
 <text x="50" y="166">100n</text>
 <text x="230" y="84">C2</text>
 <text x="230" y="126">100n</text>
-<text x="238" y="228" text-anchor="start">C3</text>
-<text x="238" y="240" text-anchor="start">22u</text>
+<text x="238" y="278" text-anchor="start">C3</text>
+<text x="238" y="290" text-anchor="start">22u</text>
 <text x="290" y="134">D1</text>
 <text x="290" y="176">DGEN</text>
 <text x="290" y="194">D2</text>
 <text x="290" y="236">DGEN</text>
-<text x="160" y="106">Q1</text>
-<text x="160" y="184">QNPN</text>
+<text x="176" y="106" text-anchor="end">Q1</text>
+<text x="176" y="184" text-anchor="end">QNPN</text>
 <text x="192" y="48" text-anchor="start">R2</text>
 <text x="192" y="60" text-anchor="start">2.2k</text>
 <text x="192" y="228" text-anchor="start">R4</text>

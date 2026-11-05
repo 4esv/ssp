@@ -142,6 +142,46 @@ public class LibraryDiagramTests
         Assert.True(leaves.Any(p => parts[p.Reference].Box.X1 >= right - Tolerance), $"{Name(file, partsTable)}: the output is not at the right. {Describe(drawing)}");
     }
 
+    // #421 review: a label that slid away from its part, or that sits nearer to another part, names the wrong part.
+    [Theory]
+    [MemberData(nameof(Circuits))]
+    public void EachLabelIsNearItsOwnPart(string file, bool partsTable)
+    {
+        var drawing = Drawing(file, partsTable);
+        // NOTE: A ground or supply symbol, or a rail part, sits on a pin. It is a body of the part of that pin, so the label of an
+        // op-amp may sit beside its own supply symbol.
+        string? Holder(SchematicBox mark) => drawing.Pins.FirstOrDefault(p => Within(p.At, mark))?.Reference;
+        var bodies = drawing.Parts.Select(p => (Name: p.Reference, Holder: p.Kind == "rail" ? Holder(p.Box) : p.Reference, p.Box))
+            .Concat(drawing.Marks.Select(m => (Name: $"the symbol at {Holder(m)}", Holder: Holder(m), Box: m))).ToList();
+        var wrong = new List<string>();
+        foreach (var text in drawing.Text.Where(t => t.Owner is not null))
+        {
+            var owner = text.Owner!.Value;
+            var part = drawing.Parts.FirstOrDefault(p => p.Box == owner)?.Reference;
+            var own = Distance(text.Box, owner);
+            if (own > LabelReach) wrong.Add($"'{text.Text}' is {own:F1} from its part, more than {LabelReach}");
+            foreach (var (name, _, box) in bodies.Where(b => b.Box != owner && (part is null || !Same(b.Holder ?? "", part))))
+            {
+                if (own >= Distance(text.Box, box)) wrong.Add($"'{text.Text}' is {own:F1} from its part and {Distance(text.Box, box):F1} from {name}");
+            }
+        }
+        Assert.True(wrong.Count == 0, $"{Name(file, partsTable)}: {string.Join("; ", wrong)}.");
+    }
+
+    // NOTE: One grid: a label sits LabelGap (4) from its part, and one step aside (10) is still near it.
+    const double LabelReach = Symbols.Grid;
+
+    static bool Within(Point p, SchematicBox box) =>
+        p.X >= box.X0 - Tolerance && p.X <= box.X1 + Tolerance && p.Y >= box.Y0 - Tolerance && p.Y <= box.Y1 + Tolerance;
+
+    // The gap between two boxes, 0 if they touch or overlap.
+    static double Distance(SchematicBox a, SchematicBox b)
+    {
+        var dx = Math.Max(0, Math.Max(a.X0 - b.X1, b.X0 - a.X1));
+        var dy = Math.Max(0, Math.Max(a.Y0 - b.Y1, b.Y0 - a.Y1));
+        return Math.Sqrt(dx * dx + dy * dy);
+    }
+
     // #417 review: the boxes alone pass a drawing whose wires lie. The checks below read the wires of the drawing.
 
     [Theory]

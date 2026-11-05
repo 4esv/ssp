@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-35 8 475 876" fill="none" stroke="currentColor" stroke-width="2">
+<g data-ref="CB" transform="translate(10 740)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g data-ref="CC" transform="translate(340 240)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g data-ref="CF" transform="translate(380 580) rotate(-270)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g transform="translate(380 640)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="CFB" transform="translate(290 130) rotate(-180)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g data-ref="CG1" transform="translate(70 290) rotate(-270)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g transform="translate(70 350)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="CG2" transform="translate(140 290) rotate(-270)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g transform="translate(140 350)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="CIN" transform="translate(20 400)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g data-ref="COUT" transform="translate(290 740)"><path d="M0 0H27M27 -12V12M37 -12Q31 0 37 12M33 0H60M17 -10H23M20 -13V-7"/></g>
+<g data-ref="CRF" transform="translate(172 400) rotate(-270)"><path d="M0 0H27M33 0H60M27 -12V12M33 -12V12"/></g>
+<g transform="translate(172 460)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="D1" transform="translate(90 540) rotate(-270)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
+<g transform="translate(90 600)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="D2" transform="translate(160 600) rotate(-90)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
+<g transform="translate(160 600)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="Q1" transform="translate(130 740)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
+<g transform="translate(170 710)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="RB" transform="translate(90 400) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(90 460)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="RBB" transform="translate(80 740) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(80 800)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="RC" transform="translate(10 540)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="RE" transform="translate(190 770) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(190 830) scale(1 -1)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="RF" transform="translate(220 540)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="RG1" transform="translate(70 230) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="RG2" transform="translate(140 230) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="RIN" transform="translate(100 400)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g data-ref="RL" transform="translate(350 740)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
+<g transform="translate(410 740)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="RV1" transform="translate(285 50) rotate(-180)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
+<g data-ref="RV2" transform="translate(360 540) rotate(-180)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
+<g data-ref="RV3" transform="translate(220 770)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60M30 -30V-12"/><path d="M30 -20L30 -14"/><path fill="currentColor" stroke="none" d="M30 -7L26.5 -14L33.5 -14Z"/></g>
+<g transform="translate(280 770)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="V1" transform="translate(0 400) rotate(-270)"><path d="M0 0H16M44 0H60M22 0Q26 -10 30 0T38 0"/><circle cx="30" cy="0" r="14"/></g>
+<g transform="translate(0 460)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
+<g data-ref="VCC" transform="translate(260 210)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="VEE" transform="translate(260 270) scale(1 -1)"><path d="M0 0V-20M-10 -20H10"/></g>
+<g data-ref="X1" transform="translate(220 240)"><path d="M0 -10H20M0 10H20M60 0H80M20 -30V30L60 0Z M24 -10H30 M24 10H30M27 7V13M40 -15V-30M40 15V30"/></g>
+<polyline data-net="in" points="0,400 20,400"/>
+<polyline data-net="a1" points="80,400 90,400"/>
+<polyline data-net="a1" points="90,400 100,400"/>
+<polyline data-net="a" points="160,400 172,400"/>
+<polyline data-net="a" points="172,400 210,400 210,250 220,250"/>
+<polyline data-net="fb" points="220,230 200,230"/>
+<polyline data-net="fb" points="200,230 140,230"/>
+<polyline data-net="fb" points="140,230 70,230"/>
+<polyline data-net="fb" points="200,230 200,130"/>
+<polyline data-net="fb" points="200,130 200,50 225,50"/>
+<polyline data-net="fb" points="200,130 230,130"/>
+<polyline data-net="o" points="255,80 320,80 320,130"/>
+<polyline data-net="o" points="320,130 320,240 300,240"/>
+<polyline data-net="o" points="290,130 320,130"/>
+<polyline data-net="o" points="320,240 340,240"/>
+<polyline data-net="k" points="400,240 410,240 410,500 10,500 10,540"/>
+<polyline data-net="d" points="70,540 90,540"/>
+<polyline data-net="d" points="90,540 160,540"/>
+<polyline data-net="d" points="160,540 220,540"/>
+<polyline data-net="f1" points="280,540 300,540"/>
+<polyline data-net="f" points="330,570 330,580 350,580"/>
+<polyline data-net="f" points="350,580 380,580"/>
+<polyline data-net="f" points="350,580 350,670 10,670 10,740"/>
+<polyline data-net="b" points="70,740 80,740"/>
+<polyline data-net="b" points="80,740 130,740"/>
+<polyline data-net="e" points="170,770 190,770"/>
+<polyline data-net="e" points="190,770 220,770"/>
+<polyline data-net="v" points="250,740 290,740"/>
+<g fill="currentColor" stroke="none" font-family="sans-serif" font-size="10" text-anchor="middle">
+<text x="40" y="724">CB</text>
+<text x="40" y="766">22n</text>
+<text x="370" y="222">CC</text>
+<text x="370" y="268">4.7u</text>
+<text x="396" y="608" text-anchor="start">CF</text>
+<text x="396" y="620" text-anchor="start">3.3n</text>
+<text x="260" y="114">CFB</text>
+<text x="260" y="156">100p</text>
+<text x="88" y="318" text-anchor="start">CG1</text>
+<text x="88" y="330" text-anchor="start">4.7u</text>
+<text x="158" y="318" text-anchor="start">CG2</text>
+<text x="158" y="330" text-anchor="start">2.2u</text>
+<text x="50" y="384">CIN</text>
+<text x="50" y="426">22n</text>
+<text x="320" y="722">COUT</text>
+<text x="320" y="768">1u</text>
+<text x="188" y="428" text-anchor="start">CRF</text>
+<text x="188" y="440" text-anchor="start">1n</text>
+<text x="106" y="568" text-anchor="start">D1</text>
+<text x="106" y="580" text-anchor="start">1N4148</text>
+<text x="176" y="568" text-anchor="start">D2</text>
+<text x="176" y="580" text-anchor="start">1N4148</text>
+<text x="170" y="686">+4.5V</text>
+<text x="156" y="706" text-anchor="end">Q1</text>
+<text x="166" y="784" text-anchor="end">Q2N5088</text>
+<text x="102" y="428" text-anchor="start">RB</text>
+<text x="102" y="440" text-anchor="start">1M</text>
+<text x="92" y="768" text-anchor="start">RBB</text>
+<text x="92" y="780" text-anchor="start">1M</text>
+<text x="40" y="528">RC</text>
+<text x="40" y="562">1k</text>
+<text x="190" y="864">-4.5V</text>
+<text x="202" y="798" text-anchor="start">RE</text>
+<text x="202" y="810" text-anchor="start">2.2k</text>
+<text x="250" y="528">RF</text>
+<text x="250" y="562">1.5k</text>
+<text x="82" y="258" text-anchor="start">RG1</text>
+<text x="82" y="270" text-anchor="start">560</text>
+<text x="152" y="258" text-anchor="start">RG2</text>
+<text x="152" y="270" text-anchor="start">47</text>
+<text x="130" y="388">RIN</text>
+<text x="130" y="422">1k</text>
+<text x="380" y="728">RL</text>
+<text x="380" y="762">100k</text>
+<text x="255" y="38">RV1</text>
+<text x="251" y="94" text-anchor="end">100k</text>
+<text x="330" y="528">RV2</text>
+<text x="326" y="584" text-anchor="end">100k</text>
+<text x="246" y="736" text-anchor="end">RV3</text>
+<text x="250" y="792">100k</text>
+<text x="19" y="428" text-anchor="start">V1</text>
+<text x="19" y="440" text-anchor="start">AC 1V</text>
+<text x="260" y="186">+4.5V</text>
+<text x="260" y="304">-4.5V</text>
+<text x="246" y="206" text-anchor="end">X1</text>
+<text x="246" y="284" text-anchor="end">LM308</text>
+</g>
+</svg>
