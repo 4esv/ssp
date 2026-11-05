@@ -8,6 +8,9 @@ public static class Eng
     static readonly (double Factor, string Prefix)[] Prefixes =
         [(1e12, "T"), (1e9, "G"), (1e6, "M"), (1e3, "k"), (1, ""), (1e-3, "m"), (1e-6, "µ"), (1e-9, "n"), (1e-12, "p"), (1e-15, "f")];
 
+    /// <summary>A node voltage. Under 1 µV is solver noise on a node at 0 V, so it reads <c>0 V</c> (#446).</summary>
+    public static string NodeVolts(double value) => Format(Math.Abs(value) < 1e-6 ? 0 : value, "V");
+
     /// <summary>Gives the value with three significant digits, an SI prefix and the unit.</summary>
     public static string Format(double value, string unit = "")
     {

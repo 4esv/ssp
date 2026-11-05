@@ -53,5 +53,5 @@ else
 
     void Toggle(ChangeEventArgs e) => show = e.Value is true;
 
-    static string Volts(double value) => Eng.Format(value, "V");
+    static string Volts(double value) => Eng.NodeVolts(value);
 }
