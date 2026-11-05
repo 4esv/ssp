@@ -16,7 +16,7 @@
 <g transform="translate(90 600)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
 <g data-ref="D2" transform="translate(160 600) rotate(-90)"><path d="M0 0H20M40 0H60M20 -10V10L40 0Z M40 -10V10"/></g>
 <g transform="translate(160 600)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
-<g data-ref="Q1" transform="translate(130 740)"><path d="M0 0H20M20 -15V15M20 -7L40 -20V-30M20 7L40 20V30"/><path d="M26 10.9L30.13 13.59"/><path fill="currentColor" stroke="none" d="M36 17.4L28.22 16.52L32.04 10.65Z"/></g>
+<g data-ref="J1" transform="translate(130 740)"><path d="M0 0H20M20 -15V15M20 -10H40V-30M20 10H40V30"/><path d="M4 0L12 0"/><path fill="currentColor" stroke="none" d="M19 0L12 3.5L12 -3.5Z"/></g>
 <g transform="translate(170 710)"><path d="M0 0V-20M-10 -20H10"/></g>
 <g data-ref="RB" transform="translate(90 400) rotate(-270)"><path d="M0 0H15L17.5 -6L22.5 6L27.5 -6L32.5 6L37.5 -6L42.5 6L45 0H60"/></g>
 <g transform="translate(90 460)"><path d="M0 0V10M-10 10H10M-6 14H6M-2 18H2"/></g>
@@ -92,17 +92,17 @@
 <text x="176" y="568" text-anchor="start">D2</text>
 <text x="176" y="580" text-anchor="start">1N4148</text>
 <text x="170" y="686">+4.5V</text>
-<text x="156" y="706" text-anchor="end">Q1</text>
-<text x="166" y="784" text-anchor="end">Q2N5088</text>
+<text x="156" y="706" text-anchor="end">J1</text>
+<text x="166" y="784" text-anchor="end">2N5458</text>
 <text x="102" y="428" text-anchor="start">RB</text>
-<text x="102" y="440" text-anchor="start">1M</text>
+<text x="102" y="440" text-anchor="start">2.2M</text>
 <text x="92" y="768" text-anchor="start">RBB</text>
 <text x="92" y="780" text-anchor="start">1M</text>
 <text x="40" y="528">RC</text>
 <text x="40" y="562">1k</text>
 <text x="190" y="864">-4.5V</text>
 <text x="202" y="798" text-anchor="start">RE</text>
-<text x="202" y="810" text-anchor="start">2.2k</text>
+<text x="202" y="810" text-anchor="start">10k</text>
 <text x="250" y="528">RF</text>
 <text x="250" y="562">1.5k</text>
 <text x="82" y="258" text-anchor="start">RG1</text>
