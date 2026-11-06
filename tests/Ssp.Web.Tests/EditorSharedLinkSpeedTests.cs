@@ -62,7 +62,8 @@ public class EditorSharedLinkSpeedTests : BunitContext
     [Fact]
     public void ALinkMadeBeforeTheFixStillOpens()
     {
-        var expected = Pedal("clean-boost").Netlist.Replace("R1 vcc b 430k", "R1 vcc b 47k");
+        // NOTE: The link was made from LF text; a Windows checkout gives the library file CRLF.
+        var expected = Pedal("clean-boost").Netlist.ReplaceLineEndings("\n").Replace("R1 vcc b 430k", "R1 vcc b 47k");
         var schematic = Open(OldLink);
         Assert.Equal(expected, schematic.Instance.Netlist);
         Assert.Equal(LayoutDoc.Parse(Pedal("clean-boost").Layout!).Parts, schematic.Instance.Drawn.Parts);
