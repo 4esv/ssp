@@ -61,12 +61,25 @@ public class PedalFlowPlaywrightTests(PedalFlowPlaywrightTests.BrowserFixture fi
     [MemberData(nameof(Cases))]
     public Task The_pedal_flow_works(string pedal, string device) => Core(pedal, device == "phone").WaitAsync(Limit);
 
-    // BUG: Share right after an edit leaves the address bar with no link. The debounced save of the edit calls LeaveLink, which
-    // replaces the address with "editor". The clipboard still holds the link, so the main flow works. Steps: open a library pedal
-    // from the gallery, change a value in the netlist, press Run, Export, Share link, wait 2 s. Expected: the address ends in
-    // #<link>. Actual: it is "editor". Screenshot: none; the test run prints the 28-char URL.
-    [Fact(Skip = "BUG: the address bar loses the link when the save of an earlier edit lands after Share (Editor.razor LeaveLink). Not fixed here.")]
-    public void The_address_bar_keeps_the_link_after_Share_following_an_edit() { }
+    [PlaywrightFact]
+    public async Task The_address_bar_keeps_the_link_after_Share_following_an_edit()
+    {
+        var baseUrl = Environment.GetEnvironmentVariable(PlaywrightFactAttribute.BaseUrlVariable)!;
+        var (context, page, _) = await Open(false, baseUrl + "gallery");
+        await using var _ = context;
+        await page.Locator("ul.gallery li:has(.file:text-is('clean-boost.cir')) a").ClickAsync();
+        await page.Locator("rect.part").First.WaitForAsync();
+        await page.Locator(".dock-tab[data-panel=text]").ClickAsync();
+        var area = page.Locator("textarea[aria-label=Netlist]");
+        var edited = (await area.InputValueAsync()).Replace("\n", "\n* edited\n", StringComparison.Ordinal);
+        await area.FillAsync(edited);
+        await page.Locator("button.export-toggle").ClickAsync();
+        await page.Locator("button.share").ClickAsync();
+        await Assertions.Expect(page.Locator(".toolbar-status")).ToHaveTextAsync("Link copied.");
+        // NOTE: The save of the edit lands 500 ms after it. Wait past it.
+        await Task.Delay(2000);
+        Assert.Equal(edited, ShareCodec.Decode(page.Url[(page.Url.IndexOf('#') + 1)..]));
+    }
 
     async Task<(IBrowserContext Context, IPage Page, List<string> Errors)> Open(bool phone, string url)
     {
