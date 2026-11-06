@@ -6,11 +6,11 @@
 //   node scripts/vendor-substrate.mjs [aesv.io checkout]
 //
 // The checkout needs `npm ci` (the export parses JS with acorn). Taken: the
-// pixel, the two inks and the faces (css/substrate.css), and the Handjet
-// faces with their licence. Left out: the JS kits and the other sheets (the
-// app loads no cells layer, and their controls are scoped to the site's own
-// markup), and the Pixelta Cells files (their licence for a public repository
-// is not decided; app.css sets titles in Handjet Cells, so no page asks for them).
+// pixel, the two inks and the faces (css/substrate.css). Left out: the JS kits
+// and the other sheets (the app loads no cells layer, and their controls are
+// scoped to the site's own markup), and every font file. The fonts belong to
+// aesv.io: they are on the server only, never in this repository or a
+// publish (.gitignore, and the deploy does not touch substrate/fonts/).
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -18,11 +18,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const OUT = fileURLToPath(new URL('../src/Ssp.Web/wwwroot/substrate/', import.meta.url))
-const TAKE = [
-  'css/substrate.css',
-  'fonts/LICENSE-Handjet.txt',
-  ...['handjet-cells', 'handjet-cells-mono'].flatMap((f) => ['woff2', 'woff', 'ttf'].map((x) => `fonts/${f}.${x}`)),
-]
+const TAKE = ['css/substrate.css']
 
 const repo = path.resolve(process.argv[2] ?? path.join(os.homedir(), 'Code', 'projects', 'aesv.io'))
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'substrate-'))

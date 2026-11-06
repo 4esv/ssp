@@ -63,22 +63,43 @@ public sealed partial class VendoredSubstrateTests
     }
 
     /// <summary>
-    /// The Pixelta Cells files are not vendored (their licence for a public repository is not decided). The
-    /// vendored sheet still names them, so every face it names that is not vendored must be Pixelta, and the
-    /// app sheet must set titles in Handjet Cells so no page asks for it.
+    /// The fonts belong to aesv.io. They are on the server only, never in this repository: the vendored sheet
+    /// names them under ../fonts/, which .gitignore leaves out and the deploy does not touch. The app sheet sets
+    /// titles in Handjet Cells, so no page asks for Pixelta Cells.
     /// </summary>
     [Fact]
-    public void OnlyThePixeltaFaceIsMissingAndTheAppDoesNotUseIt()
+    public void NoFontFileIsInTheRepository()
+    {
+        var tracked = Git("ls-files", "-z").Output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        var fonts = tracked.Where(f => FontFile().IsMatch(f)).ToList();
+
+        Assert.True(fonts.Count == 0, "Font files in the repository: " + string.Join(", ", fonts));
+        Assert.True(Git("check-ignore", "-q", "src/Ssp.Web/wwwroot/substrate/fonts/x.woff2").Exit == 0, ".gitignore does not leave out substrate/fonts/.");
+    }
+
+    [Fact]
+    public void EveryFaceComesFromTheServersFontsFolderAndTheAppDoesNotUsePixelta()
     {
         var css = File.ReadAllText(Path.Combine(Folder, "css", "substrate.css"));
-        var missing = Url().Matches(css).Select(m => m.Groups[1].Value)
-            .Where(u => !File.Exists(Path.GetFullPath(Path.Combine(Folder, "css", u))))
-            .ToList();
+        var urls = Url().Matches(css).Select(m => m.Groups[1].Value).ToList();
 
-        Assert.NotEmpty(Url().Matches(css));
-        Assert.All(missing, u => Assert.StartsWith("../fonts/pixelta-cells.", u, StringComparison.Ordinal));
+        Assert.NotEmpty(urls);
+        Assert.All(urls, u => Assert.StartsWith("../fonts/", u, StringComparison.Ordinal));
         Assert.DoesNotContain("Pixelta", File.ReadAllText(Path.Combine(Wwwroot, "css", "app.css")), StringComparison.Ordinal);
     }
+
+    static (int Exit, string Output) Git(params string[] args)
+    {
+        var info = new System.Diagnostics.ProcessStartInfo("git") { WorkingDirectory = RepoPaths.Root, RedirectStandardOutput = true };
+        foreach (var a in args) info.ArgumentList.Add(a);
+        using var git = System.Diagnostics.Process.Start(info)!;
+        var output = git.StandardOutput.ReadToEnd();
+        git.WaitForExit();
+        return (git.ExitCode, output);
+    }
+
+    [GeneratedRegex(@"\.(woff2?|ttf|otf|eot)$", RegexOptions.IgnoreCase)]
+    private static partial Regex FontFile();
 
     [GeneratedRegex(@"url\(([^)]+)\)")]
     private static partial Regex Url();
