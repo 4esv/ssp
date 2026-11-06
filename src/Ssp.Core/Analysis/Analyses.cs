@@ -23,6 +23,7 @@ public static class Analyses
         var nodeExports = circuit.NodeNames.ToDictionary(n => n, n => new RealVoltageExport(op, n), StringComparer.Ordinal);
         var sourceExports = new Dictionary<string, RealPropertyExport>(StringComparer.Ordinal);
         var powerExports = new Dictionary<string, RealPropertyExport>(StringComparer.Ordinal);
+        var mosfetExports = new Dictionary<string, RealPropertyExport[]>(StringComparer.Ordinal);
         foreach (var entity in circuit.Circuit)
         {
             if (entity is not IComponent)
@@ -30,7 +31,15 @@ public static class Analyses
                 continue;
             }
 
-            powerExports[entity.Name] = new RealPropertyExport(op, entity.Name, "p");
+            if (entity is Mosfet1 or Mosfet2 or Mosfet3)
+            {
+                mosfetExports[entity.Name] = MosfetPowerExports(op, entity.Name);
+            }
+            else
+            {
+                powerExports[entity.Name] = new RealPropertyExport(op, entity.Name, "p");
+            }
+
             if (entity is VoltageSource)
             {
                 sourceExports[entity.Name] = new RealPropertyExport(op, entity.Name, "i");
@@ -58,10 +67,24 @@ public static class Analyses
             {
                 powers[name] = export.Value;
             }
+
+            foreach (var (name, exports) in mosfetExports)
+            {
+                powers[name] = MosfetPower(exports);
+            }
         }
 
         return new OpResult(voltages, currents, powers);
     }
+
+    // NOTE: SpiceSharp gives a MOSFET no "p" property, so a "p" export reads 0. The power is the sum of the terminal
+    // voltages times the currents into the terminals. The gate takes no DC current. In the SpiceSharp terms (all in the
+    // channel-polarity frame, so the products hold for N and P channel): into the drain id, into the bulk ibs + ibd,
+    // and the source takes the rest. With the source as reference: p = vds * id + vbs * (ibs + ibd).
+    static RealPropertyExport[] MosfetPowerExports(OP op, string name) =>
+        new[] { "vds", "id", "vbs", "ibs", "ibd" }.Select(p => new RealPropertyExport(op, name, p)).ToArray();
+
+    static double MosfetPower(RealPropertyExport[] e) => e[0].Value * e[1].Value + e[2].Value * (e[3].Value + e[4].Value);
 
     /// <summary>
     /// Computes the small-signal frequency response of a loaded circuit.
