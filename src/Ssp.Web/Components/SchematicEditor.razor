@@ -485,7 +485,7 @@
     {
         ["r"] = "resistor", ["c"] = "capacitor", ["q"] = "npn", ["d"] = "diode", ["p"] = "pot", ["b"] = "battery",
         ["s"] = "source", ["i"] = "jack-in", ["o"] = "jack-out", ["l"] = "led", ["n"] = "pnp",
-        ["e"] = "electrolytic", ["h"] = "inductor", ["z"] = "zener", ["k"] = "schottky", ["j"] = "njf", ["y"] = "pjf",
+        ["e"] = "electrolytic", ["h"] = "inductor", ["z"] = "zener", ["k"] = "schottky", ["j"] = "njf", ["y"] = "pjf", ["a"] = "opamp5",
         ["g"] = GroundChoice, ["w"] = WireChoice,
     };
 
@@ -1996,6 +1996,7 @@
 
     static string Label(string kind) => SchematicEdits.IsSwitch(kind)
         ? SchematicRenderer.SwitchName(SchematicEdits.Throws(kind)) + " switch"
+        : kind == "opamp5" ? "Op-amp"
         : char.ToUpperInvariant(kind[0]) + kind[1..].Replace('-', ' ');
 
     static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
