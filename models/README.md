@@ -26,6 +26,7 @@ The name is the value after `.model` or `.subckt`.
 | `models/diodes.lib` | A 5.1 V Zener diode and a small-signal Schottky diode. | `DZ_5V1`, `DSCHOTTKY` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/jfets.lib` | An N-channel and a P-channel small-signal JFET. | `JN`, `JP` | — | Generic values. No single datasheet. Values are UNVERIFIED. |
 | `models/jfet-2n5458.lib` | The 2N5458 N-channel JFET, mid-range values. | `J2N5458` | — | 2N5457/2N5458/2N5459 datasheet, onsemi. Values are UNVERIFIED. |
+| `models/mosfets.lib` | An N-channel and a P-channel small-signal MOSFET, the 2N7000 and the BS250P. Level 1. | `M2N7000`, `MBS250` | `d g s b` | 2N7000 datasheet, Vishay Siliconix (document 70226); BS250P datasheet, Diodes Incorporated (DS33014). The BS250P `VTO` is UNVERIFIED (the sheet gives no typical threshold). |
 | `models/led.lib` | Five 5 mm LED colors. | `LED_RED`, `LED_YELLOW`, `LED_GREEN`, `LED_BLUE`, `LED_WHITE` | — | Generic values. No single datasheet. Values are UNVERIFIED. Nearest published family: Kingbright 5 mm LEDs. |
 | `models/opamp-jrc4558.cir` | A dual operational amplifier. | `JRC4558` | `inp inn out vcc vee` | NJM4558 datasheet, Nisshinbo Micro Devices (JRC). |
 | `models/opamp-lm308.cir` | A single operational amplifier. | `LM308` | `inp inn out vcc vee` | LM108/LM208/LM308 datasheet, National Semiconductor. |
@@ -84,6 +85,19 @@ ssp run <repository>/buffer.cir
 
 The `.include` line loads `models/opamp-tl072.cir`. The `X1` line calls the `TL072` subcircuit with the pins
 `inp inn out vcc vee`. The output follows the input (unity gain).
+
+### MOSFET pins
+
+An `M` line has four nodes: drain, gate, source, bulk. Tie the bulk to the source. Give no `W` or `L`: the models
+in `models/mosfets.lib` are fit at the default W = L.
+
+```spice
+.include models/mosfets.lib
+M1 d g 0 0 M2N7000
+M2 d2 g2 vcc vcc MBS250
+```
+
+The 2N7000 and the BS250P have no row in the parts table yet. The rows come with the editor palette part.
 
 ## Parts table
 
