@@ -448,6 +448,12 @@ public static class SchematicRenderer
             if (!(placements.TryGetValue(pot.Reference, out var placement) || placements.TryGetValue(pot.Members[0], out placement))) continue;
             found.AddRange(PotPins(placement).Select((p, i) => new OverlayPin(pot.Reference, i, pot.Nodes[i], p)));
         }
+        // NOTE: #456: a subcircuit instance, such as an op-amp, is placed by its own reference. Its pins are the nodes of its X line.
+        foreach (var x in elements.Where(e => circuit.Subcircuits.Any(s => Names.Equals(s.Name, e.Reference))))
+        {
+            if (!placements.TryGetValue(x.Reference, out var placement)) continue;
+            found.AddRange(Pins(x, placement).Select((p, i) => new OverlayPin(x.Reference, i, p.Net, p.At)));
+        }
         return found;
     }
 
