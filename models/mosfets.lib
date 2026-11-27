@@ -1,0 +1,11 @@
+* provenance: 2N7000 N-channel 60 V MOSFET, Vishay Siliconix document 70226 (2N7000/2N7002, VQ1000J/P, BS170, rev. F, 16-Jul-01), https://www.vishay.com/docs/70226/70226.pdf; BS250P P-channel enhancement mode vertical DMOS FET, Diodes Incorporated document DS33014 rev. 3-2 (October 2019), https://www.diodes.com/assets/Datasheets/BS250P.pdf; values read from the electrical characteristics tables at TA = 25 C
+* fit: 2N7000 (Vishay typical values): VGS(th) 2.1 V at VDS = VGS, ID = 1 mA; ID(on) 0.35 A at VDS = 10 V, VGS = 4.5 V; gos 0.5 mS at VDS = 5 V, ID = 0.05 A, so LAMBDA = 0.0105. VTO and KP solve the square law through the first two points. The model then gives gfs 0.21 S at ID = 0.2 A (sheet 100 mS min) and rDS(on) 1.3 ohm at VGS = 10 V (sheet 2.4 typ, 5 max). BS250P: gfs 150 mS typ at VDS = -10 V, ID = -200 mA, so KP = gfs^2 / (2 ID) = 56m. The sheet gives VGS(th) only as -1 min and -3.5 max at ID = -1 mA, so VTO = -2.06 puts the 1 mA point at the window centre, -2.25 V; this VTO is UNVERIFIED (no typical on the sheet). The sheet gives no output conductance, so the BS250P has no LAMBDA. Measured in ssp: see tests/Ssp.Core.Tests/MosfetStageTests.cs
+* author: 4esv
+* license: MIT
+
+* Level 1 (square law). Both models assume the SpiceSharp default W = L = 100u, so beta = KP. Give no W or L on
+* the M line. The sheets give capacitances only at VDS = 25 V (2N7000: Ciss 22 pF, Crss 2 pF typ) and
+* VDS = -10 V (BS250P: Ciss 60 pF), and Level 1 overlap capacitances scale with W, so the models carry none.
+* The four pins are drain, gate, source, bulk: M1 d g s s M2N7000 (tie the bulk to the source).
+.model M2N7000 NMOS (LEVEL=1 VTO=1.96 KP=98m LAMBDA=0.0105)
+.model MBS250 PMOS (LEVEL=1 VTO=-2.06 KP=56m)
