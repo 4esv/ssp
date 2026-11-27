@@ -46,6 +46,7 @@ public static partial class SchematicEdits
         ["led"] = ("D", "LED_RED"),
         ["njf"] = ("J", "JN"),
         ["pjf"] = ("J", "JP"),
+        ["opamp5"] = ("X", "JRC4558"),
         ["pot"] = ("RV", "10k"),
         ["switch-1"] = ("RSW", ""),
         ["switch-2"] = ("RSW", ""),
@@ -69,13 +70,20 @@ public static partial class SchematicEdits
         ["JP"] = ".model JP PJF(Beta=1.25m Vto=-2 Lambda=2m)",
     };
 
+    // The .subckt block that a kind needs, by subcircuit name. The pins are inp inn out vcc vee, as in models/opamp-*.cir.
+    // NOTE: #456: the TL072 model finds no DC operating point on one 0 V to 9 V battery. The JRC4558 and LM308 models do.
+    static readonly Dictionary<string, string> OpampBlocks = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["JRC4558"] = OpAmpModel.Jrc4558.ToSubcircuit("JRC4558"),
+    };
+
     static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
 
     /// <summary>
     /// Adds a part with a new reference and a new node for each pin. A battery has its minus pin on node 0 and a
     /// transistor has its substrate on node 0. A pot adds a <c>ssp:knob</c> line, a switch a <c>ssp:switch</c> line, a diode,
-    /// LED or transistor adds its <c>.model</c> line if missing. The layout places the part one column to the right of
-    /// the other parts. With no value the part gets the default value of its kind.
+    /// LED or transistor adds its <c>.model</c> line if missing, and an op-amp its <c>.subckt</c> block if missing. The layout
+    /// places the part one column to the right of the other parts. With no value the part gets the default value of its kind.
     /// </summary>
     public static SchematicChange Place(string netlist, LayoutDoc layout, string kind, string? value = null)
     {
@@ -105,6 +113,10 @@ public static partial class SchematicEdits
             case "njf" or "pjf":
                 // NOTE: drain, gate, source: the SPICE order.
                 added.Add($"{reference} {Node()} {Node()} {Node()} {value}");
+                break;
+            case "opamp5":
+                // NOTE: + input, - input, output, V+, V-: the pin order of the subcircuit.
+                added.Add($"{reference} {Node()} {Node()} {Node()} {Node()} {Node()} {value}");
                 break;
             case "diode" or "led" or "zener" or "schottky":
                 added.Add($"{reference} {Node()} {Node()} {value}");
@@ -139,6 +151,8 @@ public static partial class SchematicEdits
         if (lines.Count == 0) lines.Add("* schematic");
         var end = lines.FindIndex(1, l => l.Trim().Equals(".end", StringComparison.OrdinalIgnoreCase));
         if (model is not null && !lines.Any(l => ModelLine(model).IsMatch(l))) added.Insert(0, Models[model]);
+        if (kind == "opamp5" && OpampBlocks.TryGetValue(value, out var block) && !lines.Any(l => SubcircuitName().Match(l) is { Success: true } m && Names.Equals(m.Groups[1].Value, value)))
+            added.InsertRange(0, Lines(block).Where(l => l.Length > 0));
         lines.InsertRange(end < 0 ? lines.Count : end, added);
 
         var x = layout.Parts.Count == 0 ? 0 : layout.Parts.Max(p => p.X) + ColumnStep;
@@ -378,6 +392,8 @@ public static partial class SchematicEdits
     {
         "npn" or "pnp" => (1, 0),
         "pot" => (0, 2),
+        // NOTE: An op-amp goes on from its + input and the output is the next spot.
+        "opamp5" => (0, 2),
         _ => (0, 1),
     };
 
@@ -1232,7 +1248,8 @@ public static partial class SchematicEdits
     {
         // NOTE: A pot P is the resistors P_1 and P_2. The layout places it as P_1. Its pins are the top, the wiper and the bottom.
         // NOTE: A switch S is S_1 to S_n and is placed as S_1 in the same way.
-        if (SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => (e.Kind == "pot" || IsSwitch(e.Kind)) && Names.Equals(e.Reference, pin.Reference)) is { } pot)
+        // NOTE: #456: a subcircuit instance X, such as an op-amp, is placed as X. Its pins are the nodes of its X line.
+        if (SchematicRenderer.Elements(circuit, parts).SingleOrDefault(e => (e.Kind == "pot" || IsSwitch(e.Kind) || circuit.Subcircuits.Any(x => Names.Equals(x.Name, e.Reference))) && Names.Equals(e.Reference, pin.Reference)) is { } pot)
         {
             var at = layout.Parts.FirstOrDefault(p => Names.Equals(p.Reference, pin.Reference) || Names.Equals(p.Reference, pot.Members[0]));
             if (at is null || pin.Pin < 0 || pin.Pin >= pot.Nodes.Count)
