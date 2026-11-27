@@ -12,14 +12,42 @@ public class PedalFlowPlaywrightTests(PedalFlowPlaywrightTests.BrowserFixture fi
 {
     static readonly TimeSpan Limit = TimeSpan.FromMinutes(3);
 
-    static readonly string[] SlowEditedLink = ["overdrive-808", "distortion-rat", "fuzz-muff"];
+    // NOTE: #449: a link to a pedal after a one-value edit opened in 22 s (distortion-rat) to 145 s (fuzz-muff), and the page did not
+    // answer while it opened. The editor placed the parts from nothing. Now a netlist with the parts and nodes of a library circuit
+    // opens with its hand layout.
+    static readonly TimeSpan FewSeconds = TimeSpan.FromSeconds(10);
 
-    // BUG: a link to a pedal after a one-value edit opens slowly, and slower the bigger the pedal: on a laptop, with the link made after
-    // R1 or RB changed to 47k, the page was ready in 2.7 s (clean-boost), 4.5 s (fuzz-face-si), 22 s (distortion-rat), 112 s (overdrive-808)
-    // and 145 s (fuzz-muff). The page does not answer while it opens. The link of the unedited pedal opens in 2 s. Expected: a few seconds.
-    // UNVERIFIED cause: the link holds no layout, so a circuit that is not a library file gets a layout from nothing.
-    [Fact(Skip = "BUG: a shared link of an edited overdrive-808, distortion-rat or fuzz-muff freezes the page for 22 s to 145 s while it opens. Not fixed here.")]
-    public void A_shared_link_of_an_edited_pedal_opens_in_a_few_seconds() { }
+    public static IEnumerable<object[]> Pedals() =>
+        new[] { "clean-boost", "overdrive-808", "distortion-rat", "fuzz-face-si", "fuzz-muff" }.Select(p => new object[] { p });
+
+    // The edit of step 4: the first resistor value changes to 47k (or to 33k when it is 47k).
+    static string Edited(string netlist) =>
+        new System.Text.RegularExpressions.Regex(@"^(R(?!V|id\b|p\b|out\b)\w*\s+\S+\s+\S+\s+)(\S+)", System.Text.RegularExpressions.RegexOptions.Multiline)
+            .Replace(netlist, m => m.Groups[1].Value + (m.Groups[2].Value == "47k" ? "33k" : "47k"), 1);
+
+    [PlaywrightTheory]
+    [MemberData(nameof(Pedals))]
+    public async Task A_shared_link_of_an_edited_pedal_opens_in_a_few_seconds(string pedal)
+    {
+        var baseUrl = Environment.GetEnvironmentVariable(PlaywrightFactAttribute.BaseUrlVariable)!;
+        var edited = Edited(File.ReadAllText(Path.Combine(RepoPaths.Root, "circuits", "library", pedal + ".cir")));
+        // NOTE: The app loads once before the clock starts, so the time is the open of the link and not the download.
+        var (warm, warmPage, _) = await Open(false, baseUrl + "gallery");
+        await warmPage.Locator("ul.gallery li").First.WaitForAsync();
+        await warm.DisposeAsync();
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var (context, page, errors) = await Open(false, baseUrl + "editor#" + ShareCodec.Encode(edited));
+        await using var _ = context;
+        await page.Locator("rect.part").First.WaitForAsync(new() { Timeout = 180_000, State = WaitForSelectorState.Attached });
+        // NOTE: The page answers: a script runs only when the main thread is free.
+        await page.EvaluateAsync("() => new Promise(r => setTimeout(r, 0))");
+        clock.Stop();
+        output.WriteLine($"{pedal}: the edited link opened in {clock.Elapsed.TotalSeconds:0.0} s.");
+        await Assertions.Expect(page.Locator("textarea[aria-label=Netlist]")).ToHaveValueAsync(edited);
+        Assert.True(errors.Count == 0, $"{pedal}: console errors: {string.Join(" | ", errors)}");
+        Assert.True(clock.Elapsed < FewSeconds, $"{pedal}: the edited link opened in {clock.Elapsed.TotalSeconds:0.0} s, more than {FewSeconds.TotalSeconds} s.");
+    }
 
     public static IEnumerable<object[]> Cases() =>
         from pedal in new[] { "clean-boost", "overdrive-808", "distortion-rat", "fuzz-face-si", "fuzz-muff" }
@@ -196,15 +224,11 @@ public class PedalFlowPlaywrightTests(PedalFlowPlaywrightTests.BrowserFixture fi
         Assert.StartsWith(baseUrl + "editor#", link);
         var shared = ShareCodec.Decode(link[(link.IndexOf('#') + 1)..]);
         Assert.Equal(edited, shared);
-        // BUG: a link to an edited big pedal freezes the page that opens it (see the skipped test below). Those pedals open the link of the
-        // unedited circuit here, so the rest of the step still runs.
-        var opened = SlowEditedLink.Contains(pedal) ? baseUrl + "editor#" + ShareCodec.Encode(library) : link;
-        var expected = SlowEditedLink.Contains(pedal) ? library : edited;
-        var (other, fresh, freshErrors) = await Open(phone, opened);
+        var (other, fresh, freshErrors) = await Open(phone, link);
         await using var __ = other;
         await fresh.Locator("rect.part").First.WaitForAsync(new() { Timeout = 30_000, State = WaitForSelectorState.Attached });
         if (phone) await fresh.Locator(".panel-bar button[data-panel=text]").TapAsync();
-        await Assertions.Expect(fresh.Locator("textarea[aria-label=Netlist]")).ToHaveValueAsync(expected);
+        await Assertions.Expect(fresh.Locator("textarea[aria-label=Netlist]")).ToHaveValueAsync(edited);
         await Assertions.Expect(fresh.Locator("#blazor-error-ui")).ToBeHiddenAsync();
         Assert.True(freshErrors.Count == 0, $"{tag}: console errors in the fresh context: {string.Join(" | ", freshErrors)}");
     }

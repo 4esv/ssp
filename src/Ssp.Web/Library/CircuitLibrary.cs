@@ -1,5 +1,8 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
+using Ssp.Core.Netlist;
 using Ssp.Web.Projects;
+using Ssp.Web.Schematic;
 
 namespace Ssp.Web.Library;
 
@@ -36,11 +39,32 @@ public static class CircuitLibrary
     }
 
     /// <summary>
-    /// The text of the layout file of the library circuit with this netlist, or null. The gallery opens a library circuit in
-    /// the editor by its netlist, so the editor finds the hand layout by the netlist.
+    /// The text of the layout file of the library circuit with this netlist, or with the same parts and nodes, or null. The
+    /// gallery opens a library circuit in the editor by its netlist, so the editor finds the hand layout by the netlist.
     /// </summary>
-    public static string? LayoutOf(string netlist) =>
-        All.FirstOrDefault(c => c.Layout is not null && Same(c.Netlist, netlist))?.Layout;
+    // NOTE: #449: a shared link of a library circuit after a value edit has the parts and nodes of the library circuit, so it
+    // gets the hand layout too. Without it the editor places the parts from nothing, which takes minutes in the browser for a
+    // big pedal. The text check comes first, and only a library circuit with the same part names is loaded to compare shapes.
+    public static string? LayoutOf(string netlist)
+    {
+        if (All.FirstOrDefault(c => c.Layout is not null && Same(c.Netlist, netlist)) is { } same) return same.Layout;
+        var references = References(netlist);
+        var candidates = All.Where(c => c.Layout is not null && References(c.Netlist).SetEquals(references)).ToList();
+        if (candidates.Count == 0) return null;
+        var circuit = NetlistLoader.Load(netlist);
+        if (circuit.Diagnostics.Any(d => d.Severity == Severity.Error)) return null;
+        var shape = AutoPlacer.Shape(circuit);
+        return candidates.FirstOrDefault(c => Shapes.GetOrAdd(c.FileName, _ => AutoPlacer.Shape(NetlistLoader.Load(c.Netlist))) == shape)?.Layout;
+    }
+
+    static readonly ConcurrentDictionary<string, string> Shapes = new(StringComparer.Ordinal);
+
+    // The first word of each line that is not a comment, a directive or a continuation: the part names of the netlist.
+    static HashSet<string> References(string netlist) => netlist.Split('\n')
+        .Select(l => l.Trim())
+        .Where(l => l.Length > 0 && l[0] is not ('*' or '.' or '+' or ';'))
+        .Select(l => l.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries)[0])
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     // NOTE: A Windows checkout, the embedded file and a share link can differ in line endings and in trailing spaces.
     static bool Same(string a, string b) => Normal(a) == Normal(b);
