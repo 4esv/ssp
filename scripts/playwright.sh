@@ -17,7 +17,7 @@ dotnet publish src/Ssp.Web -c Release -o "$out"
 fonts="$out/wwwroot/substrate/fonts"
 mkdir -p "$fonts"
 for f in handjet-cells handjet-cells-mono; do
-  for x in woff2 woff ttf; do
+  for x in woff2 ttf; do
     [ -f "$fonts/$f.$x" ] || curl -fsS -o "$fonts/$f.$x" "https://aesv.io/fonts/$f.$x"
   done
 done
