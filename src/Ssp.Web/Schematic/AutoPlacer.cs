@@ -290,11 +290,12 @@ public static class AutoPlacer
         // The placer keeps the boxes as they are, so the places of the parts do not change.
         var solid = sheet.Solid.Select(b => new Box(Math.Round(b.X0, 2), Math.Round(b.Y0, 2), Math.Round(b.X1, 2), Math.Round(b.Y1, 2))).ToList();
         var nets = sheet.Pins.Where(p => !IsGround(p.Key) && !railNets.ContainsKey(p.Key)).OrderBy(p => p.Key, StringComparer.Ordinal).ToList();
+        var blocks = new Router.Blocks(solid);
         var routed = new Dictionary<string, List<WireRoute>>(Names);
         List<(Point, Point)> Others(string net) =>
             routed.Where(r => !Names.Equals(r.Key, net)).SelectMany(r => r.Value).SelectMany(w => w.Points.Zip(w.Points.Skip(1))).ToList();
 
-        foreach (var (net, all) in nets) routed[net] = Tree(sheet, solid, net, all, Others(net));
+        foreach (var (net, all) in nets) routed[net] = Tree(sheet, solid, blocks, net, all, Others(net));
         for (var pass = 0; pass < 2; pass++)
         {
             foreach (var (net, all) in nets)
@@ -302,17 +303,19 @@ public static class AutoPlacer
                 var others = Others(net);
                 var now = Router.Meets(routed[net], others);
                 if (now == 0) continue;
-                var again = Tree(sheet, solid, net, all, others);
+                var again = Tree(sheet, solid, blocks, net, all, others);
                 if (Router.Meets(again, others) < now) routed[net] = again;
             }
         }
         return nets.SelectMany(n => routed[n.Key]).ToList();
     }
 
-    static List<WireRoute> Tree(Sheet sheet, List<Box> solid, string net, List<Point> all, List<(Point, Point)> crossed)
+    static List<WireRoute> Tree(Sheet sheet, List<Box> solid, Router.Blocks blocks, string net, List<Point> all, List<(Point, Point)> crossed)
     {
         var wires = new List<WireRoute>();
         var avoid = sheet.Foreign(net);
+        // PERF: #454: the boxes, the pins and the wires do not change while the tree grows, so a route between two pins is found once.
+        var known = new Dictionary<(Point, Point), IReadOnlyList<Point>?>();
         var joined = new List<Point> { all[0] };
         var rest = all.Skip(1).Distinct().Where(p => p != all[0]).ToList();
         while (rest.Count > 0)
@@ -322,7 +325,7 @@ public static class AutoPlacer
             {
                 foreach (var b in rest)
                 {
-                    var r = Router.Route(a, b, solid, avoid, crossed);
+                    if (!known.TryGetValue((a, b), out var r)) known[(a, b)] = r = Router.Route(a, b, solid, avoid, crossed, blocks: blocks);
                     var c = r is null ? 1e6 + Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) : Router.Cost(r);
                     if (c >= cost) continue;
                     (from, to, route, cost) = (a, b, r, c);
@@ -370,9 +373,11 @@ public static class AutoPlacer
 
         readonly List<(string Net, Point At)> everyPin = [];
 
+        // PERF: #454: the boxes of Solid and the pins of everyPin by where they are, so a route looks only at those near it.
+        readonly Cells index = new();
+
         /// <summary>The pins of the other nets.</summary>
-        public List<Point> Foreign(string net, IEnumerable<SchematicRenderer.ElementPin>? more = null) =>
-            everyPin.Select(p => (p.Net, p.At)).Concat((more ?? []).Select(p => (p.Net, p.At))).Where(p => !Names.Equals(p.Net, net)).Select(p => p.At).ToList();
+        public List<Point> Foreign(string net) => everyPin.Where(p => !Names.Equals(p.Net, net)).Select(p => p.At).ToList();
 
         public double Left { get; private set; } = double.PositiveInfinity;
 
@@ -397,27 +402,55 @@ public static class AutoPlacer
         public double? RouteCost(SchematicElement e, PartPlacement p, Dictionary<string, bool> railNets, bool simple)
         {
             var (_, symbols) = Boxes(e, p, railNets);
-            var solid = Solid.Concat(symbols.Prepend(Plain(e, p))).Concat(TextBoxes(e, p)).ToList();
+            // The boxes of the part, which are not on the sheet yet. A route keeps clear of them and of Solid.
+            var own = symbols.Prepend(Plain(e, p)).Concat(TextBoxes(e, p)).ToList();
             var pins = SchematicRenderer.Pins(e, p).Where(x => !x.Hidden).ToList();
             var total = 0.0;
             foreach (var pin in pins.Where(x => !IsGround(x.Net) && !railNets.ContainsKey(x.Net)))
             {
                 if (!Anchor.TryGetValue(pin.Net, out var at) || at == pin.At) continue;
-                var route = Router.Route(at, pin.At, solid, Foreign(pin.Net, pins), search: false);
+                var net = pin.Net;
+                // A segment is clear if it crosses no box and touches no pin of another net: the same test as Router.Route, with the sheet looked up in the index.
+                bool Clear(Point a, Point b)
+                {
+                    foreach (var box in own)
+                    {
+                        if (Router.Crosses(a, b, box)) return false;
+                    }
+                    foreach (var x in pins)
+                    {
+                        if (Router.On(a, b, x.At) && !Names.Equals(x.Net, net)) return false;
+                    }
+                    return Open(a, b, net);
+                }
+                var route = Router.Simple(at, pin.At, Clear);
                 if (route is null || simple && route.Count > 3) return null;
                 total += Router.Cost(route);
             }
             return total;
         }
 
+        // PERF: #454: the tries of one part test the same segments again and again, and the sheet does not change until the part is added.
+        readonly Dictionary<(Point, Point, string), bool> open = [];
+
+        // True if the segment crosses no box on the sheet and touches no pin of another net.
+        bool Open(Point a, Point b, string net)
+        {
+            if (!open.TryGetValue((a, b, net), out var known)) open[(a, b, net)] = known = !index.Crosses(a, b) && !index.Touches(a, b, net);
+            return known;
+        }
+
         public void Add(SchematicElement e, PartPlacement p, Dictionary<string, bool> railNets)
         {
+            open.Clear();
             var (body, symbols) = Boxes(e, p, railNets);
             room.Add(body);
             room.AddRange(symbols);
+            var count = Solid.Count;
             Solid.Add(Plain(e, p));
             Solid.AddRange(symbols);
             Solid.AddRange(TextBoxes(e, p));
+            for (var i = count; i < Solid.Count; i++) index.Add(Solid[i]);
             Placed = true;
             foreach (var box in symbols.Prepend(body))
             {
@@ -425,7 +458,11 @@ public static class AutoPlacer
                 Top = Math.Min(Top, box.Y0);
                 Right = Math.Max(Right, box.X1);
             }
-            everyPin.AddRange(SchematicRenderer.Pins(e, p).Where(x => !x.Hidden).Select(x => (x.Net, x.At)));
+            foreach (var pin in SchematicRenderer.Pins(e, p).Where(x => !x.Hidden))
+            {
+                everyPin.Add((pin.Net, pin.At));
+                index.Add(pin.Net, pin.At);
+            }
             // NOTE: A net with two pins of one part, such as the feedback of a follower, is anchored on the rightmost pin: the output.
             foreach (var pin in SchematicRenderer.Pins(e, p).Where(x => !x.Hidden && !IsGround(x.Net) && !railNets.ContainsKey(x.Net)).OrderByDescending(x => x.At.X))
             {
@@ -468,6 +505,64 @@ public static class AutoPlacer
         }
     }
 
+    // The boxes and the pins on the sheet, in square cells, so a test of a segment looks only at the cells that it passes.
+    // NOTE: A box is in each cell that it covers, edges included, and a pin is in the cell it is in. A segment that crosses a box
+    // or touches a pin shares a point with it, and that point is in a cell of both, so the index finds what a scan of every box finds.
+    sealed class Cells
+    {
+        const double Size = 4 * Grid;
+
+        readonly Dictionary<(int, int), List<Box>> boxes = [];
+        readonly Dictionary<(int, int), List<(string Net, Point At)>> pins = [];
+
+        static int Cell(double v) => (int)Math.Floor(v / Size);
+
+        public void Add(Box box)
+        {
+            for (var i = Cell(box.X0); i <= Cell(box.X1); i++)
+            {
+                for (var j = Cell(box.Y0); j <= Cell(box.Y1); j++)
+                {
+                    if (!boxes.TryGetValue((i, j), out var list)) boxes[(i, j)] = list = [];
+                    list.Add(box);
+                }
+            }
+        }
+
+        public void Add(string net, Point at)
+        {
+            var key = (Cell(at.X), Cell(at.Y));
+            if (!pins.TryGetValue(key, out var list)) pins[key] = list = [];
+            list.Add((net, at));
+        }
+
+        /// <summary>True if the segment goes through the inside of a box.</summary>
+        public bool Crosses(Point p, Point q)
+        {
+            for (var i = Cell(Math.Min(p.X, q.X)); i <= Cell(Math.Max(p.X, q.X)); i++)
+            {
+                for (var j = Cell(Math.Min(p.Y, q.Y)); j <= Cell(Math.Max(p.Y, q.Y)); j++)
+                {
+                    if (boxes.TryGetValue((i, j), out var list) && list.Any(box => Router.Crosses(p, q, box))) return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>True if the segment touches a pin of a net other than <paramref name="net"/>.</summary>
+        public bool Touches(Point p, Point q, string net)
+        {
+            for (var i = Cell(Math.Min(p.X, q.X)); i <= Cell(Math.Max(p.X, q.X)); i++)
+            {
+                for (var j = Cell(Math.Min(p.Y, q.Y)); j <= Cell(Math.Max(p.Y, q.Y)); j++)
+                {
+                    if (pins.TryGetValue((i, j), out var list) && list.Any(x => !Names.Equals(x.Net, net) && Router.On(p, q, x.At))) return true;
+                }
+            }
+            return false;
+        }
+    }
+
     // Orthogonal routes between two points that keep clear of the boxes.
     static class Router
     {
@@ -480,22 +575,79 @@ public static class AutoPlacer
 
         /// <summary>The shortest route with the fewest bends, or null if every route crosses a box. A route may touch the edge of a box.</summary>
         /// <remarks>A route does not meet a segment of <paramref name="wires"/>, the wires of the other nets. The search may cross one, at a cost, but not run along it or bend on it.</remarks>
-        public static IReadOnlyList<Point>? Route(Point a, Point b, IReadOnlyList<Box> solid, IReadOnlyList<Point> avoid, IReadOnlyList<(Point, Point)>? wires = null, bool search = true)
+        public static IReadOnlyList<Point>? Route(Point a, Point b, IReadOnlyList<Box> solid, IReadOnlyList<Point> avoid, IReadOnlyList<(Point, Point)>? wires = null, bool search = true, Blocks? blocks = null)
         {
             wires ??= [];
-            IReadOnlyList<Point>? best = null;
-            var bestCost = double.PositiveInfinity;
-            foreach (var path in Candidates(a, b))
+            var best = Simple(a, b, (p, q) => !solid.Any(box => Crosses(p, q, box)) && !avoid.Any(pin => On(p, q, pin)) && !wires.Any(w => Meet((p, q), w)));
+            return best ?? (search ? Search(a, b, solid, blocks ?? new Blocks(solid), avoid, wires) : null);
+        }
+
+        /// <summary>The cheapest of the routes with two bends at most whose segments are all clear, or null.</summary>
+        /// <remarks>Of two clear routes with the same cost, the one that <see cref="Candidates"/> gives first wins.</remarks>
+        // PERF: #454: the routes are tested from the cheapest, so the test stops at the first clear one. A tie keeps the order of
+        // Candidates. A route is made only when it is tested.
+        public static IReadOnlyList<Point>? Simple(Point a, Point b, Func<Point, Point, bool> clear)
+        {
+            var candidates = Candidates(a, b);
+            Array.Sort(candidates, Cheaper.Instance);
+            foreach (var candidate in candidates)
             {
-                var cost = Cost(path);
-                if (cost >= bestCost || path.Zip(path.Skip(1)).Any(s => solid.Any(box => Crosses(s.First, s.Second, box)) || avoid.Any(pin => On(s.First, s.Second, pin)) || wires.Any(w => Meet(s, w)))) continue;
-                (best, bestCost) = (path, cost);
+                var path = candidate.Path(a, b);
+                var ok = true;
+                for (var i = 1; i < path.Length && ok; i++) ok = clear(path[i - 1], path[i]);
+                if (ok) return path;
             }
-            return best ?? (search ? Search(a, b, solid, avoid, wires) : null);
+            return null;
+        }
+
+        /// <summary>The steps of one grid that cross a box, for the search on the grid.</summary>
+        /// <remarks>PERF: #454: a step looks up its cell, and does not test each box. A box marks the steps that <see cref="Crosses"/> is true for.</remarks>
+        internal sealed class Blocks
+        {
+            readonly int left, top, width, height;
+            // The step from the cell to the next cell right, and to the next cell down.
+            readonly bool[] across = [], down = [];
+
+            public Blocks(IReadOnlyList<Box> solid)
+            {
+                if (solid.Count == 0) return;
+                left = (int)Math.Floor(solid.Min(b => b.X0) / Grid) - 2;
+                top = (int)Math.Floor(solid.Min(b => b.Y0) / Grid) - 2;
+                width = (int)Math.Ceiling(solid.Max(b => b.X1) / Grid) + 2 - left + 1;
+                height = (int)Math.Ceiling(solid.Max(b => b.Y1) / Grid) + 2 - top + 1;
+                (across, down) = (new bool[width * height], new bool[width * height]);
+                foreach (var box in solid)
+                {
+                    var (i0, i1) = ((int)Math.Floor(box.X0 / Grid) - 1, (int)Math.Ceiling(box.X1 / Grid) + 1);
+                    var (j0, j1) = ((int)Math.Floor(box.Y0 / Grid) - 1, (int)Math.Ceiling(box.Y1 / Grid) + 1);
+                    for (var j = j0; j <= j1; j++)
+                    {
+                        for (var i = i0; i <= i1; i++)
+                        {
+                            var p = new Point((double)i * Grid, (double)j * Grid);
+                            var at = (j - top) * width + i - left;
+                            across[at] |= Crosses(p, new Point(p.X + Grid, p.Y), box);
+                            down[at] |= Crosses(p, new Point(p.X, p.Y + Grid), box);
+                        }
+                    }
+                }
+            }
+
+            /// <summary>True if the step of one grid from the cell (i, j) in the direction crosses a box.</summary>
+            public bool Blocked(int i, int j, int dx, int dy)
+            {
+                // A step left or up is the step right or down from the cell before it.
+                if (dx < 0) i--;
+                if (dy < 0) j--;
+                var (x, y) = (i - left, j - top);
+                if (x < 0 || y < 0 || x >= width || y >= height) return false;
+                return dx != 0 ? across[y * width + x] : down[y * width + x];
+            }
         }
 
         // The cheapest route on the grid when no simple route is clear. The cost of a move is its length, and a bend costs more.
-        static IReadOnlyList<Point>? Search(Point a, Point b, IReadOnlyList<Box> solid, IReadOnlyList<Point> avoid, IReadOnlyList<(Point, Point)> wires)
+        // PERF: #454: the state of a search is in arrays, not dictionaries. The queue gets the same items in the same order, so the route is the same.
+        static IReadOnlyList<Point>? Search(Point a, Point b, IReadOnlyList<Box> solid, Blocks blocks, IReadOnlyList<Point> avoid, IReadOnlyList<(Point, Point)> wires)
         {
             var x0 = Math.Floor(Math.Min(solid.Select(s => s.X0).Append(a.X).Min(), b.X) / Grid) * Grid - 4 * Grid;
             var y0 = Math.Floor(Math.Min(solid.Select(s => s.Y0).Append(a.Y).Min(), b.Y) / Grid) * Grid - 4 * Grid;
@@ -505,34 +657,44 @@ public static class AutoPlacer
             var start = ((int)Math.Round((a.X - x0) / Grid), (int)Math.Round((a.Y - y0) / Grid));
             var goal = ((int)Math.Round((b.X - x0) / Grid), (int)Math.Round((b.Y - y0) / Grid));
             var (w, h) = ((int)((x1 - x0) / Grid) + 1, (int)((y1 - y0) / Grid) + 1);
+            var (gx, gy) = ((int)(x0 / Grid), (int)(y0 / Grid));
             Point At((int X, int Y) c) => new(x0 + c.X * Grid, y0 + c.Y * Grid);
+            int Key(int x, int y, int d) => (y * w + x) * 4 + d;
 
-            var cost = new Dictionary<(int, int, int), double>();
-            var from = new Dictionary<(int, int, int), (int, int, int)>();
-            var queue = new PriorityQueue<(int X, int Y, int Dir), double>();
+            var cost = new double[w * h * 4];
+            Array.Fill(cost, double.PositiveInfinity);
+            var from = new int[w * h * 4];
+            Array.Fill(from, -1);
+            var queue = new PriorityQueue<int, double>();
             for (var d = 0; d < 4; d++)
             {
-                cost[(start.Item1, start.Item2, d)] = 0;
-                queue.Enqueue((start.Item1, start.Item2, d), 0);
+                cost[Key(start.Item1, start.Item2, d)] = 0;
+                queue.Enqueue(Key(start.Item1, start.Item2, d), 0);
             }
-            var onWire = new Dictionary<(int, int), bool>();
-            bool OnWire((int X, int Y) c)
+            var pins = avoid.ToHashSet();
+            // PERF: #454: each wire marks the cells that it is on, so a step does not test each wire.
+            var onWire = new bool[w * h];
+            foreach (var (p, q) in wires)
             {
-                if (onWire.TryGetValue(c, out var known)) return known;
-                var p = At(c);
-                return onWire[c] = wires.Any(w => On(w.Item1, w.Item2, p));
+                var (i0, i1) = (Math.Max(0, (int)Math.Floor((Math.Min(p.X, q.X) - x0) / Grid)), Math.Min(w - 1, (int)Math.Ceiling((Math.Max(p.X, q.X) - x0) / Grid)));
+                var (j0, j1) = (Math.Max(0, (int)Math.Floor((Math.Min(p.Y, q.Y) - y0) / Grid)), Math.Min(h - 1, (int)Math.Ceiling((Math.Max(p.Y, q.Y) - y0) / Grid)));
+                for (var j = j0; j <= j1; j++)
+                {
+                    for (var i = i0; i <= i1; i++) onWire[j * w + i] |= On(p, q, At((i, j)));
+                }
             }
-            while (queue.TryDequeue(out var cur, out var spent))
+            bool OnWire((int X, int Y) c) => onWire[c.Y * w + c.X];
+            while (queue.TryDequeue(out var key, out var spent))
             {
-                if (spent > cost[cur]) continue;
+                if (spent > cost[key]) continue;
+                var cur = (X: key / 4 % w, Y: key / 4 / w, Dir: key % 4);
                 if ((cur.X, cur.Y) == goal)
                 {
                     var cells = new List<Point> { At((cur.X, cur.Y)) };
-                    var key = cur;
-                    while (from.TryGetValue(key, out var prev))
+                    while (from[key] >= 0)
                     {
-                        key = prev;
-                        cells.Add(At((key.Item1, key.Item2)));
+                        key = from[key];
+                        cells.Add(At((key / 4 % w, key / 4 / w)));
                     }
                     cells.Reverse();
                     return cells.Where((c, i) => i == 0 || i == cells.Count - 1 || (c.X - cells[i - 1].X) * (cells[i + 1].Y - c.Y) != (c.Y - cells[i - 1].Y) * (cells[i + 1].X - c.X)).ToList();
@@ -543,30 +705,65 @@ public static class AutoPlacer
                     if (next.X < 0 || next.Y < 0 || next.X >= w || next.Y >= h) continue;
                     var (p, q) = (At((cur.X, cur.Y)), At(next));
                     var target = (next.X, next.Y) == goal;
-                    if (!target && avoid.Any(pin => pin == q) || solid.Any(box => Crosses(p, q, box))) continue;
+                    if (!target && pins.Contains(q) || blocks.Blocked(gx + cur.X, gy + cur.Y, steps[d].X, steps[d].Y)) continue;
                     // NOTE: A route that crosses a wire goes straight over it. A bend on it, or a step along it, would join the two nets on the drawing.
                     var (here, there) = (OnWire((cur.X, cur.Y)), OnWire(next));
-                    if (here && d != cur.Dir && (cur.X, cur.Y) != start || here && there && wires.Any(w => Meet((p, q), w) && Along((p, q), w))) continue;
-                    var key = (next.X, next.Y, d);
+                    if (here && d != cur.Dir && (cur.X, cur.Y) != start || here && there && wires.Any(x => Meet((p, q), x) && Along((p, q), x))) continue;
+                    var nextKey = Key(next.X, next.Y, d);
                     var total = spent + Grid + (d == cur.Dir ? 0 : BendCost) + (there ? CrossCost : 0);
-                    if (cost.TryGetValue(key, out var known) && known <= total) continue;
-                    cost[key] = total;
-                    from[key] = cur;
-                    queue.Enqueue(key, total);
+                    if (cost[nextKey] <= total) continue;
+                    cost[nextKey] = total;
+                    from[nextKey] = key;
+                    queue.Enqueue(nextKey, total);
                 }
             }
             return null;
         }
 
-        static IEnumerable<Point[]> Candidates(Point a, Point b)
+        // A route from a to b: 0 straight, 1 along then across, 2 across then along, 3 across at X, 4 along at Y. Order is its place in the list.
+        readonly record struct Candidate(int Kind, double At, double Cost, int Order)
         {
-            if (a.X == b.X || a.Y == b.Y) yield return [a, b];
-            yield return [a, new Point(b.X, a.Y), b];
-            yield return [a, new Point(a.X, b.Y), b];
+            public Point[] Path(Point a, Point b) => Kind switch
+            {
+                0 => [a, b],
+                1 => [a, new Point(b.X, a.Y), b],
+                2 => [a, new Point(a.X, b.Y), b],
+                3 => Clean([a, new Point(At, a.Y), new Point(At, b.Y), b]),
+                _ => Clean([a, new Point(a.X, At), new Point(b.X, At), b]),
+            };
+        }
+
+        sealed class Cheaper : IComparer<Candidate>
+        {
+            public static readonly Cheaper Instance = new();
+
+            public int Compare(Candidate p, Candidate q) => p.Cost != q.Cost ? p.Cost.CompareTo(q.Cost) : p.Order.CompareTo(q.Order);
+        }
+
+        // The routes with two bends at most, and those that go out up to Reach to get round a box.
+        static Candidate[] Candidates(Point a, Point b)
+        {
+            var list = new List<Candidate>();
+            // The cost of the route a, p, q, b with no point made: what Cost gives for the route after Clean. A point that repeats the
+            // one before it adds a segment of length 0 and takes away a bend.
+            void Add(int kind, double at, Point p, Point q, bool clean)
+            {
+                var length = 0.0;
+                length += Math.Abs(a.X - p.X) + Math.Abs(a.Y - p.Y);
+                length += Math.Abs(p.X - q.X) + Math.Abs(p.Y - q.Y);
+                length += Math.Abs(q.X - b.X) + Math.Abs(q.Y - b.Y);
+                var count = 4 - (clean ? (p == a ? 1 : 0) + (q == p ? 1 : 0) + (b == q ? 1 : 0) : 1);
+                list.Add(new Candidate(kind, at, length + BendCost * (count - 2), list.Count));
+            }
+            if (a.X == b.X || a.Y == b.Y) list.Add(new Candidate(0, 0, Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) + BendCost * 0, 0));
+            // NOTE: Kinds 1 and 2 are not cleaned. Their middle point is given twice, so the zero segment adds 0 and the count is 3.
+            Add(1, 0, new Point(b.X, a.Y), new Point(b.X, a.Y), false);
+            Add(2, 0, new Point(a.X, b.Y), new Point(a.X, b.Y), false);
             var (x0, x1) = (Math.Min(a.X, b.X) - Reach, Math.Max(a.X, b.X) + Reach);
             var (y0, y1) = (Math.Min(a.Y, b.Y) - Reach, Math.Max(a.Y, b.Y) + Reach);
-            for (var x = Math.Ceiling(x0 / Grid) * Grid; x <= x1; x += Grid) yield return Clean([a, new Point(x, a.Y), new Point(x, b.Y), b]);
-            for (var y = Math.Ceiling(y0 / Grid) * Grid; y <= y1; y += Grid) yield return Clean([a, new Point(a.X, y), new Point(b.X, y), b]);
+            for (var x = Math.Ceiling(x0 / Grid) * Grid; x <= x1; x += Grid) Add(3, x, new Point(x, a.Y), new Point(x, b.Y), true);
+            for (var y = Math.Ceiling(y0 / Grid) * Grid; y <= y1; y += Grid) Add(4, y, new Point(a.X, y), new Point(b.X, y), true);
+            return [.. list];
         }
 
         // Removes a point that repeats the one before it.
@@ -588,11 +785,11 @@ public static class AutoPlacer
         static bool Along((Point, Point) s, (Point, Point) w) => (s.Item1.Y == s.Item2.Y) == (w.Item1.Y == w.Item2.Y);
 
         // True if the pin is on the segment, ends included. A wire must not touch the pin of another net.
-        static bool On(Point p, Point q, Point pin) =>
+        internal static bool On(Point p, Point q, Point pin) =>
             Math.Min(p.X, q.X) <= pin.X && pin.X <= Math.Max(p.X, q.X) && Math.Min(p.Y, q.Y) <= pin.Y && pin.Y <= Math.Max(p.Y, q.Y);
 
         // True if the segment goes through the inside of the box. A segment along the edge, or ending on it, does not.
-        static bool Crosses(Point p, Point q, Box box)
+        internal static bool Crosses(Point p, Point q, Box box)
         {
             var (x0, x1, y0, y1) = (Math.Min(p.X, q.X), Math.Max(p.X, q.X), Math.Min(p.Y, q.Y), Math.Max(p.Y, q.Y));
             return p.Y == q.Y
