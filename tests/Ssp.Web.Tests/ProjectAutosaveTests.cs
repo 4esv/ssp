@@ -181,6 +181,25 @@ public class ProjectAutosaveTests : BunitContext
         again.WaitForAssertion(() => Assert.Equal("MyWork", again.Find(".project-name").GetAttribute("value")));
     }
 
+    // BUG: #450: the save of an edit that lands after Share took the link out of the address bar.
+    [Fact]
+    public async Task ShareAfterAnEditKeepsTheLinkInTheAddressBarWhenTheSaveLands()
+    {
+        var shared = Fixture("rc-lowpass.cir");
+        var nav = Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo("editor#" + ShareCodec.Encode(shared));
+        var linked = await Reload();
+        var edited = "* mine\n" + shared;
+        linked.Find("textarea").Input(edited);
+        linked.Find("button.export-toggle").Click();
+        await linked.Find("button.share").ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+
+        time.Advance(Debounce);
+
+        linked.WaitForAssertion(() => Assert.Equal("Saved", linked.Find(".project-state").TextContent.Trim()));
+        Assert.EndsWith("#" + ShareCodec.Encode(edited), nav.Uri);
+    }
+
     [Fact]
     public void ACorruptOpenProjectIsNotFatal()
     {

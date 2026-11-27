@@ -347,6 +347,8 @@
     // NOTE: The address bar takes the link so it survives a clipboard that the browser denies.
     async Task Share()
     {
+        // NOTE: #450: the link is now the address on purpose. The save of an earlier edit must not take it out again.
+        fromLink = false;
         Nav.NavigateTo(ShareHref);
         try
         {
