@@ -13,6 +13,8 @@ artifacts/
 publish/
 
 # Web
+# NOTE: The fonts belong to aesv.io and are on the server only (see scripts/vendor-substrate.mjs).
+src/Ssp.Web/wwwroot/substrate/fonts/
 node_modules/
 wwwroot/_framework/
 dist/

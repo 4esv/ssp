@@ -87,7 +87,9 @@ public class SubstratePlaywrightTests
             var faces = await page.EvaluateAsync<string[]>(
                 "() => [...document.fonts].filter((f) => f.status !== 'unloaded').map((f) => f.family.replaceAll('\"', '') + ' ' + f.status)");
             var body = await page.EvaluateAsync<string>("getComputedStyle(document.body).fontFamily");
-            if (!faces.Contains("Handjet Cells loaded")) wrong.Add($"/{path} did not load Handjet Cells: {string.Join(", ", faces)}");
+            // NOTE: The fonts are on the server only (they belong to aesv.io), so a build without them falls back.
+            var served = await page.EvaluateAsync<bool>("async () => (await fetch('substrate/fonts/handjet-cells.woff2', { method: 'HEAD' })).ok");
+            if (served && !faces.Contains("Handjet Cells loaded")) wrong.Add($"/{path} did not load Handjet Cells: {string.Join(", ", faces)}");
             if (faces.Any(f => f.StartsWith("Pixelta", StringComparison.Ordinal))) wrong.Add($"/{path} asked for Pixelta Cells");
             if (!body.StartsWith("\"Handjet Cells\"", StringComparison.Ordinal)) wrong.Add($"/{path} body is set in {body}");
         }
